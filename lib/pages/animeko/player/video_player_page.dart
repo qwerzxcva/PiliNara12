@@ -1,16 +1,13 @@
 /// 视频播放器页面
-/// 使用 PiliNara 内置播放器播放视频流
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
-import 'package:flutter/material.dart' as material;
-import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 
 class AnimekoVideoPlayerPage extends StatefulWidget {
   final String url;
   final String title;
 
-  const AnimekoVideoPage({super.key, required this.url, required this.title});
+  const AnimekoVideoPlayerPage({super.key, required this.url, required this.title});
 
   @override
   State<AnimekoVideoPlayerPage> createState() => _AnimekoVideoPlayerPageState();
@@ -23,6 +20,7 @@ class _AnimekoVideoPlayerPageState extends State<AnimekoVideoPlayerPage> {
   void initState() {
     super.initState();
     _controller = PlPlayerController.getInstance();
+    // TODO: 设置数据源
   }
 
   @override
@@ -33,12 +31,9 @@ class _AnimekoVideoPlayerPageState extends State<AnimekoVideoPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return material.Scaffold(
-      appBar: material.AppBar(title: material.Text(widget.title)),
-      body: PlPlayerView(
-        controller: _controller,
-        dataSource: NetworkSource(videoSource: widget.url, audioSource: null),
-      ),
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: Center(child: Text('播放器页面（待完善）')),
     );
   }
 }
