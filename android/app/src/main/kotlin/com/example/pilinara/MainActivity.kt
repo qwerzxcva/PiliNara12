@@ -5,6 +5,8 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
+import com.example.pilinara.piliplus.ExoPlayerPlugin
+import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -13,13 +15,27 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
+        // Register ExoPlayer plugin for native video playback
+        ExoPlayerPlugin.register(this, flutterEngine)
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "PiliNara")
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "openVideoPlayer" -> {
+                    val videoUrl = call.argument<String>("videoUrl") ?: ""
+                    val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
+                    openNativeVideoPlayer(videoUrl, headers)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun openNativeVideoPlayer(videoUrl: String, headers: Map<String, String>) {
+        val intent = VideoPlayerActivity.newInstance(this, videoUrl, headers)
+        startActivity(intent)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

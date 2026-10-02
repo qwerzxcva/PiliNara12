@@ -1,9 +1,9 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
-import org.jetbrains.kotlin.konan.properties.Properties
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.Properties
 
 plugins {
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -27,15 +27,27 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     defaultConfig {
         applicationId = "com.example.pilinara"
-        minSdk = flutter.minSdkVersion
+        minSdk = 21  // Android 5.0+ for Media3
         targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Native library ABI filters - ARM64 only for native-only build
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
-    packagingOptions.jniLibs.useLegacyPackaging = true
+    packagingOptions {
+        jniLibs.useLegacyPackaging = true
+        excludes += listOf("META-INF/**", "**.so.old")
+    }
 
     val keyProperties = Properties().also {
         val properties = rootProject.file("key.properties")
@@ -54,15 +66,8 @@ android {
         }
     }
 
-    buildFeatures {
-        if (project.hasProperty("dev")) {
-            resValues = true
-        }
-    }
-
     buildTypes {
         all {
-            // 允许通过 `-Punsigned=true` 生成未签名 release 包，默认行为保持不变。
             if (!project.hasProperty("unsigned")) {
                 signingConfig = config ?: signingConfigs["debug"]
             }
@@ -73,13 +78,9 @@ android {
                 resValue(
                     type = "string",
                     name = "app_name",
-                    value = "PiliPlus dev",
+                    value = "PiliNara dev",
                 )
             }
-//            proguardFiles(
-//                getDefaultProguardFile("proguard-android-optimize.txt"),
-//                "proguard-rules.pro"
-//            )
         }
         debug {
             applicationIdSuffix = ".debug"
