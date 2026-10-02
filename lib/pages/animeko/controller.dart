@@ -3,9 +3,9 @@
 /// Searches Mikan and DMHY simultaneously, aggregates results, and provides
 /// filtering by episode number, resolution, and source.
 
-import 'package:PiliNara/http/dmhy.dart';
-import 'package:PiliNara/http/mikan.dart';
-import 'package:PiliNara/models_new/animeko/animeko_resource.dart';
+import 'package:PiliPlus/http/dmhy.dart';
+import 'package:PiliPlus/http/mikan.dart';
+import 'package:PiliPlus/models_new/animeko/animeko_resource.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
@@ -43,15 +43,14 @@ class AnimekoController extends GetxController {
     }
 
     if (showTorrentOnly.value) {
-      resources = resources.where((r) => r.isTorrent).toList();
+      resources = resources.where((r) => r.type == AnimekoResourceType.bittorrent).toList();
     }
 
     // Sort by episode number, then by source
     resources.sort((a, b) {
-      if (a.episode != null && b.episode != null) {
-        final cmp = a.episode!.compareTo(b.episode!);
-        if (cmp != 0) return cmp;
-      }
+      final aEp = a.episodeRange?.start ?? 0;
+      final bEp = b.episodeRange?.start ?? 0;
+      if (aEp != bEp) return aEp.compareTo(bEp);
       return a.sourceId.compareTo(b.sourceId);
     });
 
@@ -91,23 +90,30 @@ class AnimekoController extends GetxController {
 
   Future<List<AnimekoResource>> _searchMikan(String query) async {
     try {
-      final subjects = await mikan.search(query);
+      final subjects = await mikan.searchSubjects(query);
       if (subjects.isEmpty) return [];
 
-      // Get episodes for the first subject (best match)
-      final episodes = await mikan.getEpisodes(subjects.first.id);
-      if (episodes.isEmpty) return [];
-
       final resources = <AnimekoResource>[];
-      for (final ep in episodes.take(20)) {
-        for (final link in ep.links.take(3)) {
-          resources.add(AnimekoResource.fromMikan(
-            subjectName: subjects.first.name,
-            subjectId: subjects.first.id,
-            episode: ep.episode,
-            episodeName: ep.name,
-            linkUrl: link.url,
-          ));
+      for (final subject in subjects.take(3)) {
+        try {
+          final episodes = await mikan.getEpisodeList(subject.id);
+          for (final ep in episodes.take(20)) {
+            for (final link in ep.links.take(3)) {
+              resources.add(AnimekoResource(
+                id: 'mikan.${subject.id}-ep${ep.episode}',
+                sourceId: 'mikan',
+                title: '${subject.name} 第${ep.episode}集 ${ep.name}',
+                episodeRange: AnimekoEpisodeRange.single(start: ep.episode),
+                resolution: '1080P',
+                alliance: '蜜柑计划',
+                downloadUrl: link.url,
+                originalUrl: '',
+                type: link.url.startsWith('magnet') ? AnimekoResourceType.bittorrent : AnimekoResourceType.streaming,
+              ));
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) debugPrint('[Mikan] Episode fetch error: $e');
         }
       }
       return resources;
@@ -124,16 +130,19 @@ class AnimekoController extends GetxController {
 
       return result.topics.map((topic) {
         // Try to extract episode number from title
-        int? episode;
-        final epMatch = RegExp(r'第(\d+)集|EP(\d+)|(\d+)话').firstMatch(topic.title);
+        AnimekoEpisodeRange? episodeRange;
+        final epMatch = RegExp(r'(?:第|EP|ep|Ep)?(\d+(?:\.\d+)?)?(?:[-—~](\d+(?:\.\d+)?))?(?:集|话|episode|Episode)?')
+            .firstMatch(topic.title);
         if (epMatch != null) {
-          episode = int.tryParse(
-            epMatch.group(1) ?? epMatch.group(2) ?? epMatch.group(3) ?? '0',
-          );
+          final start = double.tryParse(epMatch.group(1) ?? '');
+          if (start != null) {
+            final startInt = start.toInt();
+            episodeRange = AnimekoEpisodeRange.single(start: startInt);
+          }
         }
 
-        // Try to extract resolution from title
-        String resolution = '';
+        // Try to extract resolution
+        String? resolution;
         if (topic.title.contains('1080') || topic.title.contains('1080p')) {
           resolution = '1080P';
         } else if (topic.title.contains('720') || topic.title.contains('720p')) {
@@ -144,15 +153,17 @@ class AnimekoController extends GetxController {
           resolution = '4K';
         }
 
-        return AnimekoResource.fromDmhy(
+        return AnimekoResource(
+          id: 'dmhy.${topic.id}',
+          sourceId: 'dmhy',
           title: topic.title,
-          topicId: topic.id,
-          author: topic.author,
-          size: topic.size,
-          magnetUrl: topic.magnetUrl,
-          detailUrl: topic.detailUrl,
-          episode: episode,
+          episodeRange: episodeRange,
           resolution: resolution,
+          alliance: topic.allianceName,
+          downloadUrl: topic.magnetUrl,
+          originalUrl: topic.detailUrl,
+          type: topic.isTorrent ? AnimekoResourceType.bittorrent : AnimekoResourceType.streaming,
+          sizeBytes: topic.sizeBytes,
         );
       }).toList();
     } catch (e) {

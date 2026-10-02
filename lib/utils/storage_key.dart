@@ -205,7 +205,7 @@ abstract final class SettingBoxKey {
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream',
       enableDocProvider = 'enableDocProvider',
-      enableEmoteTooltip = 'enableEmoteTooltip';
+      enableEmoteTooltip = 'enableEmoteTooltip',
       bangumiUsername = 'bangumiUsername',
       dandanplayAppId = 'dandanplayAppId',
       dandanplayAppSecret = 'dandanplayAppSecret';
