@@ -8,7 +8,7 @@ plugins {
 }
 
 val agpMajorVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
-    .substringBefore('.')
+    .substringBefore(".")
     .toInt()
 val builtInKotlinProperty = providers.gradleProperty("android.builtInKotlin").orNull
 val isBuiltInKotlinEnabled = agpMajorVersion >= 9 &&
@@ -38,15 +38,14 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // Rust native library ABI filters
+        // ARMv8 only - optimized for modern Android devices
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
     packagingOptions {
         jniLibs.useLegacyPackaging = true
-        // Exclude unnecessary native libraries
         excludes += listOf("META-INF/**", "**.so.old")
     }
 
@@ -95,62 +94,57 @@ android {
         }
     }
 
-    // Rust build integration
+    // Rust build integration - ARMv8 only
     preBuild {
-        dependsOn("cargoBuildDebug")
+        dependsOn("cargoBuildRustArm64")
     }
     
-    tasks.register<Exec>("cargoBuildDebug") {
-        group = "build"
-        description = "Build Rust native library for debug"
+    tasks.register<Exec>("cargoBuildRustArm64") {
+        group = "rust"
+        description = "Build Rust native library for arm64-v8a"
         
         val ndkHome = System.getenv("ANDROID_NDK_HOME") ?: findNdkHome()
-        val abiFilters = android.defaultConfig.ndk.abiFilters
+        val target = "aarch64-linux-android"
+        val abi = "arm64-v8a"
+        val apiLevel = defaultConfig.minSdkVersion
         
-        for (abi in abiFilters) {
-            val target = when (abi) {
-                "arm64-v8a" -> "aarch64-linux-android"
-                "armeabi-v7a" -> "armv7-linux-androideabi"
-                "x86_64" -> "x86_64-linux-android"
-                "x86" -> "i686-linux-android"
-                else -> null
-            } ?: continue
+        val outputDir = file("$buildDir/intermediates/rust/$abi")
+        outputs.dir(outputDir)
+        
+        doLast {
+            outputDir.mkdirs()
             
-            val outputDir = file("$buildDir/intermediates/rust/debug/$abi")
-            outputs.dir(outputDir)
+            val toolchainBin = file("$ndkHome/toolchains/llvm/prebuilt/linux-x86_64/bin")
+            val clang = file("$toolchainBin/$target$apiLevel-clang")
             
-            doLast {
-                outputDir.mkdirs()
-                
-                val toolchainBin = file("$ndkHome/toolchains/llvm/prebuilt/linux-x86_64/bin")
-                val clang = file("$toolchainBin/${target}${defaultConfig.minSdkVersion}-clang")
-                
-                if (!clang.exists()) {
-                    logger.warn("Clang not found for $abi at ${clang.path}, skipping")
-                    return@doLast
-                }
-                
-                val cargoEnv = mapOf(
-                    "CC" to clang.absolutePath,
-                    "CXX" to file("$toolchainBin/${target}-clang++").absolutePath,
-                    "AR" to file("$toolchainBin/llvm-ar").absolutePath,
-                    "TARGET" to target,
-                    "ANDROID_NDK_HOME" to ndkHome,
-                    "CARGO_TARGET_DIR" to file("$buildDir/rust-target").absolutePath
-                )
-                
-                exec {
-                    commandLine("cargo", "build", "--target", target, "--debug")
-                    workingDir = file("${project.rootDir}/../rust")
-                    environment(cargoEnv)
-                }
-                
-                // Copy .so to jniLibs
-                val soSrc = file("${buildDir}/rust-target/${target}/debug/libpilinara_native.so")
-                val soDest = file("$outputDir/libpilinara_native.so")
-                if (soSrc.exists()) {
-                    soSrc.copyTo(soDest, overwrite = true)
-                }
+            if (!clang.exists()) {
+                logger.warn("Clang not found for $abi at ${clang.path}, skipping")
+                return@doLast
+            }
+            
+            val cargoEnv = mapOf(
+                "CC" to clang.absolutePath,
+                "CXX" to file("$toolchainBin/$target$apiLevel-clang++").absolutePath,
+                "AR" to file("$toolchainBin/llvm-ar").absolutePath,
+                "TARGET" to target,
+                "ANDROID_NDK_HOME" to ndkHome,
+                "CARGO_TARGET_DIR" to file("$buildDir/rust-target").absolutePath
+            )
+            
+            exec {
+                commandLine("cargo", "build", "--target", target, "--release")
+                workingDir = file("${project.rootDir}/../rust")
+                environment(cargoEnv)
+            }
+            
+            // Copy .so to jniLibs
+            val soSrc = file("${buildDir}/rust-target/$target/release/libpilinara_native.so")
+            val soDest = file("$outputDir/libpilinara_native.so")
+            if (soSrc.exists()) {
+                soSrc.copyTo(soDest, overwrite = true)
+                logger.info("Copied libpilinara_native.so to $abi")
+            } else {
+                logger.warn("Rust library not found at ${soSrc.path}")
             }
         }
     }
