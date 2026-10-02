@@ -117,9 +117,9 @@ jobs:
 
       - name: Build Kotlin APK with Rust native lib
         run: |
-          chmod +x gradlew 2>/dev/null || true
+          chmod +x android/gradlew 2>/dev/null || true
           
-          ./gradlew :app:assembleRelease \
+          ./android/gradlew :app:assembleRelease \
             --no-daemon \
             2>&1
             
