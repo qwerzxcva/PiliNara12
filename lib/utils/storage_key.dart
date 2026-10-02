@@ -294,7 +294,9 @@ abstract final class SettingBoxKey {
       // DanDan (弹弹play) third-party danmaku source toggle
       enableDanDanSource = 'enableDanDanSource',
       // DanDan timeline offset in seconds (positive = DanDan is ahead)
-      dandanTimelineOffset = 'dandanTimelineOffset';
+      dandanTimelineOffset = 'dandanTimelineOffset',
+      // Plugin (KazumiRules) subscription list
+      pluginList = 'pluginList';
 
   static const String systemProxyHost = 'systemProxyHost',
       systemProxyPort = 'systemProxyPort';

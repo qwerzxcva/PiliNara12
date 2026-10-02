@@ -419,6 +419,12 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.tempPlayerConf,
     defaultVal: false,
   ),
+  NormalModel(
+    onTap: (context, setState) => Get.toNamed('/pluginManager'),
+    leading: const Icon(Icons.subscriptions_outlined),
+    title: '订阅规则管理',
+    subtitle: '导入/管理 KazumiRules 订阅源（支持 DM84、FQDM 等第三方站点）',
+  ),
 ];
 
 Future<void> _showSubtitleDialog(
