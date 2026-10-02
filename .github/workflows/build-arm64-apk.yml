@@ -44,8 +44,6 @@ jobs:
       - name: Build Rust library for arm64-v8a
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_HOME
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUNNER=""
-          
           cd rust
           cargo build --release --target aarch64-linux-android
           
