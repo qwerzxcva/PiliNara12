@@ -194,3 +194,6 @@ class Routes {
     GetPage(name: '/animekoCollection', page: () => const AnimekoCollectionPage()),
   ];
 }
+
+    GetPage(name: "/animekoCollection", page: () => const AnimekoCollectionPage()),
+    GetPage(name: "/animekoDetail", page: () => const AnimekoSubjectDetailPage(seasonId: 0)),
