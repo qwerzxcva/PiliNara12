@@ -19,7 +19,7 @@ class DanmakuPoolSheet extends StatefulWidget {
     this.currentPositionMs = 0,
     required this.onSeekTo,
     required this.onDismiss,
-
+  });
   @override
   State<DanmakuPoolSheet> createState() => _DanmakuPoolSheetState();
 }
@@ -161,7 +161,7 @@ class _DanmakuPoolSheetState extends State<DanmakuPoolSheet> {
                           isSelf: elem.isSelf,
                           onTap: () {
                             if (elem.progress > 0) {
-                              widget.onSeekTo();
+                              widget.onSeekTo(elem.progress.toDouble());
                               SmartDialog.showToast(
                                   '已跳转至 ${DurationUtils.formatDuration(elem.progress / 1000)}');
                               widget.onDismiss();

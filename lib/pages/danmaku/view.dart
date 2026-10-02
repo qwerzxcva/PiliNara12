@@ -21,6 +21,8 @@ class PlDanmaku extends StatefulWidget {
   final bool isFullScreen;
   final bool isFileSource;
   final Size size;
+  /// 弹幕控制器创建后的回调，用于父组件访问弹幕池
+  final void Function(PlDanmakuController)? onDanmakuControllerCreated;
 
   const PlDanmaku({
     super.key,
@@ -30,6 +32,7 @@ class PlDanmaku extends StatefulWidget {
     required this.isFullScreen,
     required this.isFileSource,
     required this.size,
+    this.onDanmakuControllerCreated,
   });
 
   @override
@@ -66,6 +69,7 @@ class _PlDanmakuState extends State<PlDanmaku>
       playerController,
       widget.isFileSource,
     );
+    widget.onDanmakuControllerCreated?.call(_plDanmakuController);
     if (playerController.enableShowDanmaku.value) {
       if (widget.isFileSource) {
         _plDanmakuController.initFileDmIfNeeded();
