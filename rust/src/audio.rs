@@ -30,6 +30,10 @@ impl Default for AudioNormalizationConfig {
 }
 
 /// Per-channel audio normalizer
+/// 
+/// Applies RMS-based loudness normalization with soft clipping.
+/// Production use should replace this with `dynaudnorm` crate.
+#[derive(Debug)]
 pub struct AudioNormalizer {
     config: AudioNormalizationConfig,
 }
@@ -43,11 +47,15 @@ impl Default for AudioNormalizer {
 }
 
 impl AudioNormalizer {
+    /// Create a new normalizer with the given configuration
     pub fn new(config: AudioNormalizationConfig) -> Self {
         Self { config }
     }
 
     /// Normalize interleaved 16-bit PCM samples
+    /// 
+    /// `input` is interleaved stereo/mono 16-bit PCM.
+    /// Returns normalized samples in the same format.
     pub fn normalize_i16(&self, input: &[i16], channels: usize) -> Vec<i16> {
         if input.is_empty() || channels == 0 {
             return Vec::new();
