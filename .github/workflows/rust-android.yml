@@ -2,7 +2,7 @@ name: Rust Android Native Build
 
 on:
   push:
-    branches: [main, feat/kotlin-rust-build]
+    branches: [main, feat/native-only]
     paths:
       - 'rust/**'
       - '.github/workflows/rust-android.yml'
