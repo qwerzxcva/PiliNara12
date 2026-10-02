@@ -10,8 +10,8 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 class DanmakuPoolSheet extends StatefulWidget {
   final PlDanmakuController danmakuController;
   final double currentPositionMs;
-  final VoidCallback onSeekTo;
   final VoidCallback onDismiss;
+  final void Function(num ms) onSeekTo;
 
   const DanmakuPoolSheet({
     super.key,
@@ -19,7 +19,6 @@ class DanmakuPoolSheet extends StatefulWidget {
     this.currentPositionMs = 0,
     required this.onSeekTo,
     required this.onDismiss,
-  });
 
   @override
   State<DanmakuPoolSheet> createState() => _DanmakuPoolSheetState();

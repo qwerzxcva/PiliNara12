@@ -451,8 +451,8 @@ class _CommentSearchItem extends StatelessWidget {
                 if (ctime > 0)
                   Text(
                     DurationUtils.formatTimeDuration(
-                        DateTime.now().subtract(
-                            Duration(seconds: ctime))),
+                        DateTime.now().difference(
+                            DateTime.fromMillisecondsSinceEpoch(ctime * 1000))),
                     style: TextStyle(
                       fontSize: 11,
                       color: colorScheme.onSurfaceVariant.withOpacity(0.5),
