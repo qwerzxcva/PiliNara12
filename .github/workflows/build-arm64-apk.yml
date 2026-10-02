@@ -64,12 +64,11 @@ jobs:
           
           # Set environment variables for cross-compilation
           export PATH="$TOOLCHAIN/bin:$PATH"
-          export AR=llvm-ar
+          export AR="llvm-ar"
           export CC="${TARGET_TRIPLE}-clang"
           export CXX="${TARGET_TRIPLE}-clang++"
-          
-          # Use RUSTFLAGS to pass sysroot and library search paths
-          export RUSTFLAGS="-C link-arg=--sysroot=$SYSROOT -C link-arg=-L$SYSROOT/usr/lib/aarch64-linux-android/$API_LEVEL"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${TARGET_TRIPLE}-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=--sysroot=$SYSROOT -C link-arg=-L$SYSROOT/usr/lib/aarch64-linux-android/$API_LEVEL"
           
           cargo build --release --target aarch64-linux-android
           
