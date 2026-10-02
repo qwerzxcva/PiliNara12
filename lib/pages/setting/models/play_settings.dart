@@ -47,6 +47,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableDanmakuFpsDecouple,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '默认从头播放',
+    subtitle: '开启后每次播放视频都从头开始，不恢复到历史位置',
+    leading: Icon(Icons.replay_outlined),
+    setKey: SettingBoxKey.playFromBegin,
+    defaultVal: false,
+  ),
   if (PlatformUtils.isMobile)
     const SwitchModel(
       title: '启用点击弹幕',

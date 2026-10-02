@@ -719,6 +719,9 @@ abstract final class Pref {
   static bool get continuePlayingPart =>
       _setting.get(SettingBoxKey.continuePlayingPart, defaultValue: true);
 
+  static bool get playFromBegin =>
+      _setting.get(SettingBoxKey.playFromBegin, defaultValue: false);
+
   static bool get cdnSpeedTest =>
       _setting.get(SettingBoxKey.cdnSpeedTest, defaultValue: true);
 
