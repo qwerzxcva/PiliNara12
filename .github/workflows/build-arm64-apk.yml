@@ -115,12 +115,11 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
-      - name: Build Flutter APK with Rust native lib
+      - name: Build Kotlin APK with Rust native lib
         run: |
           chmod +x gradlew 2>/dev/null || true
           
           ./gradlew :app:assembleRelease \
-            -PtargetPlatform=android-arm64 \
             --no-daemon \
             2>&1
             
