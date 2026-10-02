@@ -46,7 +46,9 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".NativeMainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:exported="true"
             android:hardwareAccelerated="true"
