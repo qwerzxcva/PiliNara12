@@ -41,18 +41,16 @@ jobs:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
           link-to-sdk: true
 
-      - name: Verify NDK tools
-        run: |
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep aarch64 | head -5
-          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep llvm-ar
-
       - name: Build Rust library for arm64-v8a
         run: |
-          cd rust
-          # Set environment variables for the target
+          export ANDROID_NDK_HOME=$ANDROID_NDK_HOME
           export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          export CC=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang
+          export CXX=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang++
+          export AR=llvm-ar
+          export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
           
+          cd rust
           cargo build --release --target aarch64-linux-android
           
           # Copy .so to jniLibs
