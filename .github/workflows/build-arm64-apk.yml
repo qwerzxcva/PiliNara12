@@ -47,6 +47,7 @@ jobs:
           export CC=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang
           export CXX=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang++
           export AR=llvm-ar
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang
           
           cd rust
           cargo build --release --target aarch64-linux-android
