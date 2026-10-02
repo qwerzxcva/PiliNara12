@@ -117,7 +117,6 @@ jobs:
 
       - name: Build Flutter APK with Rust native lib
         run: |
-          cd android
           chmod +x gradlew 2>/dev/null || true
           
           ./gradlew :app:assembleRelease \
