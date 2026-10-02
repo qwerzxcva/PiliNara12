@@ -57,7 +57,7 @@
 |-------|---------|--------|
 | Phase 1 | Core playback/download/API native | ✅ 100% |
 | Phase 2 | Danmaku system native | ✅ 100% |
-| Phase 3 | Jetpack Compose UI | ✅ 85% |
+| Phase 3 | Jetpack Compose UI | ✅ 100% |
 | Phase 4 | Complete Flutter removal | 🔄 In Progress |
 
 ## Key Components
