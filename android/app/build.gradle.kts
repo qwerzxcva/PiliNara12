@@ -101,6 +101,9 @@ kotlin {
     }
 }
 
+dependencies {
+    implementation(project(":danmaku-engine"))
+}
 flutter {
     source = "../.."
 }
