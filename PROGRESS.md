@@ -7,40 +7,57 @@
 
 ### ✅ 已完成
 1. **分支创建**：从 main 创建 feat/arm64-rust-build，已推送到远程
-2. **Rust CI 构建成功**：`.github/workflows/build-arm64-apk.yml` Job 1 已通过（libpilinara_native.so 编译成功）
-3. **Rust config.toml 修改**：`[target.aarch64-linux-android]` 设置 linker = "aarch64-linux-android21-clang"
-4. **Gradle 9.3.1 安装**：已下载到 /opt/gradle-9.3.1/
-5. **本地 build.gradle.kts 修改**：
-   - compileSdk = 34, targetSdk = 34（避免 SDK 版本不兼容）
-   - 移除 flutter gradle plugin（Flutter SDK 在沙箱中不可用）
-   - 硬编码 NDK 版本 "29.0.14206865"
-   - 版本码硬编码为 1
+2. **Rust CI 构建成功**：Job 1 (Build Rust native library) 已通过
+3. **CI Workflow**：`.github/workflows/build-arm64-apk.yml` 已配置
+4. **Gradle 配置**：
+   - Gradle 9.3.1 已配置到 gradle-wrapper.properties
+   - gradlew wrapper script 已添加
+   - compileSdk = 34, targetSdk = 34
+   - NDK 版本硬编码为 "29.0.14206865"
+   - Flutter plugin loader 已注释
 
-### ❌ 阻塞/待解决
-1. **CI Job 2 (build-kotlin) 需要重新触发**：本地修改尚未推送到远程
-2. **上游分支合并**：未开始
-3. **代码审查**：未开始
+### ❌ 当前阻塞
+**Kotlin 编译失败**：`MainActivity.kt` 引用了 Flutter 生成的代码：
+- `io.flutter.embedding.android.FlutterActivity`
+- `com.ryanheise.audioservice.AudioServiceActivity`
+- `io.flutter.plugins.GeneratedPluginRegistrant`
 
-## 下一步（恢复后）
-1. 推送所有本地修改到 remote feat/arm64-rust-build（使用 Python API）
-2. 触发 CI workflow 373203889
-3. 检查 CI 结果，如有失败继续修复
-4. 合并 tunecc/PiliNara 上游 PR 相关分支
-5. 重新触发 CI 验证
-6. 全面代码审查并修复警告
+这些类在移除 Flutter gradle plugin 后不再可用。
+
+**原因分析**：原项目是 Flutter 项目，MainActivity 继承自 FlutterActivity。CI 环境中缺少完整的 Flutter SDK（只有 wanxiang 包装脚本，没有实际的 Flutter SDK），无法运行 `flutter pub get` 来生成插件代码。
+
+### 🔧 待解决方案
+需要选择以下方案之一：
+1. **方案 A**：在 CI 中安装完整 Flutter SDK 并运行 `flutter pub get`，保留 Flutter plugin
+2. **方案 B**：修改 MainActivity.kt 使其不依赖 FlutterActivity，改为普通 Android Activity
+3. **方案 C**：使用 wanxiang-build 工具链的 Flutter 支持
+
+### 上游分支列表（已 fetch）
+- origin/feat/animeko-features
+- origin/feat/bilibro-freerate
+- origin/feat/bottom-nav-history
+- origin/feat/comment-danmaku-search
+- origin/feat/danmaku-fps-decouple
+- origin/feat/kotlin-rust-arm64（已存在，之前 AI 创建的）
+- origin/feat/kotlin-rust-build
+- origin/feat/native-only
+- origin/feat/sdr2hdr-support
+- origin/feature/exoplayer-integration-new
+- origin/feature/exoplayer-max
+- origin/feature/hdr-sdr-port-p12
+- origin/feature/piliplus-max
+- origin/feature/today-watch-new
+
+### 下一步
+1. 确定 Kotlin 构建方案（推荐方案 A：在 CI 中安装 Flutter SDK）
+2. 修复 build-arm64-apk.yml 以支持 Flutter 构建
+3. 触发 CI 验证
+4. 合并上游分支
+5. 代码审查
 
 ## 技术细节
-- NDK 版本：r29 (29.0.14206865)
-- API Level：21 (minSdk), 34 (compileSdk, targetSdk)
-- Target：aarch64-linux-android
-- Gradle：9.3.1（已安装到 /opt/gradle-9.3.1/）
-- Rust target triple：aarch64-linux-android21
-- CI workflow ID：373203889
-
-## 关键修改文件
-- `.github/workflows/build-arm64-apk.yml` - CI workflow（已推送）
-- `rust/config.toml` - Rust 链接器配置（已推送）
-- `android/app/build.gradle.kts` - Gradle 构建配置（本地修改，待推送）
-- `android/settings.gradle.kts` - 注释掉 Flutter plugin loader（已推送）
-- `android/gradle/wrapper/gradle-wrapper.properties` - Gradle 版本改为 9.3.1（本地修改，待推送）
-- `PROGRESS.md` - 本文件
+- NDK: r29 (29.0.14206865)
+- Gradle: 9.3.1
+- AGP: 9.1.0（通过 WanXiang 镜像）
+- Kotlin: 2.0.21
+- Flutter: 3.47.0（需要完整 SDK）
