@@ -1,6 +1,7 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
+import org.apache.tools.ant.taskdefs.condition.Os
 
 plugins {
     id("com.android.application")
@@ -39,6 +40,13 @@ android {
         
         ndk {
             abiFilters += listOf("arm64-v8a")
+        }
+        
+        // Rust native library
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_STL=c++_shared"
+            }
         }
     }
 
@@ -90,6 +98,50 @@ android {
         variant.outputs.forEach { output ->
             (output as ApkVariantOutputImpl).versionCodeOverride = variant.versionCode
         }
+    }
+    
+    // Rust build task
+    val rustTargetDir = layout.buildDirectory.dir("rust-target")
+    
+    tasks.register<Exec>("cargoBuildRust") {
+        group = "rust"
+        description = "Build Rust native library for Android"
+        
+        val ndkHome = android.ndkDirectory.absolutePath
+        val toolchain = "$ndkHome/toolchains/llvm/prebuilt/linux-x86_64/bin"
+        
+        val targets = mapOf(
+            "arm64-v8a" to "aarch64-linux-android21"
+        )
+        
+        for ((abi, target) in targets) {
+            doLast {
+                val env = mutableMapOf<String, String>()
+                env["CC"] = "$toolchain/$target-clang"
+                env["CXX"] = "$toolchain/$target-clang++"
+                env["AR"] = "$toolchain/llvm-ar"
+                env["CARGO_TARGET_DIR"] = rustTargetDir.get().asFile.absolutePath
+                env["TARGET"] = target.replace("21", "")
+                
+                exec {
+                    commandLine("cargo", "build", "--release", "--target", target)
+                    workingDir = file("${project.rootDir}/../rust")
+                    environment(env)
+                }
+                
+                // Copy .so to jniLibs
+                val soSrc = file("${rustTargetDir.get().asFile}/$target/release/libpilinara_native.so")
+                val soDest = file("src/main/jniLibs/$abi/libpilinara_native.so")
+                soDest.parentFile.mkdirs()
+                if (soSrc.exists()) {
+                    soSrc.copyTo(soDest, overwrite = true)
+                }
+            }
+        }
+    }
+    
+    preBuild {
+        dependsOn("cargoBuildRust")
     }
 }
 
