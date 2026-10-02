@@ -193,3 +193,6 @@ class Routes {
 
     GetPage(name: "/animekoCollection", page: () => const AnimekoCollectionPage()),
     GetPage(name: "/animekoDetail", page: () => const AnimekoSubjectDetailPage(seasonId: 0)),
+
+    GetPage(name: "/bangumiLogin", page: () => const BangumiLoginPage()),
+    GetPage(name: "/sourceManager", page: () => const SourceManagerPage()),
