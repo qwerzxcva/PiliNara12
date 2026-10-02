@@ -30,29 +30,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
           link-to-sdk: true
+          path: android-ndk-${{ env.ANDROID_NDK_VERSION }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
 
       - name: Verify NDK tools
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
           ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep aarch64 | head -5
           ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep llvm-ar
+          # Print NDK sysroot location
+          find "$ANDROID_NDK_HOME" -name "crtbegin_dynamic.o" -path "*/sysroot/*" | head -3
 
       - name: Build Rust library for arm64-v8a
         run: |
           cd rust
-          # Set environment variables for the target
-          export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          # Find the NDK sysroot and toolchain
+          NDK_TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          SYSROOT="$NDK_TOOLCHAIN/sysroot"
+          TARGET_TRIPLE="aarch64-linux-android"
+          API_LEVEL=21
+          
+          # Set environment variables for cargo/clang
+          export PATH="$NDK_TOOLCHAIN/bin:$PATH"
           export AR=llvm-ar
+          export CC="${TARGET_TRIPLE}${API_LEVEL}-clang"
+          export CXX="${TARGET_TRIPLE}${API_LEVEL}-clang++"
+          
+          # Pass sysroot and linker flags via RUSTFLAGS
+          export RUSTFLAGS="-C link-arg=--sysroot=$SYSROOT -C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
           
           cargo build --release --target aarch64-linux-android
           
