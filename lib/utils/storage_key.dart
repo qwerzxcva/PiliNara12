@@ -206,6 +206,9 @@ abstract final class SettingBoxKey {
       liveStream = 'liveStream',
       enableDocProvider = 'enableDocProvider',
       enableEmoteTooltip = 'enableEmoteTooltip';
+      bangumiUsername = 'bangumiUsername',
+      dandanplayAppId = 'dandanplayAppId',
+      dandanplayAppSecret = 'dandanplayAppSecret';
 
   static const String enableAiChat = 'enableAiChat',
       aiApiUrl = 'aiApiUrl',
