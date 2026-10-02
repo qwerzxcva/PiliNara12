@@ -15,24 +15,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
 import com.example.pilinara.piliplus.ExoPlayerPlugin
 
 /**
  * Pure native Android Activity using Jetpack Compose UI.
- * Gradually replacing Flutter for native performance.
+ * This replaces Flutter for better performance and native integration.
  */
 class NativeMainActivity : ComponentActivity() {
-    
-    private var exoPlayer: ExoPlayer? = null
-    private var playerView: PlayerView? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Keep screen on
+        // Keep screen on during playback
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
@@ -40,35 +34,20 @@ class NativeMainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    NativeAppContent()
+                    NativeApp()
                 }
             }
         }
     }
     
-    override fun onResume() {
-        super.onResume()
-        exoPlayer?.play()
-    }
-    
-    override fun onPause() {
-        super.onPause()
-        exoPlayer?.pause()
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        exoPlayer?.release()
-    }
-    
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        // Handle configuration changes
+        // Handle foldable devices and orientation changes
     }
 }
 
 @Composable
-fun NativeAppContent() {
+fun NativeApp() {
     val context = LocalContext.current
     
     Box(
@@ -83,7 +62,8 @@ fun NativeAppContent() {
 }
 
 /**
- * Flutter Activity - maintains Flutter for gradual migration
+ * Flutter Activity - maintained for gradual migration
+ * Will be removed once all features are ported to native
  */
 class FlutterMainActivity : io.flutter.embedding.android.FlutterActivity() {
     
@@ -93,7 +73,7 @@ class FlutterMainActivity : io.flutter.embedding.android.FlutterActivity() {
         // Register native plugins
         ExoPlayerPlugin.register(this, flutterEngine)
         
-        // Setup method channel
+        // Setup method channel for native communication
         io.flutter.plugin.common.MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "PiliNara"
