@@ -285,6 +285,7 @@ abstract final class SettingBoxKey {
       danmakuFontScale = 'danmakuFontScale',
       danmakuFontScaleFS = 'danmakuFontScaleFS',
       danmakuDuration = 'danmakuDuration',
+      danmakuSpeedMode = 'danmakuSpeedMode',
       danmakuStaticDuration = 'danmakuStaticDuration',
       danmakuMassiveMode = 'danmakuMassiveMode',
       danmakuFixedV = 'danmakuFixedV',

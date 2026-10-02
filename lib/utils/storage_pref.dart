@@ -1356,6 +1356,11 @@ abstract final class Pref {
   static double get danmakuDuration =>
       _setting.get(SettingBoxKey.danmakuDuration, defaultValue: 7.0);
 
+  static int get danmakuSpeedMode => _setting.get(
+    SettingBoxKey.danmakuSpeedMode,
+    defaultValue: 0,
+  );
+
   static double get danmakuStaticDuration =>
       _setting.get(SettingBoxKey.danmakuStaticDuration, defaultValue: 4.0);
 
