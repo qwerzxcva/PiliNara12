@@ -1354,6 +1354,40 @@ abstract final class Pref {
   static bool get enableSponsorBlock =>
       _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
 
+  static bool get enableHdrRenderAndroid =>
+      Platform.isAndroid &&
+      _setting.get(SettingBoxKey.enableHdrRenderAndroid, defaultValue: false);
+
+  static bool get enableHdrToneMapCustom =>
+      _setting.get(SettingBoxKey.enableHdrToneMapCustom, defaultValue: false);
+
+  static double get hdrToneMapPeakNits => (_setting.get(
+    SettingBoxKey.hdrToneMapPeakNits,
+    defaultValue: 1000.0,
+  ) as num).toDouble();
+
+  static double get hdrToneMapStrength =>
+      (_setting.get(SettingBoxKey.hdrToneMapStrength, defaultValue: 1.0) as num)
+          .toDouble();
+
+  static double get hdrToneMapSaturation => (_setting.get(
+    SettingBoxKey.hdrToneMapSaturation,
+    defaultValue: 1.0,
+  ) as num).toDouble();
+
+  static double get hdrToneMapHighlightBoost => (_setting.get(
+    SettingBoxKey.hdrToneMapHighlightBoost,
+    defaultValue: 1.0,
+  ) as num).toDouble();
+
+  static double get hdrToneMapDefaultHighlightProtect => ((_setting.get(
+    SettingBoxKey.hdrToneMapDefaultHighlightProtect,
+    defaultValue: 0.65,
+  ) as num).toDouble()).clamp(0.0, 1.0);
+
+  static double get hdrToneMapDefaultDynamicRange =>
+      hdrToneMapDefaultHighlightProtect;
+
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
 
