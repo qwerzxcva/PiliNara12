@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.konan.properties.Properties
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
-    id("dev.flutter.flutter-gradle-plugin")
+    // id("dev.flutter.flutter-gradle-plugin")
 }
 
 val agpMajorVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
@@ -19,8 +19,8 @@ if (!isBuiltInKotlinEnabled) {
 
 android {
     namespace = "com.example.pilinara"
-    compileSdk = 37
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 34
+    ndkVersion = "29.0.14206865"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -29,10 +29,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.pilinara"
-        minSdk = flutter.minSdkVersion
-        targetSdk = 37
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        minSdk = 21
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
     }
 
     packagingOptions.jniLibs.useLegacyPackaging = true
@@ -89,17 +89,15 @@ android {
     applicationVariants.all {
         val variant = this
         variant.outputs.forEach { output ->
-            (output as ApkVariantOutputImpl).versionCodeOverride = flutter.versionCode
+            (output as ApkVariantOutputImpl).versionCodeOverride = 1
         }
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
-    }
-}
+// kotlin {
+//     // compilerOptions removed - requires Kotlin DSL plugin from Flutter
+// }
 
-flutter {
-    source = "../.."
-}
+// flutter {
+//     source = "../.."
+// }
