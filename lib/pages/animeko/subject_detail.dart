@@ -1,60 +1,86 @@
-/// 番剧详情页 - 显示详情 + 剧集列表 + 播放
+/// 番剧详情页 - 显示详情 + 剧集列表 + 评论 + 播放
+import 'package:PiliPlus/http/bangumi.dart';
 import 'package:PiliPlus/http/pgc.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_info_model/result.dart';
-import 'package:PiliPlus/models_new/pgc/pgc_info_model/rating.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class AnimekoSubjectDetailPage extends StatefulWidget {
   final int seasonId;
-  const AnimekoSubjectDetailPage({super.key, required this.seasonId});
+  final String? bangumiSubjectId;
+
+  const AnimekoSubjectDetailPage({
+    super.key,
+    required this.seasonId,
+    this.bangumiSubjectId,
+  });
 
   @override
   State<AnimekoSubjectDetailPage> createState() => _AnimekoSubjectDetailPageState();
 }
 
-class _AnimekoSubjectDetailPageState extends State<AnimekoSubjectDetailPage> {
-  PgcInfoModel? _detail;
+class _AnimekoSubjectDetailPageState extends State<AnimekoSubjectDetailPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  PgcInfoModel? _pgcDetail;
+  BangumiSubject? _bangumiDetail;
+  List<BangumiComment> _comments = [];
   bool _isLoading = true;
   String? _error;
+  final BangumiHttp _bangumi = BangumiHttp();
 
   @override
   void initState() {
     super.initState();
-    _fetchDetail();
+    _tabController = TabController(length: 3, vsync: this);
+    _fetchData();
   }
 
-  Future<void> _fetchDetail() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
+  Future<void> _fetchData() async {
+    setState(() { _isLoading = true; _error = null; });
+    
     try {
-      // 调用 PGC API 获取详情
-      // TODO: 找到正确的 PGC 详情接口
-      // 目前使用占位数据
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 并行获取 B 站 PGC 数据和 Bangumi 数据
+      final pgcFuture = _fetchPgcDetail();
+      final bangumiFuture = widget.bangumiSubjectId != null 
+          ? _bangumi.getSubject(int.parse(widget.bangumiSubjectId!))
+          : Future.value(null);
+      final commentsFuture = widget.bangumiSubjectId != null
+          ? _bangumi.getComments(int.parse(widget.bangumiSubjectId!))
+          : Future.value(<BangumiComment>[]);
       
-      // 模拟数据
-      _detail = PgcInfoModel(
-        title: '示例番剧',
-        seasonTitle: '第一季',
-        cover: 'https://via.placeholder.com/300x400',
-        evaluate: '这是一部精彩的番剧...',
-        rating: Rating(score: 9.5),
-        episodes: List.generate(12, (i) => EpisodeItem(id: i + 1, epId: i + 1000, title: '第${i + 1}集')),
-      );
+      await Future.wait([pgcFuture, bangumiFuture, commentsFuture]);
       
-      setState(() => _isLoading = false);
+      setState(() {
+        _pgcDetail = pgcFuture.result;
+        _bangumiDetail = bangumiFuture.result;
+        _comments = commentsFuture.result ?? [];
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _error = '加载失败: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<PgcInfoModel?> _fetchPgcDetail() async {
+    try {
+      // TODO: 调用正确的 PGC 详情 API
+      // 目前使用占位数据
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -64,15 +90,37 @@ class _AnimekoSubjectDetailPageState extends State<AnimekoSubjectDetailPage> {
     }
   }
 
+  Future<void> _postComment(String content) async {
+    if (widget.bangumiSubjectId == null) return;
+    
+    final success = await _bangumi.postComment(
+      subjectId: int.parse(widget.bangumiSubjectId!),
+      content: content,
+    );
+    
+    if (success && mounted) {
+      Get.back();
+      _fetchData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('番剧详情')),
+      appBar: AppBar(
+        title: const Text('番剧详情'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: '详情'),
+            Tab(text: '剧集'),
+            Tab(text: '评论'),
+          ],
+        ),
+      ),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorView()
-              : _detail != null ? _buildContent() : _buildEmptyView(),
+          : _error != null ? _buildErrorView() : _buildTabContent(),
     );
   }
 
@@ -85,35 +133,44 @@ class _AnimekoSubjectDetailPageState extends State<AnimekoSubjectDetailPage> {
           const SizedBox(height: 16),
           Text(_error!),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: _fetchDetail, child: const Text('重试')),
+          ElevatedButton(onPressed: _fetchData, child: const Text('重试')),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyView() {
-    return const Center(child: Text('暂无详情'));
+  Widget _buildTabContent() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildDetailTab(),
+        _buildEpisodeTab(),
+        _buildCommentTab(),
+      ],
+    );
   }
 
-  Widget _buildContent() {
-    final detail = _detail!;
+  Widget _buildDetailTab() {
+    final detail = _bangumiDetail ?? _pgcDetail;
+    if (detail == null) {
+      return const Center(child: Text('暂无详情'));
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _buildHeader(detail),
         const SizedBox(height: 16),
-        if ((detail.evaluate?.isNotEmpty ?? false)) ...[
-          _buildSection('简介', detail.evaluate!),
+        if ((detail.evaluate?.isNotEmpty ?? false) || (detail.rating?.score != null)) ...[
+          _buildSection('评分', detail.rating?.score != null ? '${detail.rating!.score}' : '暂无'),
           const SizedBox(height: 16),
-        ],
-        if ((detail.episodes?.isNotEmpty ?? false)) ...[
-          _buildEpisodeList(detail.episodes!),
+          _buildSection('简介', detail.evaluate ?? '暂无简介'),
         ],
       ],
     );
   }
 
-  Widget _buildHeader(PgcInfoModel detail) {
+  Widget _buildHeader(dynamic detail) {
     return Row(
       children: [
         ClipRRect(
@@ -144,10 +201,7 @@ class _AnimekoSubjectDetailPageState extends State<AnimekoSubjectDetailPage> {
               ),
               const SizedBox(height: 8),
               if (detail.seasonTitle?.isNotEmpty ?? false)
-                Text(
-                  detail.seasonTitle!,
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
+                Text(detail.seasonTitle!, style: const TextStyle(fontSize: 14, color: Colors.grey)),
               const SizedBox(height: 8),
               if (detail.rating?.score != null)
                 Row(
@@ -175,23 +229,59 @@ class _AnimekoSubjectDetailPageState extends State<AnimekoSubjectDetailPage> {
     );
   }
 
-  Widget _buildEpisodeList(List<EpisodeItem> episodes) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('剧集', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: episodes.map((ep) {
-            return OutlinedButton(
-              onPressed: () => _playEpisode(ep.epId ?? 0),
-              child: Text('E${ep.id ?? ep.epId ?? 0}'),
-            );
-          }).toList(),
-        ),
-      ],
+  Widget _buildEpisodeTab() {
+    final episodes = _bangumiDetail?.episodes ?? _pgcDetail?.episodes;
+    if ((episodes?.isEmpty ?? true)) {
+      return const Center(child: Text('暂无剧集'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: episodes!.length,
+      itemBuilder: (context, index) {
+        final ep = episodes[index];
+        final epId = ep is EpisodeItem ? (ep.epId ?? ep.id ?? 0) : (ep as dynamic).epId ?? 0;
+        return ListTile(
+          title: Text(ep is EpisodeItem ? (ep.title ?? '第${ep.id}集') : '第${ep.num}集'),
+          subtitle: Text(ep is EpisodeItem ? (ep.longTitle ?? '') : (ep.nameCN ?? ep.name)),
+          trailing: ElevatedButton(
+            onPressed: () => _playEpisode(epId),
+            child: const Text('播放'),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCommentTab() {
+    if (_comments.isEmpty) {
+      return const Center(child: Text('暂无评论'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _comments.length,
+      itemBuilder: (context, index) {
+        final comment = _comments[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(comment.username),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(comment.content),
+                const SizedBox(height: 4),
+                Text(
+                  '${comment.createdAt.toLocaleDateString()} · ${comment.likes} 点赞',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

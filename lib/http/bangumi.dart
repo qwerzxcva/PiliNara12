@@ -1,19 +1,17 @@
 /// Bangumi API 客户端
-/// 基于 Kototoro 的实现，支持 OAuth 认证和多个镜像
+/// 支持搜索、详情、收藏、评论等功能
 import 'package:dio/dio.dart';
 
 class BangumiHttp {
-  static const String officialApiUrl = 'https://api.bgm.tv';
+  static const String officialApiUrl = 'https://api.bangumi.tv';
   static const String proApiUrl = 'https://api.bangumi.pro';
   
   final String baseUrl;
   final Dio dio;
   String? _accessToken;
-  String? _refreshToken;
 
   BangumiHttp({this.baseUrl = officialApiUrl, Dio? dio}) : dio = dio ?? Dio();
 
-  /// 设置访问令牌
   void setAccessToken(String token) {
     _accessToken = token;
     dio.options.headers['Authorization'] = 'Bearer $token';
@@ -78,6 +76,37 @@ class BangumiHttp {
       return false;
     }
   }
+
+  /// 获取评论列表
+  Future<List<BangumiComment>> getComments(int subjectId, {int page = 1, int limit = 20}) async {
+    try {
+      final resp = await dio.get('$baseUrl/v0/subject/$subjectId/comments', queryParameters: {
+        'page': page,
+        'limit': limit,
+      });
+      if (resp.data['code'] == 0) {
+        final items = resp.data['data']?['comments'] as List? ?? [];
+        return items.map((e) => BangumiComment.fromJson(e)).toList();
+      }
+    } catch (e) {
+      print('[Bangumi] Get comments error: $e');
+    }
+    return [];
+  }
+
+  /// 发表评论
+  Future<bool> postComment({required int subjectId, required String content, String? rating}) async {
+    try {
+      final resp = await dio.post('$baseUrl/v0/subject/$subjectId/comment', data: {
+        'content': content,
+        if (rating != null) 'rating': rating,
+      });
+      return resp.data['code'] == 0;
+    } catch (e) {
+      print('[Bangumi] Post comment error: $e');
+      return false;
+    }
+  }
 }
 
 class BangumiSubject {
@@ -88,6 +117,7 @@ class BangumiSubject {
   final String? imageUrl;
   final double? rating;
   final int? eps;
+  final List<BangumiEpisode>? episodes;
 
   const BangumiSubject({
     required this.id,
@@ -97,6 +127,7 @@ class BangumiSubject {
     this.imageUrl,
     this.rating,
     this.eps,
+    this.episodes,
   });
 
   factory BangumiSubject.fromJson(Map<String, dynamic> json) {
@@ -108,22 +139,36 @@ class BangumiSubject {
       imageUrl: json['images']?['large'] ?? json['images']?['medium'],
       rating: json['rating']?['rank']?.toDouble(),
       eps: json['eps'],
+      episodes: (json['ep_list'] as List?)?.map((e) => BangumiEpisode.fromJson(e)).toList(),
+    );
+  }
+}
+
+class BangumiEpisode {
+  final int epId;
+  final int num;
+  final String name;
+  final String? nameCN;
+
+  const BangumiEpisode({required this.epId, required this.num, required this.name, this.nameCN});
+
+  factory BangumiEpisode.fromJson(Map<String, dynamic> json) {
+    return BangumiEpisode(
+      epId: json['id'] ?? 0,
+      num: json['ep'] ?? json['sort'] ?? 0,
+      name: json['name'] ?? '',
+      nameCN: json['name_cn'],
     );
   }
 }
 
 class BangumiCollection {
   final int subjectId;
-  final int type; // 1=想看, 2=在看, 3=看过, 4=搁置, 5=抛弃
+  final int type;
   final String? comment;
   final BangumiSubject? subject;
 
-  const BangumiCollection({
-    required this.subjectId,
-    required this.type,
-    this.comment,
-    this.subject,
-  });
+  const BangumiCollection({required this.subjectId, required this.type, this.comment, this.subject});
 
   factory BangumiCollection.fromJson(Map<String, dynamic> json) {
     return BangumiCollection(
@@ -131,6 +176,32 @@ class BangumiCollection {
       type: json['type'] ?? 2,
       comment: json['comment'],
       subject: json['subject'] != null ? BangumiSubject.fromJson(json['subject']) : null,
+    );
+  }
+}
+
+class BangumiComment {
+  final int id;
+  final String content;
+  final String username;
+  final DateTime createdAt;
+  final int likes;
+
+  const BangumiComment({
+    required this.id,
+    required this.content,
+    required this.username,
+    required this.createdAt,
+    this.likes = 0,
+  });
+
+  factory BangumiComment.fromJson(Map<String, dynamic> json) {
+    return BangumiComment(
+      id: json['id'] ?? 0,
+      content: json['content'] ?? '',
+      username: json['username'] ?? json['user']?['username'] ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] ?? json['date'] ?? '') ?? DateTime.now(),
+      likes: json['likes'] ?? json['like'] ?? 0,
     );
   }
 }
