@@ -4,7 +4,6 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("dev.flutter.flutter-gradle-plugin")
 }
 
 val agpMajorVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
@@ -20,7 +19,7 @@ if (!isBuiltInKotlinEnabled) {
 android {
     namespace = "com.example.pilinara"
     compileSdk = 37
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -33,12 +32,11 @@ android {
 
     defaultConfig {
         applicationId = "com.example.pilinara"
-        minSdk = 21  // Android 5.0+ for Media3
+        minSdk = 21
         targetSdk = 37
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = 1
+        versionName = "1.0.0"
         
-        // Native library ABI filters - ARM64 only for native-only build
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -90,7 +88,7 @@ android {
     applicationVariants.all {
         val variant = this
         variant.outputs.forEach { output ->
-            (output as ApkVariantOutputImpl).versionCodeOverride = flutter.versionCode
+            (output as ApkVariantOutputImpl).versionCodeOverride = variant.versionCode
         }
     }
 }
@@ -112,7 +110,12 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.4")
     // Image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
-}
-flutter {
-    source = "../.."
+    // Media3
+    implementation("androidx.media3:media3-exoplayer:1.5.1")
+    implementation("androidx.media3:media3-ui:1.5.1")
+    // Networking
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.json:json:20240303")
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

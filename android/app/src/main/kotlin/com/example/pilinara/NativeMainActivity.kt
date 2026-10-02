@@ -11,12 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.example.pilinara.piliplus.ExoPlayerPlugin
 import com.example.pilinara.ui.navigation.AppNavigation
 
 /**
  * Pure native Android Activity using Jetpack Compose UI.
- * This replaces Flutter for better performance and native integration.
+ * This completely replaces Flutter for better performance and native integration.
  */
 class NativeMainActivity : ComponentActivity() {
     
@@ -39,36 +38,5 @@ class NativeMainActivity : ComponentActivity() {
     
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-    }
-}
-
-/**
- * Flutter Activity - maintained for gradual migration
- */
-class FlutterMainActivity : io.flutter.embedding.android.FlutterActivity() {
-    
-    override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        ExoPlayerPlugin.register(this, flutterEngine)
-        
-        io.flutter.plugin.common.MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "PiliNara"
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "openNativeVideoPlayer" -> {
-                    val videoUrl = call.argument<String>("videoUrl") ?: ""
-                    val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
-                    openNativeVideoPlayer(videoUrl, headers)
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
-        }
-    }
-    
-    private fun openNativeVideoPlayer(videoUrl: String, headers: Map<String, String>) {
-        val intent = VideoPlayerActivity.newInstance(this, videoUrl, headers)
-        startActivity(intent)
     }
 }
