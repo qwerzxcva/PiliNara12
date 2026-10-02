@@ -187,3 +187,6 @@ docs/comet/.DS_Store
 rust/target/
 .cargo/
 
+
+# Rust build artifacts
+rust/target/
