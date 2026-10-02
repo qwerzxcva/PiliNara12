@@ -77,11 +77,10 @@ jobs:
           export CC="aarch64-linux-android${API_LEVEL}-clang"
           export CXX="aarch64-linux-android${API_LEVEL}-clang++"
           
-          # Build with explicit linker search paths and sysroot
-          cargo build --release --target aarch64-linux-android \
-            --verbose \
-            -C link-arg=--sysroot="$SYSROOT" \
-            -C link-arg=-L"$LIB_DIR"
+          # Build with explicit linker search paths and sysroot via RUSTFLAGS
+          export RUSTFLAGS="-C link-arg=--sysroot=$SYSROOT -C link-arg=-L$LIB_DIR"
+          
+          cargo build --release --target aarch64-linux-android --verbose
           
           # Copy .so to jniLibs
           mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
