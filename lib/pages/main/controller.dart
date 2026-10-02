@@ -10,6 +10,7 @@ import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
+import 'package:PiliPlus/pages/history/controller.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/mine/view.dart';
@@ -51,6 +52,9 @@ class MainController extends GetxController
 
   late bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
+
+  late bool hasHistory = false;
+  late final historyController = Get.put(HistoryController('all'));
 
   late final disableLikeMsg = Pref.disableLikeMsg;
   late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
@@ -308,6 +312,8 @@ class MainController extends GetxController
         checkUnread();
       } else if (currentNav == NavigationBarType.dynamics) {
         setDynCount();
+      } else if (currentNav == NavigationBarType.history) {
+        historyController.onRefresh();
       }
     } else {
       if (Pref.enableCurrentPageRefresh) {
@@ -332,6 +338,9 @@ class MainController extends GetxController
             case NavigationBarType.dynamics:
               dynamicController.onRefresh();
               break;
+            case NavigationBarType.history:
+              historyController.onRefresh();
+              break;
             case NavigationBarType.mine:
               Get.putOrFind(MineController.new).onRefresh();
               break;
@@ -345,6 +354,9 @@ class MainController extends GetxController
           break;
         case NavigationBarType.dynamics:
           dynamicController.toTopOrRefresh();
+          break;
+        case NavigationBarType.history:
+          historyController.onRefresh();
           break;
         case NavigationBarType.mine:
           Get.putOrFind(MineController.new).toTopOrRefresh();
@@ -361,6 +373,9 @@ class MainController extends GetxController
         break;
       case NavigationBarType.dynamics:
         dynamicController.toTopAndRefresh();
+        break;
+      case NavigationBarType.history:
+        historyController.onRefresh();
         break;
       case NavigationBarType.mine:
         Get.putOrFind(MineController.new).toTopAndRefresh();
