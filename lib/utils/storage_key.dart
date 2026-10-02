@@ -205,8 +205,8 @@ abstract final class SettingBoxKey {
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream',
       enableDocProvider = 'enableDocProvider',
-      enableEmoteTooltip = 'enableEmoteTooltip';
-      bangumiUsername = 'bangumiUsername',
+      enableEmoteTooltip = 'enableEmoteTooltip',
+      bangumiUsername = 'bangumiUsername';
 
   static const String enableAiChat = 'enableAiChat',
       aiApiUrl = 'aiApiUrl',
