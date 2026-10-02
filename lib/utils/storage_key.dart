@@ -19,6 +19,8 @@ abstract final class SettingBoxKey {
       bufferSize = 'bufferSize',
       bufferSec = 'bufferSec',
       hardwareDecoding = 'hardwareDecoding',
+      // Kazumi renderer settings
+      androidVideoRenderer = 'androidVideoRenderer';
       videoSync = 'videoSync',
       autosync = 'autosync',
       p1080 = 'p1080',

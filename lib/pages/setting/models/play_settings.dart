@@ -425,6 +425,18 @@ List<SettingsModel> get playSettings => [
     title: '订阅规则管理',
     subtitle: '导入/管理 KazumiRules 订阅源（支持 DM84、FQDM 等第三方站点）',
   ),
+  NormalModel(
+    onTap: (context, setState) => Get.toNamed('/decoderSetting'),
+    leading: const Icon(Icons.memory_rounded),
+    title: '硬件解码器',
+    subtitle: '选择视频解码方式（MediaCodec / Vulkan / Auto）',
+  ),
+  NormalModel(
+    onTap: (context, setState) => Get.toNamed('/rendererSetting'),
+    leading: const Icon(Icons.tv_rounded),
+    title: '视频渲染器',
+    subtitle: '选择 GPU / GPU-Next / MediaCodec Embed',
+  ),
 ];
 
 Future<void> _showSubtitleDialog(

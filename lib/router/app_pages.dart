@@ -61,6 +61,8 @@ import 'package:PiliPlus/pages/setting/pages/double_tap_seek_zone_setting.dart';
 import 'package:PiliPlus/pages/setting/pages/font_setting.dart';
 import 'package:PiliPlus/pages/setting/pages/logs.dart';
 import 'package:PiliPlus/pages/setting/pages/play_speed_set.dart';
+import 'package:PiliPlus/pages/settings/decoder_settings.dart';
+import 'package:PiliPlus/pages/settings/renderer_settings.dart';
 import 'package:PiliPlus/pages/setting/view.dart';
 import 'package:PiliPlus/pages/settings_search/view.dart';
 import 'package:PiliPlus/pages/space_setting/view.dart';
@@ -168,6 +170,8 @@ class Routes {
     GetPage(name: '/dynTopic', page: () => const DynTopicPage()),
     GetPage(name: '/articleList', page: () => const ArticleListPage()),
     GetPage(name: '/barSetting', page: () => const BarSetPage()),
+    GetPage(name: '/decoderSetting', page: () => const DecoderSettingsPage()),
+    GetPage(name: '/rendererSetting', page: () => const RendererSettingsPage()),
     GetPage(name: '/upowerRank', page: () => const UpowerRankPage()),
     GetPage(name: '/spaceSetting', page: () => const SpaceSettingPage()),
     GetPage(name: '/dynTopicRcmd', page: () => const DynTopicRcmdPage()),

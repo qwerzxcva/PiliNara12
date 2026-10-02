@@ -488,6 +488,12 @@ abstract final class Pref {
     defaultValue: HwDecType.kHwdec,
   );
 
+  /// Android video renderer (gpu / gpu-next / mediacodec_embed)
+  static String get androidVideoRenderer => _setting.get(
+    SettingBoxKey.androidVideoRenderer,
+    defaultValue: 'gpu',
+  );
+
   static String get videoSync =>
       _setting.get(SettingBoxKey.videoSync, defaultValue: 'display-resample');
 
