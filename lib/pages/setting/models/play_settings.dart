@@ -40,6 +40,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableDanmakuMask,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '弹幕帧率解耦',
+    subtitle: '弹幕刷新与屏幕刷新率解耦，使用独立定时器驱动，减少卡顿',
+    leading: Icon(Icons.refresh_outlined),
+    setKey: SettingBoxKey.enableDanmakuFpsDecouple,
+    defaultVal: false,
+  ),
   if (PlatformUtils.isMobile)
     const SwitchModel(
       title: '启用点击弹幕',
