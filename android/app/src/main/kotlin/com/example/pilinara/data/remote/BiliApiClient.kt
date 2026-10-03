@@ -16,6 +16,11 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     companion object {
         private const val API_BASE = "https://api.bilibili.com"
         private const val WBI_BASE = "https://api.bilibili.com/x/web-interface/nav"
+        
+        private val commonHeaders = mapOf(
+            "Referer" to "https://www.bilibili.com",
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
     }
     
     // ========== Popular Videos ==========
@@ -23,11 +28,10 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     suspend fun popularVideos(page: Int = 1, pageSize: Int = 20): Result<PopularResponse> = runCatching {
         client.get("$API_BASE/x/web-interface/popular") {
             url {
-                parameters.append("pn", page.toString())
                 parameters.append("ps", pageSize.toString())
-                parameters.append("type", "rec")
+                parameters.append("pn", page.toString())
             }
-            header("Referer", "https://www.bilibili.com")
+            commonHeaders.forEach { (k, v) -> header(k, v) }
         }.body()
     }
     
