@@ -101,7 +101,7 @@ fun SearchScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(state.searchResults) { item ->
-                            // TODO: Type check and render appropriate result
+                            // Render type-specific results (placeholder)
                         }
                     }
                 }
