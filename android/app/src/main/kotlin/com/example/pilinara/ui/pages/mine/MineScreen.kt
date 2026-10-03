@@ -23,7 +23,7 @@ import com.example.pilinara.ui.login.LoginViewModel
 fun MineScreen(
     loginViewModel: LoginViewModel = viewModel()
 ) {
-    val isLoggedIn by remember { loginViewModel.isLoggedIn }.collectAsState()
+    var isLoggedIn by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     
     if (showSettings) {

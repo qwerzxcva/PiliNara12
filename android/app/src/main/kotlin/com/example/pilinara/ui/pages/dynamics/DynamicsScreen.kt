@@ -20,7 +20,7 @@ import com.example.pilinara.ui.login.LoginViewModel
 fun DynamicsScreen(
     loginViewModel: LoginViewModel = viewModel()
 ) {
-    val isLoggedIn by remember { loginViewModel.isLoggedIn }.collectAsState()
+    var isLoggedIn by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("关注", "发现", "直播")
     
