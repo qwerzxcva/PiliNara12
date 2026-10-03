@@ -1,0 +1,6 @@
+cargo:rerun-if-changed=build.rs
+cargo:rustc-link-search=/opt/wanxiang/toolchains/android/ndk/artifacts/02e10e4ddfe8deaeb0bd0cf29d04c981ed5bc8a5d6b560ebb9e7661f472d684b/ndk/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/17.0.2/lib/aarch64-linux-android/21/
+cargo:rustc-link-lib=dylib=android
+cargo:rustc-link-lib=dylib=c
+cargo:rustc-link-lib=dylib=log
+cargo:rustc-env=TARGET_ARCH=arm64-v8a

@@ -169,7 +169,8 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_loadPinyinDict<'a>(
         return -1;
     }
     
-    match merger.load_pinyin_dict(&buf) {
+    let u8_buf: Vec<u8> = buf.iter().map(|&b| b as u8).collect();
+    match merger.load_pinyin_dict(&u8_buf) {
         Ok(_) => 0,
         Err(_) => -1,
     }
