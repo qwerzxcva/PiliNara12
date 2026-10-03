@@ -59,7 +59,11 @@ jobs:
           export CXX="${TARGET_TRIPLE}-clang++"
           export CFLAGS="--sysroot=$SYSROOT"
           export LDFLAGS="-L$SYSROOT/usr/lib/aarch64-linux-android/$API_LEVEL"
-          export RUSTFLAGS="-C link-arg=--sysroot=$SYSROOT -C link-arg=-L$SYSROOT/usr/lib/aarch64-linux-android/$API_LEVEL -C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
+          export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
+          
+          # Use NDK's clang linker directly
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${TARGET_TRIPLE}-clang"
+          export AR=llvm-ar
           
           cargo build --release --target aarch64-linux-android
           
