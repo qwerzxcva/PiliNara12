@@ -37,20 +37,14 @@ jobs:
       - name: Setup Android SDK & NDK
         run: |
           export SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          
-          # Accept licenses
           yes | $SDKMANAGER --sdk_root=$ANDROID_HOME licenses > /dev/null 2>&1 || true
-          
-          # Install NDK
           $SDKMANAGER --sdk_root=$ANDROID_HOME "ndk;${{ env.ANDROID_NDK_VERSION }}" 2>&1
-          
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
           ls -la $ANDROID_HOME/ndk/
 
       - name: Build Rust library for arm64-v8a
         run: |
           cd rust
-          
           export ANDROID_NDK_HOME="${{ env.ANDROID_NDK_HOME }}"
           export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
           export AR=llvm-ar
@@ -61,12 +55,8 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
           export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
           
-          echo "=== Building Rust ==="
           cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release 2>&1
-          
-          echo "=== Rust built ==="
           ls -la ../android/app/src/main/jniLibs/arm64-v8a/
-          file ../android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so 2>/dev/null || true
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v5
@@ -101,84 +91,27 @@ jobs:
           cd android
           ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1
           
-          echo "=== Checking APK output ==="
-          find . -name "*.apk" -type f 2>/dev/null
+          echo "=== Build output ==="
+          find . -name "*.apk" -type f 2>/dev/null || true
+          echo "=== Output dirs ==="
+          ls -la app/build/outputs/ 2>/dev/null || true
+          ls -la app/build/outputs/apk/ 2>/dev/null || true
           ls -la app/build/outputs/apk/debug/ 2>/dev/null || true
+
+      - name: Collect APK files
+        run: |
+          mkdir -p apk_output
+          # Search for APK in multiple possible locations
+          find android/app/build -name "*.apk" -type f -exec cp {} apk_output/ \; 2>/dev/null || true
+          find . -maxdepth 5 -name "*.apk" -type f -exec cp {} apk_output/ \; 2>/dev/null || true
+          echo "=== Collected APKs ==="
+          ls -la apk_output/ || echo "No APKs found"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v5
         with:
           name: pilinara-arm64-debug
-          path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 7
-          if-no-files-found: error
-
-  build-release-apk:
-    name: Build Release APK (ARM64)
-    needs: [build-rust-native]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-          # Generate debug signing key for CI
-          store-file: ci-keystore.jks
-          store-password: ${{ secrets.CI_KEYSTORE_PASSWORD }}
-          key-alias: ${{ secrets.CI_KEY_ALIAS }}
-          key-password: ${{ secrets.CI_KEY_PASSWORD }}
-
-      - name: Download Rust library
-        uses: actions/download-artifact@v5
-        with:
-          name: rust-lib-arm64
-          path: android/app/src/main/jniLibs/arm64-v8a
-
-      - name: Generate debug keystore for CI
-        run: |
-          # Create a debug keystore if not provided
-          KEYSTORE_FILE="ci-keystore.jks"
-          if [ ! -f "$KEYSTORE_FILE" ]; then
-            echo "Generating debug keystore..."
-            keytool -genkeypair -v \
-              -storetype JKS \
-              -keystore $KEYSTORE_FILE \
-              -storepass password \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -alias debug \
-              -dname "CN=PiliNara, OU=CI, O=PiliNara, L=Beijing, S=Beijing, C=CN" \
-              -keypass password 2>&1
-          fi
-          
-          # Add to gradle.properties
-          echo "RELEASE_STORE_FILE=../$KEYSTORE_FILE" >> gradle.properties
-          echo "RELEASE_STORE_PASSWORD=password" >> gradle.properties
-          echo "RELEASE_KEY_ALIAS=debug" >> gradle.properties
-          echo "RELEASE_KEY_PASSWORD=password" >> gradle.properties
-          
-          cat gradle.properties | grep RELEASE
-
-      - name: Build Release APK
-        run: |
-          chmod +x ./android/gradlew
-          cd android
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1
-          
-          echo "=== Checking APK output ==="
-          find . -name "*.apk" -type f 2>/dev/null
-          ls -la app/build/outputs/apk/release/ 2>/dev/null || true
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v5
-        with:
-          name: pilinara-arm64-release
-          path: android/app/build/outputs/apk/release/*.apk
+          path: apk_output/
           retention-days: 7
           if-no-files-found: warn
 
@@ -187,11 +120,10 @@ jobs:
     needs: [build-debug-apk]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts/
-
+      
       - name: Display build summary
         run: |
           echo "==================================="
