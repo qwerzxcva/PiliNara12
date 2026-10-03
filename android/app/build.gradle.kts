@@ -4,7 +4,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application") version "8.5.2"
-    id("org.jetbrains.kotlin.android") version "2.4.0"
+    id("org.jetbrains.kotlin.android") version "2.0.21"
 }
 
 android {
@@ -17,7 +17,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
-        ndkVersion = "29.0.14206865"
+        ndkVersion = "27.3.13750724"
         
         ndk {
             abiFilters += listOf("arm64-v8a")
