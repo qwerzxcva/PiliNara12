@@ -20,7 +20,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
-        ndkVersion = "27.3.13750724"
+        ndkVersion = "27.3.13750724" // r27b
         
         ndk {
             abiFilters += listOf("arm64-v8a")

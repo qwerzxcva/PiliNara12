@@ -4,6 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.pilinara.ui.main.HomeScreen
+import com.example.pilinara.ui.main.SearchScreen
+import com.example.pilinara.ui.main.ProfileScreen
+import com.example.pilinara.ui.pages.dynamics.DynamicsScreen
+import com.example.pilinara.ui.pages.home.HomeScreen as HomePage
+import com.example.pilinara.ui.pages.mine.MineScreen
 
 /**
  * App Navigation - Jetpack Compose
@@ -32,19 +38,21 @@ fun AppNavigation() {
         startDestination = Screen.Home.route
     ) {
         composable(Screen.Home.route) {
-            // TODO: Implement HomeScreen
+            HomePage()
         }
         composable(Screen.Search.route) {
-            // TODO: Implement SearchScreen
+            SearchScreen(onSearch = { query ->
+                // Navigate to search results
+            })
         }
         composable(Screen.Dynamics.route) {
-            // TODO: Implement DynamicsScreen
+            DynamicsScreen()
         }
         composable(Screen.Message.route) {
             // TODO: Implement MessageScreen
         }
         composable(Screen.Profile.route) {
-            // TODO: Implement ProfileScreen
+            ProfileScreen()
         }
         composable(Screen.VideoPlayer.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
