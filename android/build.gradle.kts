@@ -1,15 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
-    }
-}
-
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
@@ -30,39 +20,8 @@ subprojects {
             if (androidExtension.namespace == null) {
                 androidExtension.namespace = project.group.toString()
             }
-
-            androidExtension.compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
-            }
-
-            project.tasks.withType<KotlinCompile>().configureEach {
-                compilerOptions {
-                    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-                }
-            }
-
-            val pluginCompileSdkStr = androidExtension.compileSdkVersion
-            val pluginCompileSdk = pluginCompileSdkStr
-                ?.removePrefix("android-")
-                ?.toIntOrNull()
-            if (pluginCompileSdk != null && pluginCompileSdk < 36) {
-                project.logger.error(
-                    "Warning: Overriding compileSdk version in Flutter plugin: ${project.name} " +
-                            "from $pluginCompileSdk to 34 (fixed - use android-34 available in SDK).\n" +
-                            "If there is not a new version of ${project.name}, consider filing an issue against ${project.name} " +
-                            "to increase their compileSdk to the latest (otherwise try updating to the latest version)."
-                )
-                androidExtension.setCompileSdkVersion(34)
-            }
         }
-
-        project.buildDir = File(rootProject.buildDir, project.name)
     }
-}
-
-subprojects {
-    project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
