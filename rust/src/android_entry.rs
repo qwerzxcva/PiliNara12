@@ -1,8 +1,18 @@
 //! Android FFI entry points for pilinara-native
+//! 
+//! JNI bindings for:
+//! - WebP encoding
+//! - Audio normalization
+//! - Danmaku merging
 
 use jni::JNIEnv;
-use jni::objects::{JClass, JByteArray};
+use jni::objects::{JClass, JByteArray, JString, JObject, JPrimitiveArray};
 use jni::sys::jint;
+use std::collections::HashMap;
+
+// ============================================================================
+// WebP Native Library
+// ============================================================================
 
 #[no_mangle]
 pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_create(
@@ -56,6 +66,10 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_finalize<'a>(
     }
 }
 
+// ============================================================================
+// Audio Native Library
+// ============================================================================
+
 #[no_mangle]
 pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
     env: JNIEnv<'a>,
@@ -92,3 +106,74 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
     env.set_byte_array_region(&jbytes, 0, &output_bytes).unwrap();
     jbytes
 }
+
+// ============================================================================
+// Danmaku Native Library
+// ============================================================================
+
+/// Create a new DanmakuMerger instance
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_create(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    window_seconds: f64,
+    max_distance: f64,
+    max_cosine: f64,
+    use_pinyin: jboolean,
+) -> i64 {
+    use crate::danmaku::{DanmakuMergeConfig, DanmakuMerger};
+    
+    let config = DanmakuMergeConfig {
+        window_seconds,
+        max_distance,
+        max_cosine,
+        use_pinyin: use_pinyin != 0,
+        ..Default::default()
+    };
+    
+    let merger = DanmakuMerger::new(config);
+    Box::into_raw(Box::new(merger)) as i64
+}
+
+/// Free DanmakuMerger instance
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_destroy(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    merger_ptr: i64,
+) {
+    if merger_ptr != 0 {
+        unsafe {
+            let _ = Box::from_raw(merger_ptr as *mut crate::danmaku::DanmakuMerger);
+        }
+    }
+}
+
+/// Load pinyin dictionary
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_loadPinyinDict<'a>(
+    env: JNIEnv<'a>,
+    _class: JClass<'_>,
+    merger_ptr: i64,
+    dict_data: JByteArray<'a>,
+) -> jint {
+    let merger = unsafe { &mut *(merger_ptr as *mut crate::danmaku::DanmakuMerger) };
+    
+    let len = match env.get_array_length(&dict_data) {
+        Ok(l) => l as usize,
+        Err(_) => return -1,
+    };
+    
+    let mut buf = vec![0; len];
+    if let Err(_) = env.get_byte_array_region(&dict_data, 0, &mut buf) {
+        return -1;
+    }
+    
+    match merger.load_pinyin_dict(&buf) {
+        Ok(_) => 0,
+        Err(_) => -1,
+    }
+}
+
+// Helper type for boolean in JNI
+type jboolean = i32;

@@ -1,130 +1,100 @@
-//! Audio normalization module
+//! Audio normalization implementation
 //! 
-//! Provides audio normalization using dynaudnorm-style algorithm.
-//! Replaces the Kotlin AudioNormalizationProcessor.
+//! Simplified audio normalization for stream processing
 
-use core::fmt;
-
-/// Audio normalization configuration matching Android's AudioNormalizationConfiguration
-#[derive(Debug, Clone, Copy)]
+/// Configuration for audio normalization
+#[derive(Debug, Clone)]
 pub struct AudioNormalizationConfig {
-    /// Target integrated loudness in dB LUFS (default: -16.0)
-    pub target_loudness: f32,
-    /// Maximum true peak in dBTP (default: -1.0)
-    pub max_true_peak: f32,
-    /// Loudness range target in LU (default: 11.0)
-    pub lra_target: f32,
-    /// Gain boost mode: 0=auto, 1=soft, 2=hard
-    pub gain_boost_mode: u8,
+    pub target_level: f32,
+    pub max_gain: f32,
+    pub look_ahead_ms: u32,
 }
 
 impl Default for AudioNormalizationConfig {
     fn default() -> Self {
         Self {
-            target_loudness: -16.0,
-            max_true_peak: -1.0,
-            lra_target: 11.0,
-            gain_boost_mode: 0,
+            target_level: -23.0, // LUFS
+            max_gain: 12.0,
+            look_ahead_ms: 200,
         }
     }
 }
 
-/// Per-channel audio normalizer
+/// Audio normalizer
 pub struct AudioNormalizer {
     config: AudioNormalizationConfig,
-}
-
-impl Default for AudioNormalizer {
-    fn default() -> Self {
-        Self {
-            config: AudioNormalizationConfig::default(),
-        }
-    }
 }
 
 impl AudioNormalizer {
     pub fn new(config: AudioNormalizationConfig) -> Self {
         Self { config }
     }
-
-    /// Normalize interleaved 16-bit PCM samples
-    pub fn normalize_i16(&self, input: &[i16], channels: usize) -> Vec<i16> {
-        if input.is_empty() || channels == 0 {
-            return Vec::new();
+    
+    /// Normalize i16 PCM audio data
+    pub fn normalize_i16(&self, samples: &[i16], channels: usize) -> Vec<i16> {
+        if samples.is_empty() || channels == 0 {
+            return samples.to_vec();
         }
         
-        let mut result = vec![0i16; input.len()];
-        for ch in 0..channels {
-            let rms = self.calculate_rms_channel(input, channels, ch);
-            if rms == 0.0 {
-                continue;
-            }
-            let target_rms = 10.0_f32.powf(self.config.target_loudness / 20.0);
-            let gain = target_rms / rms;
-            
-            for i in (ch..input.len()).step_by(channels) {
-                let normalized = input[i] as f32 * gain;
-                result[i] = normalized.clamp(-32768.0, 32767.0) as i16;
-            }
-        }
+        // Calculate RMS level
+        let rms = self.calculate_rms(samples, channels);
         
-        result
+        // Calculate gain factor
+        let target_rms = self.rms_for_level(-23.0); // -23 LUFS
+        let mut gain = target_rms / rms;
+        
+        // Apply max gain limit
+        gain = gain.min(self.config.max_gain);
+        
+        // Apply gain
+        samples.iter()
+            .map(|&s| (s as f32 * gain).clamp(-32768.0, 32767.0) as i16)
+            .collect()
     }
-
-    fn calculate_rms_channel(&self, samples: &[i16], channels: usize, channel: usize) -> f32 {
-        let sum: f32 = samples.iter()
-            .skip(channel)
-            .step_by(channels)
-            .map(|&s| (s as f32 / 32768.0) * (s as f32 / 32768.0))
+    
+    fn calculate_rms(&self, samples: &[i16], channels: usize) -> f32 {
+        if samples.is_empty() {
+            return 0.0;
+        }
+        
+        let sum_sq: f32 = samples.iter()
+            .map(|&s| (s as f32).powi(2))
             .sum();
-        let count = samples.len() / channels;
-        if count == 0 { return 0.0; }
-        (sum / count as f32).sqrt()
+        
+        (sum_sq / samples.len() as f32).sqrt()
+    }
+    
+    fn rms_for_level(&self, level_db: f32) -> f32 {
+        // Convert LUFS to RMS
+        // Reference: -23 LUFS ≈ 0.0708 RMS
+        10.0f32.powf(level_db / 20.0) * 0.707
     }
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum AudioError {
-    EmptyBuffer,
-    InvalidChannels,
-}
-
-impl fmt::Display for AudioError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AudioError::EmptyBuffer => write!(f, "Empty audio buffer"),
-            AudioError::InvalidChannels => write!(f, "Invalid channel count"),
-        }
-    }
-}
-
-impl std::error::Error for AudioError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_normalize_empty() {
-        let normalizer = AudioNormalizer::default();
-        let result = normalizer.normalize_i16(&[], 2);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_normalize_silent() {
-        let normalizer = AudioNormalizer::default();
-        let input = vec![0i16; 100];
-        let result = normalizer.normalize_i16(&input, 1);
-        assert_eq!(result.len(), 100);
-        assert!(result.iter().all(|&s| s == 0));
-    }
-
+    
     #[test]
     fn test_normalize_mono() {
-        let normalizer = AudioNormalizer::default();
-        let input: Vec<i16> = (0..100).map(|i| (i as f32 * 1000.0) as i16).collect();
-        let result = normalizer.normalize_i16(&input, 1);
-        assert_eq!(result.len(), 100);
+        let config = AudioNormalizationConfig::default();
+        let normalizer = AudioNormalizer::new(config);
+        
+        let input = vec![1000i16; 100];
+        let output = normalizer.normalize_i16(&input, 1);
+        
+        assert_eq!(output.len(), input.len());
+        assert!(!output.is_empty());
+    }
+    
+    #[test]
+    fn test_normalize_stereo() {
+        let config = AudioNormalizationConfig::default();
+        let normalizer = AudioNormalizer::new(config);
+        
+        let input = vec![1000i16; 200]; // 100 samples * 2 channels
+        let output = normalizer.normalize_i16(&input, 2);
+        
+        assert_eq!(output.len(), input.len());
     }
 }

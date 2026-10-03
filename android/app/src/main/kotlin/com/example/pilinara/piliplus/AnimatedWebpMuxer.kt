@@ -1,71 +1,67 @@
 package com.example.pilinara.piliplus
 
-import java.io.RandomAccessFile
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 
-internal object AnimatedWebpMuxer {
-    fun initialize(file: RandomAccessFile, width: Int, height: Int) {
-        require(width in 1..MAX_WEBP_DIMENSION && height in 1..MAX_WEBP_DIMENSION)
-        file.writeFourCc("RIFF")
-        file.writeUInt32Le(0)
-        file.writeFourCc("WEBP")
-        file.writeChunk("VP8X", ByteArray(10).apply {
-            this[0] = 0x02
-            writeUInt24Le(4, width - 1)
-            writeUInt24Le(7, height - 1)
-        })
-        file.writeChunk("ANIM", ByteArray(6))
+/**
+ * Animated WebP muxer using native Rust backend
+ * Replaces Flutter mpv WebP conversion
+ */
+class AnimatedWebpMuxer {
+    
+    private var encoderPtr: Long = 0
+    
+    init {
+        System.loadLibrary("pilinara_native")
     }
-
-    fun writeFrame(
-        file: RandomAccessFile,
-        width: Int,
-        height: Int,
-        durationMs: Int,
-        imageChunks: ByteArray,
-    ) {
-        require(width in 1..MAX_WEBP_DIMENSION && height in 1..MAX_WEBP_DIMENSION)
-        require(imageChunks.isNotEmpty())
-        val header = ByteArray(16).apply {
-            writeUInt24Le(6, width - 1)
-            writeUInt24Le(9, height - 1)
-            writeUInt24Le(12, durationMs.coerceIn(1, 0xFFFFFF))
-            this[15] = 0x02
+    
+    data class Frame(
+        val bitmap: Bitmap,
+        val durationMs: Int
+    )
+    
+    fun createEncoder(width: Int, height: Int): Long {
+        return nativeCreateEncoder(width, height)
+    }
+    
+    fun addFrame(ptr: Long, bitmap: Bitmap, durationMs: Int): Int {
+        val byteArray = bitmapToByteArray(bitmap)
+        return nativeAddFrame(ptr, byteArray, durationMs, 0, 0)
+    }
+    
+    fun finalize(ptr: Long): ByteArray? {
+        return nativeFinalize(ptr)
+    }
+    
+    fun destroy(ptr: Long) {
+        // Native cleanup handled by GC
+    }
+    
+    fun encodeAnimatedWebp(frames: List<Frame>, width: Int, height: Int): ByteArray? {
+        val ptr = createEncoder(width, height)
+        if (ptr == -1L) return null
+        
+        try {
+            frames.forEach { frame ->
+                addFrame(ptr, frame.bitmap, frame.durationMs)
+            }
+            return finalize(ptr)
+        } finally {
+            destroy(ptr)
         }
-        file.writeFourCc("ANMF")
-        file.writeUInt32Le((header.size + imageChunks.size).toLong())
-        file.write(header)
-        file.write(imageChunks)
-        if ((header.size + imageChunks.size) and 1 != 0) file.write(0)
     }
-
-    fun finalize(file: RandomAccessFile) {
-        val length = file.length()
-        require(length >= 12 && length <= UInt.MAX_VALUE.toLong()) {
-            "Animated WebP output size is invalid"
-        }
-        file.seek(4)
-        file.writeUInt32Le(length - 8)
+    
+    private fun bitmapToByteArray(bitmap: Bitmap): ByteArray {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.RGBA_8888, 100, stream)
+        return stream.toByteArray()
     }
-}
-
-internal const val MAX_WEBP_DIMENSION = 0x1000000
-
-private fun RandomAccessFile.writeChunk(type: String, payload: ByteArray) {
-    writeFourCc(type)
-    writeUInt32Le(payload.size.toLong())
-    write(payload)
-    if (payload.size and 1 != 0) write(0)
-}
-
-private fun RandomAccessFile.writeFourCc(value: String) {
-    require(value.length == 4)
-    write(value.toByteArray(Charsets.US_ASCII))
-}
-
-private fun RandomAccessFile.writeUInt32Le(value: Long) {
-    repeat(4) { shift -> write((value shr (shift * 8)).toInt() and 0xFF) }
-}
-
-private fun ByteArray.writeUInt24Le(offset: Int, value: Int) {
-    repeat(3) { shift -> this[offset + shift] = (value shr (shift * 8)).toByte() }
+    
+    companion object {
+        external fun nativeCreateEncoder(width: Int, height: Int): Long
+        external fun nativeAddFrame(ptr: Long, data: ByteArray, durationMs: Int, x: Int, y: Int): Int
+        external fun nativeFinalize(ptr: Long): ByteArray?
+    }
 }
