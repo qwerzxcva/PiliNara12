@@ -3,23 +3,15 @@ name: Build ARM64 APK (Kotlin + Rust)
 on:
   push:
     branches: [feat/arm64-rust-build]
-    paths:
-      - 'android/**'
-      - 'rust/**'
-      - '.github/workflows/*.yml'
   pull_request:
     branches: [feat/arm64-rust-build]
-    paths:
-      - 'android/**'
-      - 'rust/**'
-      - '.github/workflows/*.yml'
   workflow_dispatch:
 
 env:
   JAVA_VERSION: '17'
   ANDROID_COMPILE_SDK: '34'
-  ANDROID_BUILD_TOOLS: '34.0.0'
   ANDROID_NDK_VERSION: '27.3.13750724'
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dkotlin.compiler.execution.strategy=in-process"
 
 jobs:
   build-rust-native:
@@ -60,15 +52,11 @@ jobs:
           export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${TARGET_TRIPLE}-clang"
           
-          cargo build --release --target aarch64-linux-android
-          
-          # Copy .so to jniLibs
-          mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
-          cp target/aarch64-linux-android/release/libpilinara_native.so \
-             ../android/app/src/main/jniLibs/arm64-v8a/
+          # Build with cargo-ndk for proper Android target support
+          cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release 2>&1
           
           echo "Rust library built successfully"
-          ls -la target/aarch64-linux-android/release/libpilinara_native.so
+          ls -la ../android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v4
@@ -100,11 +88,24 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
+      - name: Verify pre-built .so exists
+        run: |
+          echo "=== Checking for native libraries ==="
+          find . -name "*.so" -type f 2>/dev/null
+          ls -la ./android/app/src/main/jniLibs/arm64-v8a/ 2>/dev/null || echo "No jniLibs directory"
+
       - name: Build Kotlin APK
         run: |
           chmod +x ./android/gradlew
           cd android
-          ./gradlew :app:assembleRelease --no-daemon --console=plain 2>&1
+          ./gradlew :app:assembleRelease \
+            --no-daemon \
+            --console=plain \
+            --stacktrace \
+            2>&1 || {
+              echo "Build failed, checking logs..."
+              exit 1
+            }
           
           echo "APK build completed"
           ls -la app/build/outputs/apk/release/
@@ -115,8 +116,9 @@ jobs:
           find ./app/build -name "*.apk" -type f 2>/dev/null || true
           
           echo ""
-          echo "=== Native Library ==="
+          echo "=== Native Library in Build ==="
           ls -la ./app/src/main/jniLibs/arm64-v8a/*.so 2>/dev/null || echo "No .so found in source"
+          find . -name "*.so" -type f 2>/dev/null | head -5
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
