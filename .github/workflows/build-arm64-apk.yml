@@ -113,6 +113,12 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
+      - name: Add Maven mirrors for plugin resolution
+        run: |
+          echo "maven { url = \"https://maven.aliyun.com/repository/google\" }" >> android/settings.gradle.kts
+          echo "maven { url = \"https://maven.aliyun.com/repository/gradle-plugin\" }" >> android/settings.gradle.kts
+          echo "maven { url = \"https://maven.aliyun.com/repository/public\" }" >> android/settings.gradle.kts
+
       - name: Build Kotlin APK with Rust native lib
         run: |
           cd android
