@@ -17,18 +17,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.pilinara.ui.login.LoginViewModel
+import com.example.pilinara.ui.settings.SettingsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MineScreen(
-    loginViewModel: LoginViewModel = viewModel()
+    onSettingsClick: () -> Unit = {},
+    onLoginClick: () -> Unit = {}
 ) {
     var isLoggedIn by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
-    
-    if (showSettings) {
-        SettingsDialog(onDismiss = { showSettings = false })
-    }
     
     Scaffold(
         topBar = {
@@ -36,7 +33,7 @@ fun MineScreen(
                 title = { Text("我的") },
                 actions = {
                     if (isLoggedIn) {
-                        IconButton(onClick = { showSettings = true }) {
+                        IconButton(onClick = onSettingsClick) {
                             Icon(Icons.Default.Settings, contentDescription = "设置")
                         }
                     }
@@ -47,13 +44,13 @@ fun MineScreen(
         if (isLoggedIn) {
             UserContent(modifier = Modifier.padding(padding))
         } else {
-            LoginContent(modifier = Modifier.padding(padding))
+            LoginContent(modifier = Modifier.padding(padding), onLoginClick = onLoginClick)
         }
     }
 }
 
 @Composable
-fun LoginContent(modifier: Modifier = Modifier) {
+fun LoginContent(modifier: Modifier = Modifier, onLoginClick: () -> Unit = {}) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -111,7 +108,7 @@ fun LoginContent(modifier: Modifier = Modifier) {
         ) {
             // QR Code Login
             Button(
-                onClick = { /* TODO: Implement QR login */ },
+                onClick = onLoginClick,
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.buttonColors(
