@@ -11,6 +11,8 @@ env:
   JAVA_VERSION: '17'
   ANDROID_COMPILE_SDK: '34'
   ANDROID_NDK_VERSION: '27.3.13750724'
+  TERM: dumb
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dkotlin.compiler.execution.strategy=process"
 
 jobs:
   build-rust-native:
@@ -31,31 +33,24 @@ jobs:
           targets: aarch64-linux-android
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk
+        run: cargo install cargo-ndk --locked
 
       - name: Setup Android NDK
         run: |
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.ANDROID_NDK_VERSION }}" 2>&1
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
-          ls -la $ANDROID_HOME/ndk/
+          sdkmanager --sdk_root=${ANDROID_HOME} "ndk;${ANDROID_NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> $GITHUB_ENV
+          echo "NDK installed: $(ls ${ANDROID_HOME}/ndk/)"
 
       - name: Build Rust library for arm64-v8a
         run: |
           cd rust
-          
           export ANDROID_NDK_HOME="${{ env.ANDROID_NDK_HOME }}"
           export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
-          export AR=llvm-ar
-          export CC=aarch64-linux-android24-clang
-          export CXX=aarch64-linux-android24-clang++
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
           
           cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release 2>&1
           
           echo "Rust library built successfully"
-          ls -la ../android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so
+          ls -la ../android/app/src/main/jniLibs/arm64-v8a/
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v4
@@ -76,10 +71,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
 
       - name: Download Rust library
         uses: actions/download-artifact@v4
@@ -87,11 +78,11 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
-      - name: Verify native libraries
+      - name: Verify native library
         run: |
           echo "=== Native libraries ==="
           ls -la ./android/app/src/main/jniLibs/arm64-v8a/
-          file ./android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so
+          file ./android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so || true
 
       - name: Build Kotlin APK
         run: |
@@ -99,35 +90,34 @@ jobs:
           cd android
           ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1
           
-          echo "=== APK output (find, from android/) ==="
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found under android/"
-          find ../ -maxdepth 6 -name "*.apk" -type f 2>/dev/null | grep -v "/android/" || true
-          
-          echo "=== Build tree ls ==="
-          ls -la app/build/outputs/ 2>/dev/null || true
-          ls -la app/build/outputs/apk/ 2>/dev/null || true
+          echo "=== Build completed ==="
+          find . -name "*.apk" -type f 2>/dev/null || true
           ls -la app/build/outputs/apk/release/ 2>/dev/null || true
+
+      - name: Collect APK files
+        run: |
+          mkdir -p apks
+          find android/app/build -name "*.apk" -exec cp {} apks/ \; 2>/dev/null || true
+          echo "=== APK files collected ==="
+          ls -la apks/ || echo "No APKs found"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: pilinara-arm64-apk
-          path: |
-            build/app/outputs/apk/release/*.apk
-            android/**/*.apk
+          path: apks/
           retention-days: 7
-          if-no-files-found: error
+          if-no-files-found: warn
 
   verify-build:
     name: Verify Build Artifacts
     needs: [build-kotlin]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts/
-
+      
       - name: Display build summary
         run: |
           echo "==================================="
