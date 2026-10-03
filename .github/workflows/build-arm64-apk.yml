@@ -100,7 +100,7 @@ jobs:
           ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1
           
           echo "APK build completed"
-          ls -la app/build/outputs/apk/release/
+          ls -la ../build/app/outputs/apk/release/ || ls -la app/build/outputs/apk/release/
 
       - name: Find APK artifacts
         run: |
@@ -116,6 +116,7 @@ jobs:
         with:
           name: pilinara-arm64-apk
           path: |
+            build/app/outputs/apk/release/*.apk
             android/app/build/outputs/apk/release/*.apk
           retention-days: 7
           if-no-files-found: error
