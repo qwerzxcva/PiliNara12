@@ -14,12 +14,64 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.pilinara.data.model.NavData
+import com.example.pilinara.data.repository.LoginRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+/** 「我的」页状态：登录资料 + 加载中 */
+class MineViewModel(
+    private val loginRepo: LoginRepository = LoginRepository()
+) : ViewModel() {
+
+    private val _nav = MutableStateFlow<NavData?>(null)
+    val nav: StateFlow<NavData?> = _nav.asStateFlow()
+
+    private val _loading = MutableStateFlow(true)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    init { refresh() }
+
+    /** 恢复 session 并拉取自身资料 */
+    fun refresh() {
+        viewModelScope.launch {
+            _loading.value = true
+            val loggedIn = loginRepo.restoreSession()
+            if (loggedIn) {
+                _nav.value = loginRepo.fetchSelfInfo().getOrNull()?.data
+            } else {
+                _nav.value = null
+            }
+            _loading.value = false
+        }
+    }
+
+    fun logout(onDone: () -> Unit) {
+        viewModelScope.launch {
+            loginRepo.logout()
+            _nav.value = null
+            onDone()
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MineScreen() {
-    var isLoggedIn by remember { mutableStateOf(false) }
-    
+fun MineScreen(
+    onOpenLogin: () -> Unit = {},
+    onOpenFavorites: (Long) -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    viewModel: MineViewModel = viewModel()
+) {
+    val nav by viewModel.nav.collectAsState()
+    val isLoggedIn = nav != null
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -39,20 +91,48 @@ fun MineScreen() {
                 .padding(16.dp)
         ) {
             if (isLoggedIn) {
-                UserHeader()
-                UserStats()
-                QuickActions()
-                SectionDivider("我的内容")
-                ContentTabs()
+                val n = nav!!
+                UserHeader(
+                    uname = n.uname.ifEmpty { "用户${n.mid}" },
+                    mid = n.mid,
+                    face = n.face,
+                    level = n.levelInfo?.currentLevel ?: 0,
+                    isVip = n.vipStatus == 1
+                )
+                Spacer(Modifier.height(12.dp))
+                QuickActions(
+                    onHistory = onOpenHistory,
+                    onFavorites = { onOpenFavorites(n.mid) }
+                )
+                Spacer(Modifier.height(12.dp))
+                SectionDivider("账号")
+                var showLogout by remember { mutableStateOf(false) }
+                SettingRow(icon = Icons.Default.Logout, title = "退出登录") { showLogout = true }
+                if (showLogout) {
+                    AlertDialog(
+                        onDismissRequest = { showLogout = false },
+                        title = { Text("退出登录") },
+                        text = { Text("确定要退出当前账号吗？") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showLogout = false
+                                viewModel.logout { }
+                            }) { Text("退出") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showLogout = false }) { Text("取消") }
+                        }
+                    )
+                }
             } else {
-                LoginPrompt()
+                LoginPrompt(onOpenLogin)
             }
         }
     }
 }
 
 @Composable
-fun UserHeader() {
+fun UserHeader(uname: String, mid: Long, face: String, level: Int, isVip: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -62,77 +142,59 @@ fun UserHeader() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Avatar
-            Surface(
-                modifier = Modifier.size(64.dp),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp))
+            if (face.isNotEmpty()) {
+                AsyncImage(
+                    model = face,
+                    contentDescription = "头像",
+                    modifier = Modifier.size(64.dp)
+                )
+            } else {
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp))
+                    }
                 }
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             // User info
             Column(modifier = Modifier.weight(1f)) {
-                Text("用户名", style = MaterialTheme.typography.titleLarge)
-                Text("UID: 12345678", style = MaterialTheme.typography.bodyMedium)
+                Text(uname, style = MaterialTheme.typography.titleLarge)
+                Text("UID: $mid", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Badge(text = "Lv.6")
-                    Badge(text = "大会员")
+                    Badge(text = "Lv.$level")
+                    if (isVip) Badge(text = "大会员")
                 }
             }
-            
-            // Edit button
-            Button(onClick = {}) {
-                Text("编辑")
-            }
         }
     }
 }
 
 @Composable
-fun UserStats() {
-    val stats = listOf(
-        Pair("关注", "128"),
-        Pair("粉丝", "3.2万"),
-        Pair("获赞", "15.6万"),
-        Pair("播放", "89.3万")
-    )
-    
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceAround
-    ) {
-        stats.forEach { (label, value) ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(value, style = MaterialTheme.typography.titleMedium)
-                Text(label, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
-
-@Composable
-fun QuickActions() {
+fun QuickActions(onHistory: () -> Unit = {}, onFavorites: () -> Unit = {}) {
     val actions = listOf(
-        Pair("历史", Icons.Default.History),
-        Pair("收藏", Icons.Default.Favorite),
-        Pair("离线缓存", Icons.Default.Download),
-        Pair("稍后再看", Icons.Default.PlayArrow)
+        Triple("历史", Icons.Default.History, onHistory),
+        Triple("收藏", Icons.Default.Favorite, onFavorites),
+        Triple("离线缓存", Icons.Default.Download, {} as () -> Unit),
+        Triple("稍后再看", Icons.Default.PlayArrow, {} as () -> Unit)
     )
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        actions.forEach { (label, icon) ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        actions.forEach { (label, icon, onClick) ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable { onClick() }
+            ) {
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = MaterialTheme.shapes.small,
@@ -150,6 +212,22 @@ fun QuickActions() {
 }
 
 @Composable
+fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, onClick: () -> Unit = {}) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(12.dp))
+        Text(title, fontSize = 15.sp)
+    }
+}
+
+@Composable
 fun SectionDivider(title: String) {
     Text(
         text = title,
@@ -159,23 +237,7 @@ fun SectionDivider(title: String) {
 }
 
 @Composable
-fun ContentTabs() {
-    var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("投稿", "动态", "直播")
-    
-    TabRow(selectedTabIndex = selectedTab) {
-        tabs.forEachIndexed { index, title ->
-            Tab(
-                selected = selectedTab == index,
-                onClick = { selectedTab = index },
-                text = { Text(title) }
-            )
-        }
-    }
-}
-
-@Composable
-fun LoginPrompt() {
+fun LoginPrompt(onOpenLogin: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -191,12 +253,17 @@ fun LoginPrompt() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text("登录后享受更多功能", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "同步收藏、观看历史与追番进度",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = {},
+            onClick = onOpenLogin,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("登录 / 注册")
+            Text("扫码登录")
         }
     }
 }

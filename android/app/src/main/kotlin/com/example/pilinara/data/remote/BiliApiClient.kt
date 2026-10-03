@@ -169,7 +169,21 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
             header("Referer", "https://www.bilibili.com")
         }.body()
     }
-    
+
+    /**
+     * 通用 GET：给路径 + 追加查询参数，反序列化为 reified T。
+     * 用于收藏夹/历史等带具体模型的新接口，避免每个都加 wrapper。
+     * 注意：inline 函数不能访问私有成员，故直接用公开的 BiliHttpClient.client。
+     */
+    suspend inline fun <reified T : Any> getFavoritesRaw(
+        path: String,
+        noinline params: io.ktor.http.ParametersBuilder.() -> Unit = {}
+    ): T = BiliHttpClient.client.get("https://api.bilibili.com/$path") {
+        // URLBuilder.parameters 就是 ParametersBuilder，应用 lambda
+        url.parameters.apply(params)
+        header("Referer", "https://www.bilibili.com")
+    }.body()
+
     // ========== History ==========
     
     suspend fun getHistory(limit: Int = 20): Result<List<VideoItem>> = runCatching {

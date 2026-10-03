@@ -30,6 +30,11 @@ object BiliHttpClient {
             header(HttpHeaders.ContentType, "application/json")
             header(HttpHeaders.Accept, "application/json")
             header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36")
+            // 登录态：有 cookie 时自动挂上（AccountSession 由 LoginRepository 维护）
+            val cookie = AccountSession.cookieHeader()
+            if (cookie.isNotEmpty()) {
+                header(HttpHeaders.Cookie, cookie)
+            }
         }
     }
     

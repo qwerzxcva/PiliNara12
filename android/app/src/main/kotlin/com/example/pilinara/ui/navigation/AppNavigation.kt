@@ -5,7 +5,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.pilinara.ui.comments.CommentScreen
+import com.example.pilinara.ui.library.FavMediaScreen
+import com.example.pilinara.ui.library.FavoritesScreen
+import com.example.pilinara.ui.library.HistoryScreen
 import com.example.pilinara.ui.live.LiveRoomScreen
+import com.example.pilinara.ui.login.LoginScreen
 import com.example.pilinara.ui.main.SearchScreen
 import com.example.pilinara.ui.pages.dynamics.DynamicsScreen
 import com.example.pilinara.ui.pages.home.HomeScreen
@@ -22,6 +26,14 @@ sealed class Screen(val route: String) {
     object Dynamics : Screen("dynamics")
     object Message : Screen("message")
     object Profile : Screen("profile")
+    object Login : Screen("login")
+    object Favorites : Screen("favorites/{mid}") {
+        fun createRoute(mid: Long) = "favorites/$mid"
+    }
+    object FavMedia : Screen("favmedia/{mediaId}") {
+        fun createRoute(mediaId: Long) = "favmedia/$mediaId"
+    }
+    object History : Screen("history")
     object VideoPlayer : Screen("video/{bvid}") {
         fun createRoute(bvid: String) = "video/$bvid"
     }
@@ -54,7 +66,37 @@ fun AppNavigation() {
             com.example.pilinara.ui.messages.MessageScreen()
         }
         composable(Screen.Profile.route) {
-            MineScreen()
+            MineScreen(
+                onOpenLogin = { navController.navigate(Screen.Login.route) },
+                onOpenFavorites = { mid -> navController.navigate(Screen.Favorites.createRoute(mid)) },
+                onOpenHistory = { navController.navigate(Screen.History.route) }
+            )
+        }
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onBack = { navController.popBackStack() },
+                onLoggedIn = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Favorites.route) { backStackEntry ->
+            val mid = backStackEntry.arguments?.getString("mid")?.toLongOrNull() ?: 0L
+            FavoritesScreen(
+                mid = mid,
+                onBack = { navController.popBackStack() },
+                onOpenFolder = { mediaId -> navController.navigate(Screen.FavMedia.createRoute(mediaId)) }
+            )
+        }
+        composable(Screen.FavMedia.route) { backStackEntry ->
+            val mediaId = backStackEntry.arguments?.getString("mediaId")?.toLongOrNull() ?: 0L
+            FavMediaScreen(
+                mediaId = mediaId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.History.route) {
+            HistoryScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.VideoPlayer.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""

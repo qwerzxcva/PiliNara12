@@ -71,6 +71,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    // 二维码生成（扫码登录）
+    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.media:media:1.7.0")
     
     // Ktor for networking
