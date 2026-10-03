@@ -26,12 +26,8 @@ import android.view.KeyEvent;
 class MediaHelper {
     static PendingIntent buildMediaButtonPendingIntent(Context context, int action) {
         int keyCode = PlaybackStateCompat_toKeyCode(action);
-        Intent intent = new Intent(context, com.ryanheise.audioservice.MediaButtonReceiver.class);
-        intent.setAction(Intent.ACTION_MEDIA_BUTTON);
-        intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        return PendingIntent.getBroadcast(context, keyCode, intent,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
+        // Stub - Flutter audio_service plugin not available
+        return null;
     }
 
     private static int PlaybackStateCompat_toKeyCode(int action) {
@@ -40,12 +36,10 @@ class MediaHelper {
             case (int) PlaybackState.ACTION_PAUSE -> KeyEvent.KEYCODE_MEDIA_PAUSE;
             case (int) PlaybackState.ACTION_PLAY -> KeyEvent.KEYCODE_MEDIA_PLAY;
             case (int) PlaybackState.ACTION_REWIND -> KeyEvent.KEYCODE_MEDIA_REWIND;
-            case (int) PlaybackState.ACTION_SKIP_TO_PREVIOUS -> KeyEvent.KEYCODE_MEDIA_PREVIOUS;
-            case (int) PlaybackState.ACTION_SKIP_TO_NEXT -> KeyEvent.KEYCODE_MEDIA_NEXT;
             case (int) PlaybackState.ACTION_FAST_FORWARD -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
-            case (int) PlaybackState.ACTION_PLAY_PAUSE -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
+            case (int) PlaybackState.ACTION_SKIP_TO_NEXT -> KeyEvent.KEYCODE_MEDIA_NEXT;
+            case (int) PlaybackState.ACTION_SKIP_TO_PREVIOUS -> KeyEvent.KEYCODE_MEDIA_PREVIOUS;
             default -> KeyEvent.KEYCODE_UNKNOWN;
         };
     }
-
 }
