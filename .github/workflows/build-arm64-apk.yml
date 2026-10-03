@@ -99,17 +99,14 @@ jobs:
           cd android
           ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1
           
-          echo "APK build completed"
-          ls -la ../build/app/outputs/apk/release/ || ls -la app/build/outputs/apk/release/
-
-      - name: Find APK artifacts
-        run: |
-          echo "=== APK Output ==="
-          find . -name "*.apk" -type f 2>/dev/null
+          echo "=== APK output (find, from android/) ==="
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found under android/"
+          find ../ -maxdepth 6 -name "*.apk" -type f 2>/dev/null | grep -v "/android/" || true
           
-          echo ""
-          echo "=== Native Library ==="
-          find . -name "*.so" -type f 2>/dev/null | head -5
+          echo "=== Build tree ls ==="
+          ls -la app/build/outputs/ 2>/dev/null || true
+          ls -la app/build/outputs/apk/ 2>/dev/null || true
+          ls -la app/build/outputs/apk/release/ 2>/dev/null || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -117,7 +114,7 @@ jobs:
           name: pilinara-arm64-apk
           path: |
             build/app/outputs/apk/release/*.apk
-            android/app/build/outputs/apk/release/*.apk
+            android/**/*.apk
           retention-days: 7
           if-no-files-found: error
 
