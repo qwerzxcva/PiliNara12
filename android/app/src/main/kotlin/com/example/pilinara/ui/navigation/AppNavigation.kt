@@ -67,7 +67,7 @@ fun AppNavigation() {
         composable(Screen.VideoPlayer.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             VideoPlayerScreen(
-                videoUrl = "", // TODO: Get actual video URL from API
+                videoUrl = "", // Video URL will be set by ViewModel
                 bvid = bvid,
                 onBack = { navController.popBackStack() },
                 onCommentClick = {
