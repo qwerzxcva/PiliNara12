@@ -12,6 +12,7 @@ env:
   ANDROID_COMPILE_SDK: '34'
   ANDROID_NDK_VERSION: '27.3.13750724'
   TERM: dumb
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dkotlin.compiler.execution.strategy=process"
 
 jobs:
   build-rust-native:
@@ -41,33 +42,27 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
           
-          ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ 2>/dev/null || \
-            ls -la $ANDROID_HOME/tools/bin/ 2>/dev/null || \
-            find $ANDROID_HOME -name "sdkmanager" -type f 2>/dev/null
-          
-          # Find sdkmanager
+          # Find and use sdkmanager
           SDKMGR=$(find $ANDROID_HOME -name "sdkmanager" -type f 2>/dev/null | head -1)
           echo "Found sdkmanager: $SDKMGR"
+          
           if [ -z "$SDKMGR" ]; then
-            echo "ERROR: sdkmanager not found in $ANDROID_HOME"
+            echo "ERROR: sdkmanager not found"
             ls -la $ANDROID_HOME/
             exit 1
           fi
           
-          # Accept licenses
+          # Accept licenses and install NDK
           yes | $SDKMGR --sdk_root=$ANDROID_HOME licenses > /dev/null 2>&1 || true
-          
-          # Install NDK
           $SDKMGR --sdk_root=$ANDROID_HOME "ndk;${{ env.ANDROID_NDK_VERSION }}" 2>&1
           
-          # Verify NDK installation
           echo "=== Installed NDK versions ==="
           ls -la $ANDROID_HOME/ndk/
           
-          # Verify toolchain exists
+          # Verify toolchain
           TOOLCHAIN="$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          echo "=== Toolchain files ==="
-          ls $TOOLCHAIN/ | grep -E "clang|ar|llvm" | head -10
+          echo "=== Toolchain ==="
+          ls $TOOLCHAIN/ | grep -E "clang|ar" | head -5
 
       - name: Build Rust library for arm64-v8a
         run: |
@@ -82,12 +77,11 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
           export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
           
-          echo "=== Building Rust with cargo-ndk ==="
           cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release 2>&1
           
-          echo "=== Rust library built successfully ==="
+          echo "=== Rust library built ==="
           ls -la ../android/app/src/main/jniLibs/arm64-v8a/
-          file ../android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so 2>/dev/null || true
+          file ../android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v4
@@ -118,29 +112,47 @@ jobs:
 
       - name: Verify native library
         run: |
-          echo "=== Native libraries ==="
-          ls -la ./android/app/src/main/jniLibs/arm64-v8a/ || echo "No jniLibs directory"
-          file ./android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so 2>/dev/null || true
+          echo "=== Checking native libs ==="
+          ls -la ./android/app/src/main/jniLibs/arm64-v8a/
+          file ./android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so
 
       - name: Build Kotlin APK
         run: |
           chmod +x ./android/gradlew
           cd android
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
           
-          echo "=== Checking for APK output ==="
-          find . -name "*.apk" -type f 2>/dev/null || true
-          ls -la app/build/outputs/apk/ 2>/dev/null || true
-          ls -la app/build/outputs/apk/release/ 2>/dev/null || true
+          # 明确检查 APK 输出
+          echo "=== Looking for APK files ==="
+          echo "Searching in: $(pwd)"
+          find . -name "*.apk" -type f 2>/dev/null | while read apk; do
+            echo "FOUND APK: $apk"
+            ls -la "$apk"
+          done
+          
+          echo "=== Build outputs directory ==="
+          ls -laR app/build/outputs/ 2>/dev/null | head -50
+
+      - name: Collect APK
+        run: |
+          mkdir -p /tmp/apks
+          find android -name "*.apk" -type f -exec cp {} /tmp/apks/ \; 2>/dev/null || true
+          echo "=== Collected APKs ==="
+          ls -la /tmp/apks/
+          if [ -z "$(ls -A /tmp/apks/)" ]; then
+            echo "WARNING: No APK files found!"
+            echo "Build output tree:"
+            find android/app/build -type f -name "*.apk" 2>/dev/null || echo "No .apk files in build"
+            find android/app/build -type d 2>/dev/null | head -20
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: pilinara-arm64-apk
-          path: |
-            android/app/build/outputs/apk/release/*.apk
+          path: /tmp/apks/
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
 
   verify-build:
     name: Verify Build Artifacts
@@ -151,7 +163,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
-
+      
       - name: Display build summary
         run: |
           echo "==================================="
@@ -164,17 +176,22 @@ jobs:
           echo "Compile SDK: 34"
           echo ""
           echo "=== Artifacts ==="
-          find artifacts -type f \( -name "*.apk" -o -name "*.so" \) 2>/dev/null | head -20
+          find artifacts -type f \( -name "*.apk" -o -name "*.so" \) 2>/dev/null
           
           echo ""
           echo "=== Rust Library ==="
-          ls -la artifacts/rust-lib-arm64/ 2>/dev/null || echo "No .so found"
+          ls -la artifacts/rust-lib-arm64/ 2>/dev/null
           
           echo ""
           echo "=== APK Files ==="
-          ls -la artifacts/pilinara-arm64-apk/ 2>/dev/null || echo "No APK found"
+          ls -la artifacts/pilinara-arm64-apk/ 2>/dev/null
           
           echo ""
           echo "==================================="
-          echo "  Build Status: SUCCESS ✅"
+          if [ -f artifacts/pilinara-arm64-apk/*.apk ]; then
+            echo "  Build Status: SUCCESS ✅"
+          else
+            echo "  Build Status: FAILED ❌ - No APK found"
+            exit 1
+          fi
           echo "==================================="
