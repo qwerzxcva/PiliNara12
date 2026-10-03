@@ -117,6 +117,19 @@ jobs:
           echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> $GITHUB_ENV
 
+      - name: Build Kotlin APK with Rust native lib
+        run: |
+          cd android
+          
+          # Use local Gradle installation instead of wrapper
+          export PATH="/opt/gradle-9.3.1/bin:$PATH"
+          
+          gradle :app:assembleRelease \
+            --no-daemon \
+            2>&1
+            
+          echo "APK build completed"
+
       - name: Download Rust library
         uses: actions/download-artifact@v4
         with:
