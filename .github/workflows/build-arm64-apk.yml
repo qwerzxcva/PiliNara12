@@ -157,7 +157,7 @@ jobs:
           echo "==================================="
           echo ""
           echo "Build Architecture: arm64-v8a (ARMv8 64-bit)"
-          echo "Min SDK: 21 (Android 5.0)"
+          echo "Min SDK: 24 (Android 7.0)"
           echo "Target SDK: 34 (Android 14)"
           echo "Compile SDK: 34"
           echo ""
