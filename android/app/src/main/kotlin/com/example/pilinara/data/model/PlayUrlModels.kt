@@ -10,7 +10,9 @@ import kotlinx.serialization.Serializable
 data class PlayUrlResponse(
     val code: Int = 0,
     val message: String = "",
-    val data: PlayUrlData? = null
+    val data: PlayUrlData? = null,
+    /** 原始响应文本，供 Rust 侧流选择使用（不参与序列化比较） */
+    val rawJson: String? = null
 )
 
 @Serializable

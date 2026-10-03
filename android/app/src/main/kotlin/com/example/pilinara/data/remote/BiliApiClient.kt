@@ -4,7 +4,9 @@ import com.example.pilinara.data.model.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.serialization.json.Json
 
 /**
  * Bilibili API Client using Ktor
@@ -53,7 +55,11 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
                 parameters.append("qn", qn.toString())
             }
             header("Referer", "https://www.bilibili.com")
-        }.body()
+        }.bodyAsText().let { text ->
+            Json { ignoreUnknownKeys = true }
+                .decodeFromString<PlayUrlResponse>(text)
+                .copy(rawJson = text)
+        }
     }
     
     // ========== Search ==========

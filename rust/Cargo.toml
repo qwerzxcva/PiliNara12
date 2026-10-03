@@ -16,6 +16,13 @@ image = { version = "0.25", default-features = false, features = ["webp"], optio
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.serde_json]
+version = "1"
+
 [profile.release]
 opt-level = 3
 lto = true

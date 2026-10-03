@@ -178,3 +178,28 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_loadPinyinDict<'a>(
 
 // Helper type for boolean in JNI
 type jboolean = i32;
+
+// ============================================================================
+// Playurl DASH stream selection (stage 5)
+// ============================================================================
+
+/// 输入 playurl 响应 JSON，返回选中的 {video, audio, duration} JSON；失败返回 null。
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_PlayUrlNativeLib_selectStreams<'a>(
+    mut env: JNIEnv<'a>,
+    _class: JClass<'a>,
+    body: JString<'a>,
+    target_qn: jint,
+) -> JString<'a> {
+    let input: String = match env.get_string(&body) {
+        Ok(s) => s.into(),
+        Err(_) => return JObject::null().into(),
+    };
+    match crate::playurl::select_streams(&input, target_qn as i64) {
+        Ok(result) => match env.new_string(result) {
+            Ok(s) => s.into(),
+            Err(_) => JObject::null().into(),
+        },
+        Err(_) => JObject::null().into(),
+    }
+}
