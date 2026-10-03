@@ -2,13 +2,13 @@ name: Build ARM64 APK (Kotlin + Rust)
 
 on:
   push:
-    branches: [main, feat/arm64-rust-build]
+    branches: [main, feat/kotlin-rust-build, feat/kotlin-rust-arm64]
     paths:
       - 'android/**'
       - 'rust/**'
       - '.github/workflows/build-arm64-apk.yml'
   pull_request:
-    branches: [main, feat/arm64-rust-build]
+    branches: [main, feat/kotlin-rust-build, feat/kotlin-rust-arm64]
     paths:
       - 'android/**'
       - 'rust/**'
@@ -18,10 +18,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
   JAVA_VERSION: '17'
-  ANDROID_COMPILE_SDK: '34'
+  GRADLE_VERSION: '9.5.0'
+  ANDROID_COMPILE_SDK: '21'
   ANDROID_BUILD_TOOLS: '34.0.0'
   ANDROID_NDK_VERSION: 'r27b'
-  GRADLE_HOME: /opt/gradle-9.3.1
 
 jobs:
   build-rust-native:
@@ -30,36 +30,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
           link-to-sdk: true
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
       - name: Build Rust library for arm64-v8a
         run: |
+          export ANDROID_NDK_HOME=$ANDROID_NDK_HOME
+          export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          
+          # Get sysroot path
+          SYSROOT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          LIBS_PATH="$SYSROOT/usr/lib/aarch64-linux-android/${{ env.ANDROID_COMPILE_SDK }}"
+          
+          export CC=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang
+          export CXX=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang++
+          export AR=llvm-ar
+          export CFLAGS="--sysroot=$SYSROOT"
+          export LDFLAGS="-L$LIBS_PATH -Wl,-rpath,$LIBS_PATH"
+          
           cd rust
-          
-          # Get NDK paths
-          NDK_HOME="$ANDROID_NDK_HOME"
-          TOOLCHAIN="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
-          SYSROOT="$TOOLCHAIN/sysroot"
-          API_LEVEL=21
-          TARGET_TRIPLE="aarch64-linux-android${API_LEVEL}"
-          
-          # Set environment variables for cross-compilation
-          export PATH="$TOOLCHAIN/bin:$PATH"
-          export AR="llvm-ar"
-          export CC="${TARGET_TRIPLE}-clang"
-          export CXX="${TARGET_TRIPLE}-clang++"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${TARGET_TRIPLE}-clang"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=--sysroot=$SYSROOT -C link-arg=-L$SYSROOT/usr/lib/aarch64-linux-android/$API_LEVEL"
-          
           cargo build --release --target aarch64-linux-android
           
           # Copy .so to jniLibs
@@ -94,18 +91,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.3.1'
-
-      - name: Set environment variables
-        run: |
-          echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "$GRADLE_HOME/bin" >> $GITHUB_PATH
 
       - name: Download Rust library
         uses: actions/download-artifact@v4
@@ -113,27 +102,14 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
-      - name: Add Maven mirrors for plugin resolution
-        run: |
-          cat > /tmp/mirrors.txt << 'EOF'
-          maven { url = uri("https://maven.aliyun.com/repository/google") }
-          maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
-          maven { url = uri("https://maven.aliyun.com/repository/public") }
-          EOF
-          # Insert mirrors before the closing brace of repositories block
-          sed -i '/^repositories {/,/^}$/c\
-repositories {\
-    google()\
-    mavenCentral()\
-    '"$(cat /tmp/mirrors.txt)"'\
-}' android/settings.gradle.kts
-          cat android/settings.gradle.kts
-
-      - name: Build Kotlin APK with Rust native lib
+      - name: Build Flutter APK with Rust native lib
         run: |
           cd android
-          chmod +x gradlew
+          chmod +x gradlew 2>/dev/null || true
+          
+          # Build release APK for arm64-v8a only
           ./gradlew :app:assembleRelease \
+            -PtargetPlatform=android-arm64 \
             --no-daemon \
             2>&1
             
@@ -149,10 +125,6 @@ repositories {\
           echo "=== Native Library ==="
           ls -la android/app/src/main/jniLibs/arm64-v8a/*.so 2>/dev/null || \
           find . -name "*.so" -type f 2>/dev/null | head -5
-          
-          echo ""
-          echo "=== Build Directory ==="
-          ls -la android/app/build/outputs/apk/ 2>/dev/null || echo "No APK directory found"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -182,8 +154,8 @@ repositories {\
           echo ""
           echo "Build Architecture: arm64-v8a (ARMv8 64-bit)"
           echo "Min SDK: 21 (Android 5.0)"
-          echo "Target SDK: 34 (Android 14)"
-          echo "Compile SDK: 34"
+          echo "Target SDK: 37 (Android 17)"
+          echo "Compile SDK: 21"
           echo ""
           echo "=== Artifacts ==="
           find artifacts -type f -name "*.apk" -o -name "*.so" 2>/dev/null | head -20
