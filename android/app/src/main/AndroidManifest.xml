@@ -35,7 +35,7 @@
     </queries>
 
     <application xmlns:tools="http://schemas.android.com/tools"
-        android:name="com.example.pilinara.PiliNaraApp"
+        android:name="com.example.pilinara.MainApplication"
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="false"

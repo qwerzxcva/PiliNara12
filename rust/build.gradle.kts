@@ -1,55 +1,62 @@
-// Rust build integration for PiliNara
+// Rust build integration for PiliNara (ARM64 only)
 // This script is sourced by android/app/build.gradle.kts
 
 import org.gradle.api.tasks.Exec
 import java.io.File
 
 // Cargo/Rust configuration
-val rustProjectDir = file("../rust")
+val rustProjectDir = file("..")
 val cargoTargetDir = file("$buildDir/rust-target")
 
-// Android ABI targets
+// Android ABI targets - ONLY ARM64
 val androidAbis = listOf(
-    "arm64-v8a" to "aarch64-linux-android",
-    "armeabi-v7a" to "armv7-linux-androideabi",
-    "x86_64" to "x86_64-linux-android",
-    "x86" to "i686-linux-android"
+    "arm64-v8a" to "aarch64-linux-android"
 )
 
-// NDK toolchain info (inherited from Flutter's NDK)
-val ndkVersion = project.ext.has("ndkVersion") ? project.ext.get("ndkVersion") : "27.0.12077973"
+// NDK version
+val ndkVersion = project.ext.has("ndkVersion") ? project.ext.get("ndkVersion") : "27.3.13750724"
 
-// Task: build Rust library for all Android ABIs
+// Task: build Rust library for ARM64 only
 tasks.register<Exec>("cargoBuildAndroid") {
     group = "rust"
-    description = "Build Rust native library for all Android ABIs"
+    description = "Build Rust native library for arm64-v8a"
     
     val ndkHome = System.getenv("ANDROID_NDK_HOME") ?: findNdkHome()
     val toolchainRoot = File(ndkHome, "toolchains/llvm/prebuilt/linux-x86_64")
     
     for ((abi, target) in androidAbis) {
-        val outputDir = file("$buildDir/intermediates/rust/debug/$abi")
-        val libName = if (abi == "arm64-v8a") "aarch64" else if (abi == "armeabi-v7a") "arm" else abi
+        val outputDir = file("$buildDir/intermediates/rust/release/$abi")
         
         doLast {
             // Set environment for cross-compilation
             environment("TARGET", target)
-            environment("CROSS_COMPILE", "${toolchainRoot}/bin/${target25-}")
+            environment("CROSS_COMPILE", "${toolchainRoot}/bin/${target.replace("-linux-android", "21-")}")
             environment("NDK_HOME", ndkHome)
             
-            // Build with cargo
+            // Build with cargo-ndk
             val cargoCmd = arrayOf(
-                "cargo", "build",
-                "--target", target,
-                "--target-dir", cargoTargetDir.absolutePath,
-                "--quiet"
+                "cargo", "ndk",
+                "-t", "arm64-v8a",
+                "-o", "${project.rootDir.absolutePath}/android/app/src/main/jniLibs".toString(),
+                "build",
+                "--release"
             )
-            exec {
+            
+            workingDir = rustProjectDir
+            executable = findCargoExecutable()
+            
+            val result = exec {
                 commandLine(*cargoCmd)
-                workingDir = rustProjectDir
+                standardOutput = System.out
+                errorOutput = System.err
             }
         }
     }
+}
+
+fun findCargoExecutable(): String {
+    val home = System.getenv("HOME")
+    return "$home/.cargo/bin/cargo"
 }
 
 fun findNdkHome(): String {

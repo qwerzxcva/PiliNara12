@@ -3,6 +3,7 @@
 //! Provides Rust implementations for:
 //! - Animated WebP encoding (replacing Android Bitmap.compress)
 //! - Audio normalization (dynaudnorm-style)
+//! - Danmaku merging and filtering
 //!
 //! ## Architecture
 //! 
@@ -15,6 +16,8 @@ extern crate std;
 pub mod webp;
 // Audio normalization module
 pub mod audio;
+// Danmaku merging module
+pub mod danmaku;
 
 #[cfg(target_os = "android")]
 mod android_entry;
@@ -23,3 +26,5 @@ mod android_entry;
 pub use webp::{AnimatedWebpEncoder, WebpError};
 #[cfg(not(target_os = "android"))]
 pub use audio::{AudioNormalizer, AudioNormalizationConfig};
+#[cfg(not(target_os = "android"))]
+pub use danmaku::{DanmakuMerger, DanmakuMergeConfig, DanmakuEntry, MergedDanmaku};
