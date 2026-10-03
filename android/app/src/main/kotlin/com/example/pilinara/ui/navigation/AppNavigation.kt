@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.pilinara.ui.comments.CommentScreen
+import com.example.pilinara.ui.live.LiveRoomScreen
 import com.example.pilinara.ui.main.SearchScreen
 import com.example.pilinara.ui.pages.dynamics.DynamicsScreen
 import com.example.pilinara.ui.pages.home.HomeScreen
@@ -25,6 +27,9 @@ sealed class Screen(val route: String) {
     }
     object LiveRoom : Screen("live/{roomId}") {
         fun createRoute(roomId: String) = "live/$roomId"
+    }
+    object Comment : Screen("comment/{bvid}") {
+        fun createRoute(bvid: String) = "comment/$bvid"
     }
 }
 
@@ -54,13 +59,7 @@ fun AppNavigation() {
             DynamicsScreen()
         }
         composable(Screen.Message.route) {
-            // TODO: Implement MessageScreen
-            androidx.compose.foundation.layout.Box(
-                modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                androidx.compose.material3.Text("消息页面 - 待实现")
-            }
+            com.example.pilinara.ui.messages.MessageScreen()
         }
         composable(Screen.Profile.route) {
             MineScreen()
@@ -68,14 +67,21 @@ fun AppNavigation() {
         composable(Screen.VideoPlayer.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             VideoPlayerScreen(
-                videoUrl = "", // TODO: Get actual video URL
+                videoUrl = "", // TODO: Get actual video URL from API
                 bvid = bvid,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onCommentClick = {
+                    navController.navigate(Screen.Comment.createRoute(bvid))
+                }
             )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->
             val roomId = backStackEntry.arguments?.getString("roomId") ?: ""
-            // TODO: Implement LiveRoomScreen
+            LiveRoomScreen(roomId = roomId)
+        }
+        composable(Screen.Comment.route) { backStackEntry ->
+            val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
+            CommentScreen(bvid = bvid)
         }
     }
 }
