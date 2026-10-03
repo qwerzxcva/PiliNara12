@@ -68,7 +68,7 @@ impl AnimatedWebpEncoder {
         
         // Encode as WebP
         let mut buf = Vec::new();
-        img.write_to(&mut Cursor::new(&mut buf), 0x57454250)
+        img.write_to(&mut Cursor::new(&mut buf), image::ImageFormat::WebP)
             .map_err(|e| WebpError::EncodingError(e.to_string()))?;
         
         Ok(buf)
