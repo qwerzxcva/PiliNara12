@@ -22,7 +22,7 @@ android {
         ndkVersion = "27.3.13750724" // r27b
         
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            // abiFilters removed for CI compatibility
         }
     }
 
