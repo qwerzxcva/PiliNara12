@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pilinara.data.model.SearchResponse
 import com.example.pilinara.data.model.SearchSuggest
+import com.example.pilinara.data.model.SuggestResult
 import com.example.pilinara.data.repository.SearchRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,7 @@ class SearchViewModel(
         val keyword: String = "",
         val isSearching: Boolean = false,
         val searchResults: List<Any> = emptyList(),
-        val suggestions: List<SuggestionItem> = emptyList(),
+        val suggestions: List<SuggestResult> = emptyList(),
         val hotSearches: List<String> = emptyList(),
         val error: String? = null
     )
@@ -63,8 +64,8 @@ class SearchViewModel(
         }
     }
     
-    fun selectSuggestion(suggestion: SuggestionItem) {
-        _searchState.value = _searchState.value.copy(keyword = suggestion.name)
+    fun selectSuggestion(suggestion: SuggestResult) {
+        _searchState.value = _searchState.value.copy(keyword = suggestion.uname)
         performSearch()
     }
     
@@ -85,7 +86,7 @@ data class SearchState(
     val keyword: String = "",
     val isSearching: Boolean = false,
     val searchResults: List<Any> = emptyList(),
-    val suggestions: List<SuggestionItem> = emptyList(),
+    val suggestions: List<SuggestResult> = emptyList(),
     val hotSearches: List<String> = emptyList(),
     val error: String? = null
 )

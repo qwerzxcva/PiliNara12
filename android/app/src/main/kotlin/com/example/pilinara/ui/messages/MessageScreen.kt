@@ -1,5 +1,6 @@
 package com.example.pilinara.ui.messages
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -56,11 +57,11 @@ fun MessageScreen() {
 @Composable
 fun SystemMessages() {
     val messages = listOf(
-        Pair("系统通知", "您的视频已通过审核", "10:30"),
-        Pair("活动通知", "新用户注册赠送大会员", "昨天"),
-        Pair("系统通知", "密码修改成功", "昨天"),
-        Pair("活动通知", "双十一活动即将开始", "3天前"),
-        Pair("系统通知", "实名认证已完成", "1周前")
+        Triple("系统通知", "您的视频已通过审核", "10:30"),
+        Triple("活动通知", "新用户注册赠送大会员", "昨天"),
+        Triple("系统通知", "密码修改成功", "昨天"),
+        Triple("活动通知", "双十一活动即将开始", "3天前"),
+        Triple("系统通知", "实名认证已完成", "1周前")
     )
     
     LazyColumn(
@@ -73,22 +74,24 @@ fun SystemMessages() {
     }
 }
 
+private data class ContactRow(val name: String, val lastMessage: String, val time: String, val unread: Int)
+
 @Composable
 fun PrivateMessages() {
     val contacts = listOf(
-        Pair("用户A", "刚才在吗？", "10:30", 3),
-        Pair("用户B", "好的，明天见", "昨天", 0),
-        Pair("用户C", "视频收到了，谢谢！", "昨天", 0),
-        Pair("用户D", "直播什么时候开始？", "3天前", 1),
-        Pair("用户E", "评论已回复", "1周前", 0)
+        ContactRow("用户A", "刚才在吗？", "10:30", 3),
+        ContactRow("用户B", "好的，明天见", "昨天", 0),
+        ContactRow("用户C", "视频收到了，谢谢！", "昨天", 0),
+        ContactRow("用户D", "直播什么时候开始？", "3天前", 1),
+        ContactRow("用户E", "评论已回复", "1周前", 0)
     )
     
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(8.dp)
     ) {
-        items(contacts) { (name, lastMessage, time, unread) ->
-            ContactItem(name = name, lastMessage = lastMessage, time = time, unread = unread)
+        items(contacts) { c ->
+            ContactItem(name = c.name, lastMessage = c.lastMessage, time = c.time, unread = c.unread)
         }
     }
 }
@@ -135,7 +138,7 @@ fun ContactItem(name: String, lastMessage: String, time: String, unread: Int) {
             // Avatar
             Surface(
                 modifier = Modifier.size(48.dp),
-                shape = MaterialTheme.shapes.circle
+                shape = CircleShape
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.Person, contentDescription = null)

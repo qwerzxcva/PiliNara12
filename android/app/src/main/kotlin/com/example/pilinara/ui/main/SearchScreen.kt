@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.pilinara.data.model.SuggestResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,7 +121,7 @@ fun SearchScreen(
                             ) {
                                 Icon(Icons.Default.Search, contentDescription = null)
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(suggestion.name, style = MaterialTheme.typography.bodyLarge)
+                                Text(suggestion.uname, style = MaterialTheme.typography.bodyLarge)
                             }
                         }
                     }

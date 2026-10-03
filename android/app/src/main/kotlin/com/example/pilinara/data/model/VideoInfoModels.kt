@@ -77,18 +77,22 @@ fun VideoInfoData.toVideoItem(): VideoItem {
         aid = aid,
         cid = cid,
         title = title,
-        author = owner?.name ?: "",
-        authorMid = owner?.mid ?: 0L,
-        authorFace = owner?.face ?: "",
-        cover = pic,
-        duration = duration,
-        play = stat?.play ?: 0L,
-        danmaku = stat?.danmaku ?: 0L,
-        reply = stat?.reply ?: 0L,
-        favorite = stat?.favorite ?: 0L,
-        coin = stat?.coin ?: 0L,
-        like = stat?.like ?: 0L,
+        pic = pic,
         desc = desc,
-        pubdate = pubdate
+        duration = duration.toInt(),
+        pubdate = pubdate,
+        owner = Owner(
+            mid = owner?.mid ?: 0L,
+            name = owner?.name ?: "",
+            face = owner?.face ?: ""
+        ),
+        stat = Stat(
+            view = stat?.play ?: 0L,
+            danmaku = (stat?.danmaku ?: 0L).toInt(),
+            reply = (stat?.reply ?: 0L).toInt(),
+            favorite = (stat?.favorite ?: 0L).toInt(),
+            coin = (stat?.coin ?: 0L).toInt(),
+            like = (stat?.like ?: 0L).toInt()
+        )
     )
 }

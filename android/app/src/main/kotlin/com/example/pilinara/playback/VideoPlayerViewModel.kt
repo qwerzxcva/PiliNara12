@@ -120,7 +120,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     fun toggleMute() {
         viewModelScope.launch {
             val newMuted = !_state.value.isMuted
-            _player?.isMuted = newMuted
+            _player?.volume = if (newMuted) 0f else 1f
             _state.value = if (newMuted) {
                 _state.value.copy(isMuted = true, volume = 0f)
             } else {
@@ -161,8 +161,8 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         _state.value = _state.value.copy(isPlaying = isPlaying)
     }
     
-    override fun onIsBufferingChanged(isBuffering: Boolean) {
-        _state.value = _state.value.copy(isBuffering = isBuffering)
+    override fun onIsLoadingChanged(isLoading: Boolean) {
+        _state.value = _state.value.copy(isBuffering = isLoading)
     }
     
     override fun onPlaybackStateChanged(state: Int) {
@@ -175,12 +175,16 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
     
-    override fun onPlayerError(error: androidx.media3.common.MediaError) {
-        setError(error.errorDetailsString ?: "Playback error")
+    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+        setError(error.message ?: "Playback error")
     }
     
-    override fun onPositionDiscontinuity(oldPosition: Long, newPosition: Long, reason: Int) {
-        _state.value = _state.value.copy(currentTime = newPosition)
+    override fun onPositionDiscontinuity(
+        newPosition: androidx.media3.common.Player.PositionInfo,
+        oldPosition: androidx.media3.common.Player.PositionInfo,
+        reason: Int
+    ) {
+        _state.value = _state.value.copy(currentTime = newPosition.positionMs)
     }
     
     override fun onCleared() {

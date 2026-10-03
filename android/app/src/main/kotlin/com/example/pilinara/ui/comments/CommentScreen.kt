@@ -1,5 +1,6 @@
 package com.example.pilinara.ui.comments
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -96,7 +97,7 @@ fun CommentItem(comment: CommentItem) {
                 // Avatar
                 Surface(
                     modifier = Modifier.size(36.dp),
-                    shape = MaterialTheme.shapes.circle
+                    shape = CircleShape
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Person, contentDescription = null)
@@ -110,7 +111,7 @@ fun CommentItem(comment: CommentItem) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(comment.username, style = MaterialTheme.typography.titleSmall)
                         if (comment.isVip) {
-                            Badge(text = "大会员")
+                            com.example.pilinara.ui.pages.mine.Badge("大会员")
                         }
                     }
                     Text(comment.time, style = MaterialTheme.typography.labelSmall)

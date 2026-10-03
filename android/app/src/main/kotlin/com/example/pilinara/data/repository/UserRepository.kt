@@ -35,7 +35,7 @@ class UserRepository(private val apiClient: BiliApiClient) {
         apiClient.getFavorites(uid, pageSize, mediaType)
     }
     
-    suspend fun getFollowings(uid: Long, page: Int = 1): Result<Map<String, Any>> = 
+    suspend fun getFollowings(uid: Long, page: Int = 1): Result<CommentResponse> =
         withContext(Dispatchers.IO) {
         apiClient.getComments("", uid) // Placeholder
     }

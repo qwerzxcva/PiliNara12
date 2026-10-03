@@ -1,5 +1,6 @@
 package com.example.pilinara.ui.live
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -129,7 +130,7 @@ fun LiveRoomScreen(
                     onClick = {}
                 )
                 LiveActionButton(
-                    icon = Icons.Default.AttachmentMoney,
+                    icon = Icons.Default.Paid,
                     label = "送礼",
                     count = 0,
                     onClick = {}

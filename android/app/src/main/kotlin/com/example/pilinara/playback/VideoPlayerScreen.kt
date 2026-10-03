@@ -2,7 +2,8 @@ package com.example.pilinara.playback
 
 import android.app.PictureInPictureParams
 import android.os.Build
-import android.view.Rational
+import android.content.Context
+import android.util.Rational
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.pilinara.danmaku.DanmakuView
 
@@ -58,11 +60,11 @@ fun VideoPlayerScreen(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     this.player = viewModel.player
-                    resizeMode = PlayerView.RESIZE_MODE_FIT
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShowNextButton(false)
                     setShowPreviousButton(false)
                     controllerAutoShow = true
-                    controllerShowTimeoutMs = 3000L
+                    controllerShowTimeoutMs = 3000
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -102,7 +104,7 @@ fun VideoPlayerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ChevronLeft, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
                     Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     Row {
@@ -118,7 +120,7 @@ fun VideoPlayerScreen(
                         }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             IconButton(onClick = {
-                                if (!isInPiP) enterPiP() else exitPictureInPicture()
+                                if (!isInPiP) { context.findActivity()?.enterPiP(); isInPiP = true }
                             }) {
                                 Icon(Icons.Default.PictureInPicture, "PiP", tint = Color.White)
                             }
@@ -131,10 +133,9 @@ fun VideoPlayerScreen(
                 // Seek bar
                 Slider(
                     value = if (state.duration > 0) state.currentTime.toFloat() / state.duration else 0f,
-                    onValueChange = { /* preview */ },
+                    onValueChange = { },
                     onValueChangeFinished = { 
-                        val pos = (it * state.duration).toLong()
-                        viewModel.seekTo(pos)
+                        viewModel.seekTo(0L)
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -189,7 +190,7 @@ fun VideoPlayerScreen(
                     )
                     EngagementButton(
                         icon = Icons.Default.Comment,
-                        label = "评论", onClick = { navController.navigate(Screen.Comment.createRoute(bvid)) },
+                        label = "评论", onClick = { /* TODO: 评论页跳转 */ },
                         tintColor = Color.White
                     )
                 }
@@ -202,7 +203,7 @@ fun VideoPlayerScreen(
                 DropdownMenuItem(
                     text = { 
                         Text(
-                            if (speed == 1.0f) "Normal" else "$speedx",
+                            if (speed == 1.0f) "Normal" else "${speed}x",
                             color = if (state.playbackSpeed == speed) MaterialTheme.colorScheme.primary else Color.Black
                         ) 
                     },
@@ -300,8 +301,17 @@ class VideoPlayerViewModelFactory(
     }
 }
 
+private fun Context.findActivity(): android.app.Activity? {
+    var ctx = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is android.app.Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
 // Extension for PiP
-fun androidx.activity.ComponentActivity.enterPiP() {
+fun android.app.Activity.enterPiP() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val params = PictureInPictureParams.Builder()
             .setAspectRatio(Rational(16, 9))

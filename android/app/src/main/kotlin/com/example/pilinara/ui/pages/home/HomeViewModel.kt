@@ -7,44 +7,44 @@ import com.example.pilinara.data.repository.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+sealed interface HomeUiState {
+    data object Loading : HomeUiState
+    data class Success(val items: List<VideoItem>) : HomeUiState
+    data class Error(val message: String) : HomeUiState
+}
+
 class HomeViewModel(
-    private val repository: HomeRepository
+    private val repo: HomeRepository = HomeRepository(),
 ) : ViewModel() {
-    
-    private val _videos = MutableStateFlow<List<VideoItem>>(emptyList())
-    val videos: StateFlow<List<VideoItem>> = _videos.asStateFlow()
-    
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-    
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-    
-    init {
-        refresh()
-    }
-    
+    private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
+    val state: StateFlow<HomeUiState> = _state.asStateFlow()
+
+    private var loadingMore = false
+
     fun refresh() {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            
-            repository.getPopularVideos().collect { result ->
-                result.onSuccess { items ->
-                    _videos.value = items
-                }.onFailure { e ->
-                    _error.value = e.message
-                }
-            }
-            
-            _isLoading.value = false
+            _state.value = HomeUiState.Loading
+            repo.refresh()
+                .onSuccess { _state.value = HomeUiState.Success(it) }
+                .onFailure { _state.value = HomeUiState.Error(it.message ?: "网络请求失败") }
         }
     }
-    
+
     fun loadMore() {
-        // Implement pagination
+        val current = (_state.value as? HomeUiState.Success)?.items ?: return
+        if (loadingMore) return
+        loadingMore = true
+        viewModelScope.launch {
+            repo.loadMore()
+                .onSuccess { _state.value = HomeUiState.Success(it) }
+                .onFailure { /* 加载更多失败静默保留当前列表 */ }
+            loadingMore = false
+        }
+    }
+
+    init {
+        refresh()
     }
 }

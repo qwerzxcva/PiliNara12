@@ -9,7 +9,7 @@ import io.ktor.http.*
 /**
  * Bilibili API Client using Ktor
  */
-class BiliApiClient(private val client: HttpClient) {
+class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     
     companion object {
         private const val API_BASE = "https://api.bilibili.com"
@@ -80,7 +80,7 @@ class BiliApiClient(private val client: HttpClient) {
     
     // ========== Comments ==========
     
-    suspend fun getComments(bvid: String, oid: Long = 0L, pageSize: Int = 20): Result<CommentResponse> = runCatching {
+    suspend fun getComments(bvid: String, oid: Long = 0L, page: Int = 1, pageSize: Int = 20): Result<CommentResponse> = runCatching {
         client.get("$API_BASE/x/v2/reply/main") {
             url {
                 parameters.append("oid", oid.toString())

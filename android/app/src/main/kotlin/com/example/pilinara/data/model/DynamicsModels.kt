@@ -14,9 +14,9 @@ data class DynamicsResponse(
 
 @Serializable
 data class DynamicsData(
-    items: List<DynamicItem> = emptyList(),
-    cursor: String = "",
-    updateCursor: String = ""
+    val items: List<DynamicItem> = emptyList(),
+    val cursor: String = "",
+    val updateCursor: String = ""
 )
 
 @Serializable

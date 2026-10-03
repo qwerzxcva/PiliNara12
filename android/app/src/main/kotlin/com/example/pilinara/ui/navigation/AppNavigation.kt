@@ -42,18 +42,10 @@ fun AppNavigation() {
         startDestination = Screen.Home.route
     ) {
         composable(Screen.Home.route) {
-            HomeScreen(
-                onVideoClick = { bvid, cid ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
-                }
-            )
+            HomeScreen()
         }
         composable(Screen.Search.route) {
-            SearchScreen(
-                onVideoClick = { bvid, cid ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
-                }
-            )
+            SearchScreen()
         }
         composable(Screen.Dynamics.route) {
             DynamicsScreen()
@@ -67,12 +59,9 @@ fun AppNavigation() {
         composable(Screen.VideoPlayer.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             VideoPlayerScreen(
-                videoUrl = "", // Video URL will be set by ViewModel
+                videoUrl = "",
                 bvid = bvid,
-                onBack = { navController.popBackStack() },
-                onCommentClick = {
-                    navController.navigate(Screen.Comment.createRoute(bvid))
-                }
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->

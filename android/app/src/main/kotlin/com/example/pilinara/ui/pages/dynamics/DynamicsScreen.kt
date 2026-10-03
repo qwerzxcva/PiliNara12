@@ -1,5 +1,6 @@
 package com.example.pilinara.ui.pages.dynamics
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -118,7 +119,7 @@ fun DynamicCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(40.dp),
-                    shape = MaterialTheme.shapes.circle
+                    shape = CircleShape
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Person, contentDescription = null)
