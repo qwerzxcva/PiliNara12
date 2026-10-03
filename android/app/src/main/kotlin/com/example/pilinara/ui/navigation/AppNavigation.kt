@@ -66,11 +66,7 @@ fun AppNavigation() {
             com.example.pilinara.ui.messages.MessageScreen()
         }
         composable(Screen.Profile.route) {
-            MineScreen(
-                onOpenLogin = { navController.navigate(Screen.Login.route) },
-                onOpenFavorites = { mid -> navController.navigate(Screen.Favorites.createRoute(mid)) },
-                onOpenHistory = { navController.navigate(Screen.History.route) }
-            )
+            MineScreen()
         }
         composable(Screen.Login.route) {
             LoginScreen(
