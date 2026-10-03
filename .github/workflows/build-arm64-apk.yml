@@ -54,7 +54,7 @@ jobs:
           export CXX=aarch64-linux-android${{ env.ANDROID_COMPILE_SDK }}-clang++
           export AR=llvm-ar
           export CFLAGS="--sysroot=$SYSROOT"
-          export LDFLAGS="-L$LIBS_PATH -Wl,-rpath,$LIBS_PATH"
+          export LDFLAGS="-L$LIBS_PATH -Wl,-rpath,$LIBS_PATH -landroid -llog -lunwind"
           
           cd rust
           cargo build --release --target aarch64-linux-android
