@@ -115,9 +115,19 @@ jobs:
 
       - name: Add Maven mirrors for plugin resolution
         run: |
-          echo "maven { url = \"https://maven.aliyun.com/repository/google\" }" >> android/settings.gradle.kts
-          echo "maven { url = \"https://maven.aliyun.com/repository/gradle-plugin\" }" >> android/settings.gradle.kts
-          echo "maven { url = \"https://maven.aliyun.com/repository/public\" }" >> android/settings.gradle.kts
+          cat > /tmp/mirrors.txt << 'EOF'
+          maven { url = uri("https://maven.aliyun.com/repository/google") }
+          maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+          maven { url = uri("https://maven.aliyun.com/repository/public") }
+          EOF
+          # Insert mirrors before the closing brace of repositories block
+          sed -i '/^repositories {/,/^}$/c\
+repositories {\
+    google()\
+    mavenCentral()\
+    '"$(cat /tmp/mirrors.txt)"'\
+}' android/settings.gradle.kts
+          cat android/settings.gradle.kts
 
       - name: Build Kotlin APK with Rust native lib
         run: |
