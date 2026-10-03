@@ -1,6 +1,5 @@
 package com.example.pilinara.ui.pages.dynamics
 
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,10 +12,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.pilinara.ui.main.LoginViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DynamicsScreen() {
+fun DynamicsScreen(
+    loginViewModel: LoginViewModel = viewModel()
+) {
+    val isLoggedIn by loginViewModel.isLoggedIn.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("关注", "发现", "直播")
     
@@ -25,8 +29,10 @@ fun DynamicsScreen() {
             TopAppBar(
                 title = { Text("动态") },
                 actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Add, contentDescription = "发布")
+                    if (isLoggedIn) {
+                        IconButton(onClick = {}) {
+                            Icon(Icons.Default.Add, contentDescription = "发布")
+                        }
                     }
                 }
             )
@@ -44,11 +50,43 @@ fun DynamicsScreen() {
                 }
             }
             
-            // Dynamic list
-            when (selectedTab) {
-                0 -> FollowDynamics()
-                1 -> DiscoverDynamics()
-                2 -> LiveDynamics()
+            // Content based on login status
+            when {
+                !isLoggedIn -> {
+                    // Show login prompt
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "登录后查看更多动态",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "同步关注、观看历史与追番进度",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    // Show actual dynamics (placeholder for now)
+                    when (selectedTab) {
+                        0 -> FollowDynamics()
+                        1 -> DiscoverDynamics()
+                        2 -> LiveDynamics()
+                    }
+                }
             }
         }
     }
@@ -56,20 +94,14 @@ fun DynamicsScreen() {
 
 @Composable
 fun FollowDynamics() {
-    // Implemented with sample data for demo
-    LazyColumn(
+    Box(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentAlignment = Alignment.Center
     ) {
-        items(5) { index ->
-            DynamicCard(
-                author = "UP主${index + 1}",
-                time = "${index + 1}小时前",
-                content = "这是一条动态内容，描述了一些有趣的事情...",
-                likes = (index + 1) * 100,
-                comments = (index + 1) * 10
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("关注动态", style = MaterialTheme.typography.titleSmall)
         }
     }
 }
@@ -81,9 +113,9 @@ fun DiscoverDynamics() {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.Explore, contentDescription = null, modifier = Modifier.size(64.dp))
+            Icon(Icons.Default.Explore, contentDescription = null, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text("发现页面", style = MaterialTheme.typography.titleMedium)
+            Text("发现动态", style = MaterialTheme.typography.titleSmall)
         }
     }
 }
@@ -95,74 +127,9 @@ fun LiveDynamics() {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.LiveTv, contentDescription = null, modifier = Modifier.size(64.dp))
+            Icon(Icons.Default.LiveTv, contentDescription = null, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text("直播页面", style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
-@Composable
-fun DynamicCard(
-    author: String,
-    time: String,
-    content: String,
-    likes: Int,
-    comments: Int
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // Header
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = CircleShape
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Column {
-                    Text(author, style = MaterialTheme.typography.titleSmall)
-                    Text(time, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Content
-            Text(content, style = MaterialTheme.typography.bodyMedium)
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                ActionButton(icon = Icons.Default.Favorite, count = likes)
-                ActionButton(icon = Icons.Default.Comment, count = comments)
-                ActionButton(icon = Icons.Default.Share, count = 0)
-            }
-        }
-    }
-}
-
-@Composable
-fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        if (count > 0) {
-            Text(count.toString(), style = MaterialTheme.typography.labelSmall)
+            Text("直播动态", style = MaterialTheme.typography.titleSmall)
         }
     }
 }

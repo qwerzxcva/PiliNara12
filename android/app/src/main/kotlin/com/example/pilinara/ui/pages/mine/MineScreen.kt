@@ -1,5 +1,6 @@
 package com.example.pilinara.ui.pages.mine
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,161 +15,225 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import com.example.pilinara.data.model.NavData
-import com.example.pilinara.data.repository.LoginRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-
-/** 「我的」页状态：登录资料 + 加载中 */
-class MineViewModel(
-    private val loginRepo: LoginRepository = LoginRepository()
-) : ViewModel() {
-
-    private val _nav = MutableStateFlow<NavData?>(null)
-    val nav: StateFlow<NavData?> = _nav.asStateFlow()
-
-    private val _loading = MutableStateFlow(true)
-    val loading: StateFlow<Boolean> = _loading.asStateFlow()
-
-    init { refresh() }
-
-    /** 恢复 session 并拉取自身资料 */
-    fun refresh() {
-        viewModelScope.launch {
-            _loading.value = true
-            val loggedIn = loginRepo.restoreSession()
-            if (loggedIn) {
-                _nav.value = loginRepo.fetchSelfInfo().getOrNull()?.data
-            } else {
-                _nav.value = null
-            }
-            _loading.value = false
-        }
-    }
-
-    fun logout(onDone: () -> Unit) {
-        viewModelScope.launch {
-            loginRepo.logout()
-            _nav.value = null
-            onDone()
-        }
-    }
-}
+import com.example.pilinara.ui.main.LoginViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MineScreen(
-    onOpenLogin: () -> Unit = {},
-    onOpenFavorites: (Long) -> Unit = {},
-    onOpenHistory: () -> Unit = {},
-    viewModel: MineViewModel = viewModel()
+    loginViewModel: LoginViewModel = viewModel()
 ) {
-    val nav by viewModel.nav.collectAsState()
-    val isLoggedIn = nav != null
-
+    val isLoggedIn by loginViewModel.isLoggedIn.collectAsState()
+    var showSettings by remember { mutableStateOf(false) }
+    
+    if (showSettings) {
+        SettingsDialog(onDismiss = { showSettings = false })
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("我的") },
                 actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Settings, contentDescription = "设置")
+                    if (isLoggedIn) {
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "设置")
+                        }
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            if (isLoggedIn) {
-                val n = nav!!
-                UserHeader(
-                    uname = n.uname.ifEmpty { "用户${n.mid}" },
-                    mid = n.mid,
-                    face = n.face,
-                    level = n.levelInfo?.currentLevel ?: 0,
-                    isVip = n.vipStatus == 1
-                )
-                Spacer(Modifier.height(12.dp))
-                QuickActions(
-                    onHistory = onOpenHistory,
-                    onFavorites = { onOpenFavorites(n.mid) }
-                )
-                Spacer(Modifier.height(12.dp))
-                SectionDivider("账号")
-                var showLogout by remember { mutableStateOf(false) }
-                SettingRow(icon = Icons.Default.Logout, title = "退出登录") { showLogout = true }
-                if (showLogout) {
-                    AlertDialog(
-                        onDismissRequest = { showLogout = false },
-                        title = { Text("退出登录") },
-                        text = { Text("确定要退出当前账号吗？") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                showLogout = false
-                                viewModel.logout { }
-                            }) { Text("退出") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showLogout = false }) { Text("取消") }
-                        }
-                    )
-                }
-            } else {
-                LoginPrompt(onOpenLogin)
-            }
+        if (isLoggedIn) {
+            UserContent(modifier = Modifier.padding(padding))
+        } else {
+            LoginContent(modifier = Modifier.padding(padding))
         }
     }
 }
 
 @Composable
-fun UserHeader(uname: String, mid: Long, face: String, level: Int, isVip: Boolean) {
+fun LoginContent(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Logo/Icon
+        Surface(
+            modifier = Modifier.size(96.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Title
+        Text(
+            "PiliNara",
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.Bold
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Subtitle
+        Text(
+            "登录后享受更多功能",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Text(
+            "同步收藏、观看历史与追番进度",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Login buttons
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // QR Code Login
+            Button(
+                onClick = { /* TODO: Implement QR login */ },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(Icons.Default.QrCode, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("扫码登录", style = MaterialTheme.typography.titleMedium)
+            }
+            
+            // Phone Login
+            OutlinedButton(
+                onClick = { /* TODO: Implement phone login */ },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Icon(Icons.Default.Phone, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("手机号登录", style = MaterialTheme.typography.titleMedium)
+            }
+            
+            // WeChat Login
+            OutlinedButton(
+                onClick = { /* TODO: Implement WeChat login */ },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFF07C160)
+                )
+            ) {
+                Icon(Icons.Default.Share, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("微信登录", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Agreement
+        Text(
+            "登录即表示同意《用户协议》和《隐私政策》",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+    }
+}
+
+@Composable
+fun UserContent(modifier: Modifier = Modifier) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // User profile card
+        item {
+            UserCard()
+        }
+        
+        // Stats
+        item {
+            StatsRow()
+        }
+        
+        // Quick actions
+        item {
+            QuickActions()
+        }
+        
+        // Menu items
+        item {
+            Divider()
+        }
+        
+        items(menuItems) { item ->
+            MenuItem(item = item)
+        }
+    }
+}
+
+@Composable
+fun UserCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Avatar
-            if (face.isNotEmpty()) {
-                AsyncImage(
-                    model = face,
-                    contentDescription = "头像",
-                    modifier = Modifier.size(64.dp)
-                )
-            } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Avatar
                 Surface(
-                    modifier = Modifier.size(64.dp),
-                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.size(56.dp),
+                    shape = MaterialTheme.shapes.circle,
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp))
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // User info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(uname, style = MaterialTheme.typography.titleLarge)
-                Text("UID: $mid", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Badge(text = "Lv.$level")
-                    if (isVip) Badge(text = "大会员")
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // User info
+                Column {
+                    Text("用户名", style = MaterialTheme.typography.titleLarge)
+                    Text("UID: 12345678", style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Badge(text = "Lv.6")
+                        Badge(text = "大会员")
+                    }
                 }
             }
         }
@@ -176,32 +241,54 @@ fun UserHeader(uname: String, mid: Long, face: String, level: Int, isVip: Boolea
 }
 
 @Composable
-fun QuickActions(onHistory: () -> Unit = {}, onFavorites: () -> Unit = {}) {
-    val actions = listOf(
-        Triple("历史", Icons.Default.History, onHistory),
-        Triple("收藏", Icons.Default.Favorite, onFavorites),
-        Triple("离线缓存", Icons.Default.Download, {} as () -> Unit),
-        Triple("稍后再看", Icons.Default.PlayArrow, {} as () -> Unit)
+fun StatsRow() {
+    val stats = listOf(
+        Pair("关注", "128"),
+        Pair("粉丝", "3.2万"),
+        Pair("获赞", "15.6万"),
+        Pair("播放", "89.3万")
     )
-
+    
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceAround
+    ) {
+        stats.forEach { (label, value) ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(value, style = MaterialTheme.typography.titleMedium)
+                Text(label, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActions() {
+    val actions = listOf(
+        Pair("历史", Icons.Default.History),
+        Pair("收藏", Icons.Default.Favorite),
+        Pair("离线缓存", Icons.Default.Download),
+        Pair("稍后再看", Icons.Default.PlayArrow)
+    )
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        actions.forEach { (label, icon, onClick) ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { onClick() }
-            ) {
+        actions.forEach { (label, icon) ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(
+                            icon,
+                            contentDescription = label,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -212,61 +299,46 @@ fun QuickActions(onHistory: () -> Unit = {}, onFavorites: () -> Unit = {}) {
 }
 
 @Composable
-fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, onClick: () -> Unit = {}) {
+fun MenuItem(item: MenuItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .clickable { item.onClick() }
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(12.dp))
-        Text(title, fontSize = 15.sp)
-    }
-}
-
-@Composable
-fun SectionDivider(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
-}
-
-@Composable
-fun LoginPrompt(onOpenLogin: () -> Unit = {}) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
         Icon(
-            Icons.Default.Person,
+            item.icon,
             contentDescription = null,
-            modifier = Modifier.size(96.dp),
-            tint = MaterialTheme.colorScheme.primary
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.onSurface
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("登录后享受更多功能", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "同步收藏、观看历史与追番进度",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(item.title, style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onOpenLogin,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("扫码登录")
-        }
     }
+    Divider()
 }
+
+data class MenuItem(
+    val title: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val onClick: () -> Unit
+)
+
+val menuItems = listOf(
+    MenuItem("历史观看", Icons.Default.History, {}),
+    MenuItem("我的收藏", Icons.Default.Favorite, {}),
+    MenuItem("离线缓存", Icons.Default.Download, {}),
+    MenuItem("追番列表", Icons.Default.VideoLibrary, {}),
+    MenuItem("创作中心", Icons.Default.AddCircle, {}),
+    MenuItem("设置", Icons.Default.Settings, {})
+)
 
 @Composable
 fun Badge(text: String) {
@@ -282,4 +354,24 @@ fun Badge(text: String) {
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
+}
+
+@Composable
+fun SettingsDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("设置") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("主题设置")
+                Text("通知设置")
+                Text("隐私设置")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭")
+            }
+        }
+    )
 }
