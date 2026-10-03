@@ -211,7 +211,7 @@ fun UserCard() {
                 // Avatar
                 Surface(
                     modifier = Modifier.size(56.dp),
-                    shape = MaterialTheme.shapes.circle,
+                    shape = MaterialTheme.shapes.large,
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
