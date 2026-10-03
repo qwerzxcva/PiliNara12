@@ -4,12 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.pilinara.ui.main.HomeScreen
 import com.example.pilinara.ui.main.SearchScreen
-import com.example.pilinara.ui.main.ProfileScreen
 import com.example.pilinara.ui.pages.dynamics.DynamicsScreen
-import com.example.pilinara.ui.pages.home.HomeScreen as HomePage
+import com.example.pilinara.ui.pages.home.HomeScreen
 import com.example.pilinara.ui.pages.mine.MineScreen
+import com.example.pilinara.playback.VideoPlayerScreen
 
 /**
  * App Navigation - Jetpack Compose
@@ -38,25 +37,41 @@ fun AppNavigation() {
         startDestination = Screen.Home.route
     ) {
         composable(Screen.Home.route) {
-            HomePage()
+            HomeScreen(
+                onVideoClick = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
+                }
+            )
         }
         composable(Screen.Search.route) {
-            SearchScreen(onSearch = { query ->
-                // Navigate to search results
-            })
+            SearchScreen(
+                onVideoClick = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
+                }
+            )
         }
         composable(Screen.Dynamics.route) {
             DynamicsScreen()
         }
         composable(Screen.Message.route) {
             // TODO: Implement MessageScreen
+            androidx.compose.foundation.layout.Box(
+                modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.Text("消息页面 - 待实现")
+            }
         }
         composable(Screen.Profile.route) {
-            ProfileScreen()
+            MineScreen()
         }
         composable(Screen.VideoPlayer.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
-            // TODO: Implement VideoPlayerScreen
+            VideoPlayerScreen(
+                videoUrl = "", // TODO: Get actual video URL
+                bvid = bvid,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->
             val roomId = backStackEntry.arguments?.getString("roomId") ?: ""
