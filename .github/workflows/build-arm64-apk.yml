@@ -119,14 +119,10 @@ jobs:
         run: |
           cd android
           
-          # Ensure gradlew exists and is executable
-          if [ ! -f "gradlew" ]; then
-            echo "ERROR: gradlew not found in android/"
-            exit 1
-          fi
-          chmod +x gradlew
+          # Use local Gradle installation instead of wrapper
+          export PATH="/opt/gradle-9.3.1/bin:$PATH"
           
-          ./gradlew :app:assembleRelease \
+          gradle :app:assembleRelease \
             --no-daemon \
             2>&1
             
