@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,26 +28,43 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-
-data class VideoCard(
-    val title: String,
-    val author: String,
-    val playCount: String,
-    val duration: String,
-)
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.pilinara.data.model.VideoItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onOpenSearch: () -> Unit = {}) {
-    var cards by remember { mutableStateOf(emptyList<VideoCard>()) }
+fun HomeScreen(
+    onOpenSearch: () -> Unit = {},
+    viewModel: HomeViewModel = viewModel(),
+) {
+    val state by viewModel.state.collectAsState()
+    val gridState = rememberLazyGridState()
+
+    // 触底自动加载下一页
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val info = gridState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
+        }
+    }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) viewModel.loadMore()
+    }
 
     Scaffold(
         topBar = {
@@ -59,31 +78,48 @@ fun HomeScreen(onOpenSearch: () -> Unit = {}) {
             )
         },
     ) { padding ->
-        if (cards.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Filled.PlayCircleOutline,
-                        contentDescription = null,
-                        modifier = Modifier.height(64.dp).width(64.dp),
-                        tint = MaterialTheme.colorScheme.outline,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text("暂无推荐内容", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.outline)
-                    Spacer(Modifier.height(4.dp))
-                    Text("下拉刷新或搜索感兴趣的视频", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        PullToRefreshBox(
+            isRefreshing = state is HomeUiState.Loading,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
+            when (val s = state) {
+                is HomeUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(cards) { card ->
-                    VideoCardItem(card)
+                is HomeUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.PlayCircleOutline,
+                            contentDescription = null,
+                            modifier = Modifier.height(64.dp).width(64.dp),
+                            tint = MaterialTheme.colorScheme.outline,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "加载失败：${s.message}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "下拉重试",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                is HomeUiState.Success -> LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    state = gridState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(s.items, key = { it.aid }) { card ->
+                        VideoCardItem(card)
+                    }
                 }
             }
         }
@@ -91,23 +127,53 @@ fun HomeScreen(onOpenSearch: () -> Unit = {}) {
 }
 
 @Composable
-private fun VideoCardItem(card: VideoCard) {
-    Card(onClick = { /* TODO: 打开视频详情 */ }) {
+private fun VideoCardItem(card: VideoItem) {
+    Card(onClick = { /* TODO 阶段三: 打开视频详情 */ }) {
         Column {
             Box(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 10f),
             ) {
-                // TODO: 封面图 (coil) + 时长角标
+                AsyncImage(
+                    model = card.pic,
+                    contentDescription = card.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Text(
+                    text = card.durationText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp),
+                )
             }
             Column(Modifier.padding(10.dp)) {
-                Text(card.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    card.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    minLines = 2,
+                )
                 Spacer(Modifier.height(6.dp))
                 Row {
-                    Text(card.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        card.owner.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
                     Spacer(Modifier.width(8.dp))
-                    Text(card.playCount, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        "${card.viewCountText}观看",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
                 }
             }
         }
