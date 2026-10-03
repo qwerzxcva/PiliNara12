@@ -12,7 +12,6 @@ env:
   ANDROID_COMPILE_SDK: '34'
   ANDROID_NDK_VERSION: '27.3.13750724'
   TERM: dumb
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dkotlin.compiler.execution.strategy=process"
 
 jobs:
   build-rust-native:
@@ -35,22 +34,60 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
 
-      - name: Setup Android NDK
+      - name: Setup Android SDK & NDK
         run: |
-          sdkmanager --sdk_root=${ANDROID_HOME} "ndk;${ANDROID_NDK_VERSION}"
-          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> $GITHUB_ENV
-          echo "NDK installed: $(ls ${ANDROID_HOME}/ndk/)"
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
+          
+          ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ 2>/dev/null || \
+            ls -la $ANDROID_HOME/tools/bin/ 2>/dev/null || \
+            find $ANDROID_HOME -name "sdkmanager" -type f 2>/dev/null
+          
+          # Find sdkmanager
+          SDKMGR=$(find $ANDROID_HOME -name "sdkmanager" -type f 2>/dev/null | head -1)
+          echo "Found sdkmanager: $SDKMGR"
+          if [ -z "$SDKMGR" ]; then
+            echo "ERROR: sdkmanager not found in $ANDROID_HOME"
+            ls -la $ANDROID_HOME/
+            exit 1
+          fi
+          
+          # Accept licenses
+          yes | $SDKMGR --sdk_root=$ANDROID_HOME licenses > /dev/null 2>&1 || true
+          
+          # Install NDK
+          $SDKMGR --sdk_root=$ANDROID_HOME "ndk;${{ env.ANDROID_NDK_VERSION }}" 2>&1
+          
+          # Verify NDK installation
+          echo "=== Installed NDK versions ==="
+          ls -la $ANDROID_HOME/ndk/
+          
+          # Verify toolchain exists
+          TOOLCHAIN="$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "=== Toolchain files ==="
+          ls $TOOLCHAIN/ | grep -E "clang|ar|llvm" | head -10
 
       - name: Build Rust library for arm64-v8a
         run: |
           cd rust
           export ANDROID_NDK_HOME="${{ env.ANDROID_NDK_HOME }}"
           export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          export AR=llvm-ar
+          export CC=aarch64-linux-android24-clang
+          export CXX=aarch64-linux-android24-clang++
+          export CFLAGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          export LDFLAGS="-Wl,-rpath,$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/24"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
+          export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
           
+          echo "=== Building Rust with cargo-ndk ==="
           cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release 2>&1
           
-          echo "Rust library built successfully"
+          echo "=== Rust library built successfully ==="
           ls -la ../android/app/src/main/jniLibs/arm64-v8a/
+          file ../android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so 2>/dev/null || true
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v4
@@ -71,6 +108,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Download Rust library
         uses: actions/download-artifact@v4
@@ -81,31 +119,26 @@ jobs:
       - name: Verify native library
         run: |
           echo "=== Native libraries ==="
-          ls -la ./android/app/src/main/jniLibs/arm64-v8a/
-          file ./android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so || true
+          ls -la ./android/app/src/main/jniLibs/arm64-v8a/ || echo "No jniLibs directory"
+          file ./android/app/src/main/jniLibs/arm64-v8a/libpilinara_native.so 2>/dev/null || true
 
       - name: Build Kotlin APK
         run: |
           chmod +x ./android/gradlew
           cd android
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
           
-          echo "=== Build completed ==="
+          echo "=== Checking for APK output ==="
           find . -name "*.apk" -type f 2>/dev/null || true
+          ls -la app/build/outputs/apk/ 2>/dev/null || true
           ls -la app/build/outputs/apk/release/ 2>/dev/null || true
-
-      - name: Collect APK files
-        run: |
-          mkdir -p apks
-          find android/app/build -name "*.apk" -exec cp {} apks/ \; 2>/dev/null || true
-          echo "=== APK files collected ==="
-          ls -la apks/ || echo "No APKs found"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: pilinara-arm64-apk
-          path: apks/
+          path: |
+            android/app/build/outputs/apk/release/*.apk
           retention-days: 7
           if-no-files-found: warn
 
@@ -114,10 +147,11 @@ jobs:
     needs: [build-kotlin]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts/
-      
+
       - name: Display build summary
         run: |
           echo "==================================="
