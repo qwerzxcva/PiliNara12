@@ -18,10 +18,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
   JAVA_VERSION: '17'
-  GRADLE_VERSION: '9.5.0'
-  ANDROID_COMPILE_SDK: '37'
+  ANDROID_COMPILE_SDK: '34'
   ANDROID_BUILD_TOOLS: '34.0.0'
   ANDROID_NDK_VERSION: 'r27b'
+  GRADLE_HOME: /opt/gradle-9.3.1
 
 jobs:
   build-rust-native:
@@ -41,13 +41,6 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Verify NDK setup
-        run: |
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep aarch64 | head -5
-          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep llvm-ar
-          find "$ANDROID_NDK_HOME" -name "crtbegin_dynamic.o" -path "*/sysroot/*" 2>/dev/null | head -3
-
       - name: Build Rust library for arm64-v8a
         run: |
           cd rust
@@ -58,9 +51,6 @@ jobs:
           SYSROOT="$TOOLCHAIN/sysroot"
           API_LEVEL=21
           TARGET_TRIPLE="aarch64-linux-android${API_LEVEL}"
-          
-          echo "Using NDK_HOME=$NDK_HOME"
-          echo "Using SYSROOT=$SYSROOT"
           
           # Set environment variables for cross-compilation
           export PATH="$TOOLCHAIN/bin:$PATH"
@@ -104,31 +94,18 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
 
-      - name: Add Android SDK to PATH
+      - name: Set environment variables
         run: |
-          echo "/opt/android-sdk/build-tools/34.0.0" >> $GITHUB_PATH
           echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> $GITHUB_ENV
-
-      - name: Build Kotlin APK with Rust native lib
-        run: |
-          cd android
-          
-          # Use local Gradle installation instead of wrapper
-          export PATH="/opt/gradle-9.3.1/bin:$PATH"
-          
-          gradle :app:assembleRelease \
-            --no-daemon \
-            2>&1
-            
-          echo "APK build completed"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "$GRADLE_HOME/bin" >> $GITHUB_PATH
 
       - name: Download Rust library
         uses: actions/download-artifact@v4
@@ -139,11 +116,7 @@ jobs:
       - name: Build Kotlin APK with Rust native lib
         run: |
           cd android
-          
-          # Use local Gradle installation instead of wrapper
-          export PATH="/opt/gradle-9.3.1/bin:$PATH"
-          
-          gradle :app:assembleRelease \
+          ./gradlew :app:assembleRelease \
             --no-daemon \
             2>&1
             
@@ -192,8 +165,8 @@ jobs:
           echo ""
           echo "Build Architecture: arm64-v8a (ARMv8 64-bit)"
           echo "Min SDK: 21 (Android 5.0)"
-          echo "Target SDK: 37 (Android 17)"
-          echo "Compile SDK: 37"
+          echo "Target SDK: 34 (Android 14)"
+          echo "Compile SDK: 34"
           echo ""
           echo "=== Artifacts ==="
           find artifacts -type f -name "*.apk" -o -name "*.so" 2>/dev/null | head -20
