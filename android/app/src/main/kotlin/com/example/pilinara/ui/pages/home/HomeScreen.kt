@@ -1,124 +1,81 @@
 package com.example.pilinara.ui.pages.home
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayCircleOutline
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.example.pilinara.data.model.VideoItem
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenSearch: () -> Unit = {},
-    viewModel: HomeViewModel = viewModel(),
+    onVideoClick: (String, Long) -> Unit = { _, _ -> },
+    viewModel: HomeViewModel = viewModel()
 ) {
-    val state by viewModel.state.collectAsState()
-    val gridState = rememberLazyGridState()
-
-    // 触底自动加载下一页
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val info = gridState.layoutInfo
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-            info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
-        }
+    val videos by viewModel.videos.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
     }
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) viewModel.loadMore()
-    }
-
+    
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PiliNara") },
-                actions = {
-                    IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = "搜索")
-                    }
-                },
+                title = { Text("PiliNara", color = Color.White) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                )
             )
-        },
+        }
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state is HomeUiState.Loading,
-            onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxSize().padding(padding),
-        ) {
-            when (val s = state) {
-                is HomeUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+        Box(modifier = Modifier.padding(padding)) {
+            if (isLoading && videos.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
-                is HomeUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            } else if (error != null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Filled.PlayCircleOutline,
-                            contentDescription = null,
-                            modifier = Modifier.height(64.dp).width(64.dp),
-                            tint = MaterialTheme.colorScheme.outline,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "加载失败：${s.message}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "下拉重试",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        Text("加载失败: $error", color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.refresh() }) {
+                            Text("重试")
+                        }
                     }
                 }
-                is HomeUiState.Success -> LazyVerticalGrid(
+            } else {
+                LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    state = gridState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(s.items, key = { it.aid }) { card ->
-                        VideoCardItem(card)
+                    items(videos, key = { it.bvid }) { video ->
+                        VideoCard(video = video, onClick = { onVideoClick(video.bvid, video.cid) })
                     }
                 }
             }
@@ -127,55 +84,91 @@ fun HomeScreen(
 }
 
 @Composable
-private fun VideoCardItem(card: VideoItem) {
-    Card(onClick = { /* TODO 阶段三: 打开视频详情 */ }) {
-        Column {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 10f),
+fun VideoCard(
+    video: VideoItem,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Thumbnail
+            AsyncImage(
+                model = video.cover,
+                contentDescription = video.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            
+            // Duration overlay
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp),
+                shape = MaterialTheme.shapes.small,
+                color = Color.Black.copy(alpha = 0.6f)
             ) {
-                AsyncImage(
-                    model = card.pic,
-                    contentDescription = card.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
                 Text(
-                    text = card.durationText,
+                    text = formatDuration(video.duration),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp),
+                    color = Color.White
                 )
             }
-            Column(Modifier.padding(10.dp)) {
+            
+            // Info overlay
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(
-                    card.title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = video.title,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(6.dp))
-                Row {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(12.dp))
                     Text(
-                        card.owner.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
+                        text = video.author,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.8f)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Text(text = "·", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(12.dp))
                     Text(
-                        "${card.viewCountText}观看",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        text = formatCount(video.play),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.8f)
                     )
                 }
             }
         }
+    }
+}
+
+fun formatDuration(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "${minutes}:${if (seconds < 10) "0" else ""}$seconds"
+}
+
+fun formatCount(count: Long): String {
+    return when {
+        count >= 100000000 -> String.format("%.1f亿", count / 100000000.0)
+        count >= 10000 -> String.format("%.1f万", count / 10000.0)
+        else -> count.toString()
     }
 }

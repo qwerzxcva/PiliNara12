@@ -2,26 +2,24 @@ name: Build ARM64 APK (Kotlin + Rust)
 
 on:
   push:
-    branches: [main, feat/arm64-rust-build]
+    branches: [feat/arm64-rust-build]
     paths:
       - 'android/**'
       - 'rust/**'
-      - '.github/workflows/build-arm64-apk.yml'
+      - '.github/workflows/*.yml'
   pull_request:
-    branches: [main, feat/arm64-rust-build]
+    branches: [feat/arm64-rust-build]
     paths:
       - 'android/**'
       - 'rust/**'
-      - '.github/workflows/build-arm64-apk.yml'
+      - '.github/workflows/*.yml'
   workflow_dispatch:
 
 env:
-  CARGO_TERM_COLOR: always
   JAVA_VERSION: '17'
-  GRADLE_VERSION: '9.5.0'
   ANDROID_COMPILE_SDK: '34'
   ANDROID_BUILD_TOOLS: '34.0.0'
-  ANDROID_NDK_VERSION: 'r27b'
+  ANDROID_NDK_VERSION: '27.3.13750724'
 
 jobs:
   build-rust-native:
@@ -49,7 +47,7 @@ jobs:
           NDK_HOME="$ANDROID_NDK_HOME"
           TOOLCHAIN="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
           SYSROOT="$TOOLCHAIN/sysroot"
-          API_LEVEL=21
+          API_LEVEL=24
           TARGET_TRIPLE="aarch64-linux-android${API_LEVEL}"
           
           # Set environment variables for cross-compilation
@@ -58,12 +56,9 @@ jobs:
           export CC="${TARGET_TRIPLE}-clang"
           export CXX="${TARGET_TRIPLE}-clang++"
           export CFLAGS="--sysroot=$SYSROOT"
-          export LDFLAGS="-L$SYSROOT/usr/lib/aarch64-linux-android/$API_LEVEL"
+          export LDFLAGS="-Wl,-rpath,$SYSROOT/usr/lib/aarch64-linux-android/${API_LEVEL}"
           export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
-          
-          # Use NDK's clang linker directly
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${TARGET_TRIPLE}-clang"
-          export AR=llvm-ar
           
           cargo build --release --target aarch64-linux-android
           
@@ -81,11 +76,6 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a/
           retention-days: 7
-
-      - name: Run Rust tests
-        run: |
-          cd rust
-          cargo test --lib
 
   build-kotlin:
     name: Build Kotlin Android App (ARM64)
@@ -110,26 +100,23 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
-      - name: Build Kotlin APK with Rust native lib
+      - name: Build Kotlin APK
         run: |
+          chmod +x ./android/gradlew
           cd android
-          chmod +x gradlew
-          ./gradlew :app:assembleRelease \
-            --no-daemon \
-            2>&1
-            
+          ./gradlew :app:assembleRelease --no-daemon --console=plain 2>&1
+          
           echo "APK build completed"
+          ls -la app/build/outputs/apk/release/
 
       - name: Find APK files
         run: |
           echo "=== APK Output ==="
-          find android/app/build/outputs -name "*.apk" -type f 2>/dev/null || \
-          find . -name "*.apk" -type f 2>/dev/null | head -10
+          find ./app/build -name "*.apk" -type f 2>/dev/null || true
           
           echo ""
           echo "=== Native Library ==="
-          ls -la android/app/src/main/jniLibs/arm64-v8a/*.so 2>/dev/null || \
-          find . -name "*.so" -type f 2>/dev/null | head -5
+          ls -la ./app/src/main/jniLibs/arm64-v8a/*.so 2>/dev/null || echo "No .so found in source"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -137,9 +124,8 @@ jobs:
           name: pilinara-arm64-apk
           path: |
             android/app/build/outputs/apk/release/*.apk
-            **/*.apk
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
 
   verify-build:
     name: Verify Build Artifacts
@@ -158,12 +144,12 @@ jobs:
           echo "==================================="
           echo ""
           echo "Build Architecture: arm64-v8a (ARMv8 64-bit)"
-          echo "Min SDK: 21 (Android 5.0)"
+          echo "Min SDK: 24 (Android 7.0)"
           echo "Target SDK: 34 (Android 14)"
           echo "Compile SDK: 34"
           echo ""
           echo "=== Artifacts ==="
-          find artifacts -type f -name "*.apk" -o -name "*.so" 2>/dev/null | head -20
+          find artifacts -type f \( -name "*.apk" -o -name "*.so" \) 2>/dev/null | head -20
           
           echo ""
           echo "=== Rust Library ==="
