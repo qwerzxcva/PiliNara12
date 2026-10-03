@@ -2,13 +2,13 @@ name: Build ARM64 APK (Kotlin + Rust)
 
 on:
   push:
-    branches: [main, feat/arm64-rust-build]
+    branches: [feat/arm64-rust-build]
     paths:
       - 'android/**'
       - 'rust/**'
       - '.github/workflows/build-arm64-apk.yml'
   pull_request:
-    branches: [main, feat/arm64-rust-build]
+    branches: [feat/arm64-rust-build]
     paths:
       - 'android/**'
       - 'rust/**'
@@ -16,12 +16,9 @@ on:
   workflow_dispatch:
 
 env:
-  CARGO_TERM_COLOR: always
   JAVA_VERSION: '17'
   ANDROID_COMPILE_SDK: '34'
-  ANDROID_BUILD_TOOLS: '34.0.0'
-  ANDROID_NDK_VERSION: 'r27b'
-  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dkotlin.compiler.execution.strategy=in-process"
+  ANDROID_NDK_VERSION: '27.3.13750724'
 
 jobs:
   build-rust-native:
@@ -113,13 +110,14 @@ jobs:
       - name: Build Kotlin APK with Rust native lib
         run: |
           chmod +x ./android/gradlew
-          ./android/gradlew :app:assembleRelease \
+          cd android
+          ./gradlew :app:assembleRelease \
             --no-daemon \
             --console=plain \
             2>&1
             
           echo "APK build completed"
-          ls -la ./android/app/build/outputs/apk/release/
+          ls -la app/build/outputs/apk/release/
 
       - name: Find APK files
         run: |

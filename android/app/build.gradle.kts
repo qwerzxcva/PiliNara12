@@ -109,7 +109,6 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     
     // Audio service (foreground playback)
-    implementation("com.ryanheise.audioservice:audioservice:0.0.1")
     
     // Testing
     testImplementation("junit:junit:4.13.2")
