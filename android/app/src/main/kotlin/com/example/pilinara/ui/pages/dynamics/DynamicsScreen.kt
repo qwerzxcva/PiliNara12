@@ -56,7 +56,7 @@ fun DynamicsScreen() {
 
 @Composable
 fun FollowDynamics() {
-    // TODO: Implement with actual data
+    // Implemented with sample data for demo
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(8.dp),
