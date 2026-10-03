@@ -20,11 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          ndk-version: ${{ env.ANDROID_NDK_VERSION }}
-          link-to-sdk: true
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK r27b
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "ndk;27.3.13750724" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
