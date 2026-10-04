@@ -483,6 +483,18 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 进度条缩略图雪碧图（批次L3 storyboard） */
+    suspend fun getVideoShot(bvid: String, cid: Long): Result<VideoShotResponse> = runCatching {
+        client.get("$API_BASE/x/player/videoshot") {
+            url {
+                parameters.append("bvid", bvid)
+                parameters.append("cid", cid.toString())
+                parameters.append("index", "1")
+            }
+            header("Referer", "https://www.bilibili.com/")
+        }.body()
+    }
+
     /** 番剧播放地址（pgc playurl，ep_id + cid） */
     suspend fun getPgcPlayUrl(epId: Long, cid: Long, qn: Int = 80): Result<PgcPlayUrlResponse> = runCatching {
         val signed = WbiSigner.sign(

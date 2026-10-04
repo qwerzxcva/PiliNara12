@@ -25,6 +25,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -200,16 +202,55 @@ fun VideoPlayerScreen(
                 }
                 
                 Spacer(Modifier.weight(1f))
-                
-                // Seek bar
-                Slider(
-                    value = if (state.duration > 0) state.currentTime.toFloat() / state.duration else 0f,
-                    onValueChange = { },
-                    onValueChangeFinished = { 
-                        viewModel.seekTo(0L)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                // Seek bar（拖动时显示 storyboard 缩略图预览，批次L3）
+                var isSeeking by remember { mutableStateOf(false) }
+                var seekPreviewSec by remember { mutableStateOf(0L) }
+                Box {
+                    if (isSeeking) {
+                        val frame = viewModel.shotFrameAt(seekPreviewSec)
+                        val shot = viewModel.videoShot.collectAsState().value
+                        if (frame != null && shot != null && shot.imgXLen > 0 && shot.imgYLen > 0) {
+                            // 雪碧图整图按格位偏移裁剪显示
+                            val cellW = shot.imgXSize.toFloat()
+                            val cellH = shot.imgYSize.toFloat()
+                            val scale = 160f / cellW
+                            BoxWithConstraints(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 44.dp)
+                                    .size(width = 160.dp, height = 90.dp)
+                            ) {
+                                coil.compose.AsyncImage(
+                                    model = frame.first,
+                                    contentDescription = "预览",
+                                    modifier = Modifier
+                                        .size(
+                                            width = (shot.imgXLen * cellW * scale).dp,
+                                            height = (shot.imgYLen * cellH * scale).dp
+                                        )
+                                        .graphicsLayer {
+                                            translationX = -frame.second * cellW * scale * density
+                                            translationY = -frame.third * cellH * scale * density
+                                        },
+                                    contentScale = androidx.compose.ui.layout.ContentScale.FillBounds
+                                )
+                            }
+                        }
+                    }
+                    Slider(
+                        value = if (state.duration > 0) state.currentTime.toFloat() / state.duration else 0f,
+                        onValueChange = { fraction ->
+                            isSeeking = true
+                            seekPreviewSec = ((state.duration * fraction) / 1000).toLong()
+                        },
+                        onValueChangeFinished = {
+                            isSeeking = false
+                            viewModel.seekTo(seekPreviewSec * 1000)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 
                 Row(modifier = Modifier.fillMaxWidth(), 
                     horizontalArrangement = Arrangement.SpaceBetween) {

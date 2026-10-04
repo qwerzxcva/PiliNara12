@@ -289,7 +289,25 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
 
         startPlayback(videoUrl2, audioUrl2)
         loadSubtitles(bvid, effectiveCid)
+        loadVideoShot(bvid, effectiveCid)
     }
+
+    /** 批次L3：加载进度条缩略图雪碧图（非阻断，失败静默） */
+    private val _videoShot = kotlinx.coroutines.flow.MutableStateFlow<com.example.pilinara.data.model.VideoShotData?>(null)
+    val videoShot: kotlinx.coroutines.flow.StateFlow<com.example.pilinara.data.model.VideoShotData?> = _videoShot
+
+    private fun loadVideoShot(bvid: String, cid: Long) {
+        _videoShot.value = null
+        if (bvid.isEmpty() || bvid.startsWith("ep")) return
+        viewModelScope.launch {
+            BiliApiClient().getVideoShot(bvid, cid).onSuccess { resp ->
+                if (resp.code == 0) _videoShot.value = resp.data
+            }
+        }
+    }
+
+    /** 按当前秒数取缩略图帧 (url, col, row) */
+    fun shotFrameAt(second: Long): Triple<String, Int, Int>? = _videoShot.value?.frameAt(second)
 
     /** 组装 MergingMediaSource 并启动播放（可带恢复进度） */
     private fun startPlayback(
