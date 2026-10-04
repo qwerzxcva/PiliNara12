@@ -2,8 +2,11 @@ package com.example.pilinara.ui.live
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +42,7 @@ fun LiveRoomScreen(
     )
 ) {
     val state by viewModel.state.collectAsState()
+    val wsState by viewModel.wsState.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -144,21 +148,110 @@ fun LiveRoomScreen(
                             },
                             style = MaterialTheme.typography.labelMedium
                         )
+                        val ws = wsState
+                        if (ws != null) {
+                            Spacer(Modifier.weight(1f))
+                            val (label, tint) = when (ws) {
+                                is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Authenticated ->
+                                    "弹幕已连接" to MaterialTheme.colorScheme.primary
+                                is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Connecting ->
+                                    "弹幕连接中…" to MaterialTheme.colorScheme.onSurfaceVariant
+                                is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Failed ->
+                                    "弹幕断开" to MaterialTheme.colorScheme.error
+                                else -> "弹幕空闲" to MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            Text(label, style = MaterialTheme.typography.labelSmall, color = tint)
+                        }
                     }
                 }
             }
 
-            // 提示：弹幕 websocket 后续批次接入
+            // 弹幕聊天区（批次J）
+            var input by remember { mutableStateOf("") }
+            val chat by viewModel.chatMessages.collectAsState()
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            LaunchedEffect(chat.size) {
+                if (chat.isNotEmpty()) listState.animateScrollToItem(chat.size - 1)
+            }
             Card(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp).weight(1f),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
-                    Text("弹幕区域（websocket 接入开发中）",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(chat) { msg ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            if (msg.medalName != null) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                                    shape = MaterialTheme.shapes.extraSmall
+                                ) {
+                                    Text(
+                                        "${msg.medalName} ${msg.medalLevel}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Text(
+                                "${msg.name}: ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                msg.text,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(msg.color)
+                            )
+                        }
+                    }
+                    if (chat.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().height(80.dp), Alignment.Center) {
+                                Text(
+                                    when (wsState) {
+                                        is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Authenticated -> "等待弹幕…"
+                                        is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Connecting -> "正在连接弹幕服务器…"
+                                        else -> "暂无弹幕"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 发送栏
+            Row(
+                Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("发一条弹幕…") },
+                    maxLines = 2,
+                    shape = MaterialTheme.shapes.large
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(
+                    onClick = {
+                        if (input.isNotBlank()) {
+                            viewModel.sendDanmaku(input); input = ""
+                        }
+                    },
+                    enabled = input.isNotBlank()
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, "发送")
                 }
             }
         }

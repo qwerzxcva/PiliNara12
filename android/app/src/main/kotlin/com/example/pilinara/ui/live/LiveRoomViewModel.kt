@@ -65,7 +65,10 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                             "未取到流地址" else null
                     )
                     // 进房上报（真实房间号）
-                    if (realRoomId > 0) api.liveRoomEntryAction(realRoomId)
+                    if (realRoomId > 0) {
+                        api.liveRoomEntryAction(realRoomId)
+                        connectDanmaku(realRoomId)   // 直播弹幕 WS（批次J）
+                    }
                 } else {
                     _state.value = _state.value.copy(
                         isLoading = false, error = resp.message.ifEmpty { "直播间加载失败" }
@@ -99,5 +102,74 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
 
     fun consumeError() {
         _state.value = _state.value.copy(error = null)
+    }
+
+    // ==================== 直播弹幕 WebSocket（批次J） ====================
+
+    private var wsClient: com.example.pilinara.data.remote.LiveDanmakuWsClient? = null
+
+    private val _chatMessages = MutableStateFlow<List<com.example.pilinara.data.model.LiveDanmakuMsg>>(emptyList())
+    val chatMessages: StateFlow<List<com.example.pilinara.data.model.LiveDanmakuMsg>> = _chatMessages.asStateFlow()
+
+    private val _popularity = MutableStateFlow(0L)
+    val popularity: StateFlow<Long> = _popularity.asStateFlow()
+
+    private val _wsState = MutableStateFlow<com.example.pilinara.data.remote.LiveDanmakuWsClient.State?>(
+        com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Idle
+    )
+    val wsState: StateFlow<com.example.pilinara.data.remote.LiveDanmakuWsClient.State?> = _wsState.asStateFlow()
+
+    /** load 成功、拿到真实房间号后调用 */
+    private fun connectDanmaku(realRoomId: Long) {
+        if (realRoomId <= 0L) return
+        viewModelScope.launch {
+            api.getDanmuInfo(realRoomId).onSuccess { resp ->
+                val data = resp.data ?: return@launch
+                val client = com.example.pilinara.data.remote.LiveDanmakuWsClient(
+                    roomId = realRoomId,
+                    token = data.token,
+                    hosts = data.hostList.map { it.host to it.wssPort }
+                )
+                wsClient = client
+                launch {
+                    client.state.collect { _wsState.value = it }
+                }
+                launch {
+                    client.popularity.collect { _popularity.value = it }
+                }
+                launch {
+                    client.chat.collect { msg ->
+                        _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                    }
+                }
+                client.connect()
+            }
+        }
+    }
+
+    /** 发送直播弹幕（需登录），成功后本地追加一条 */
+    fun sendDanmaku(text: String) {
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            api.sendLiveDanmaku(_state.value.roomId, text.trim()).onSuccess { ok ->
+                if (ok) {
+                    val msg = com.example.pilinara.data.model.LiveDanmakuMsg(
+                        uid = com.example.pilinara.data.remote.AccountSession.mid,
+                        name = "我",
+                        text = text.trim()
+                    )
+                    _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                } else {
+                    _state.value = _state.value.copy(error = "发送失败（可能需要登录或粉丝牌）")
+                }
+            }.onFailure {
+                _state.value = _state.value.copy(error = "发送失败: ${it.message}")
+            }
+        }
+    }
+
+    override fun onCleared() {
+        wsClient?.close()
+        super.onCleared()
     }
 }

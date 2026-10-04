@@ -604,6 +604,37 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    // ========== 直播弹幕 WebSocket（批次J） ==========
+
+    /** 弹幕连接信息：token + host 列表（wss://host:wssPort/sub） */
+    suspend fun getDanmuInfo(roomId: Long): Result<DanmuInfoResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo") {
+            url {
+                parameters.append("id", roomId.toString())
+                parameters.append("type", "0")
+            }
+            header("Referer", "https://live.bilibili.com/")
+        }.body()
+    }
+
+    /** 发送直播弹幕（csrf） */
+    suspend fun sendLiveDanmaku(roomId: Long, message: String): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "https://api.live.bilibili.com/xlive/web-room/v1/index/SendMsg",
+            linkedMapOf(
+                "bubble" to "0",
+                "msg" to message,
+                "color" to "16777215",
+                "mode" to "1",
+                "fontsize" to "25",
+                "rnd" to (System.currentTimeMillis() / 1000).toString(),
+                "roomid" to roomId.toString(),
+                "csrf_token" to ""
+            )
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     // ========== History / 稍后再看（批次G） ==========
 
     /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */
