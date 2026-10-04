@@ -89,7 +89,7 @@ fun AppNavigation() {
         composable(Screen.Search.route) {
             SearchScreen(
                 onVideoClick = { bvid ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
                 },
                 onUserClick = { mid ->
                     navController.navigate(Screen.Member.createRoute(mid))
