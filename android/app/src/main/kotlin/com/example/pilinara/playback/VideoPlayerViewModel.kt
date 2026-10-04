@@ -253,6 +253,9 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                 return
             }
         aid = detail?.aid ?: 0L
+        videoTitle = detail?.title.orEmpty()
+        videoCover = detail?.pic.orEmpty()
+        videoOwner = detail?.owner?.name.orEmpty()
         // 分P 列表（单P视频 pages 只有 1 项）
         pages = (detail?.pages.orEmpty()).map {
             PartInfo(cid = it.cid, page = it.page, part = it.part, durationSec = it.duration)
@@ -495,6 +498,24 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     // ========== 互动（点赞/投币/收藏/历史上报） ==========
 
     private var aid: Long = 0L
+
+    /** 当前视频标题/封面（供下载等外部操作，批次I 接线） */
+    var videoTitle: String = ""
+        private set
+    var videoCover: String = ""
+        private set
+    var videoOwner: String = ""
+        private set
+
+    /** 发起离线下载（下载按钮 → DownloadManager 队列） */
+    fun downloadCurrent(appContext: android.content.Context) {
+        val bv = currentBvid
+        if (bv.isEmpty() || bv.startsWith("ep")) return
+        com.example.pilinara.data.repository.DownloadManager.download(
+            appContext, bv,
+            title = videoTitle, cover = videoCover, ownerName = videoOwner
+        )
+    }
     private var epId: Long = 0L
     private var effectiveCid: Long = 0L
     private var currentBvid: String = ""

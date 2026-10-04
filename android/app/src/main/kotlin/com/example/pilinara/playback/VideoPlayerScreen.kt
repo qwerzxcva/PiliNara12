@@ -321,6 +321,13 @@ fun VideoPlayerScreen(
                         label = "稍后看", onClick = { viewModel.addToWatchLater() },
                         tintColor = Color.White
                     )
+                    // 离线下载（批次I 接线：发起队列）
+                    EngagementButton(
+                        icon = Icons.Default.Download,
+                        label = "下载",
+                        onClick = { viewModel.downloadCurrent(context.applicationContext) },
+                        tintColor = Color.White
+                    )
                 }
             }
         }

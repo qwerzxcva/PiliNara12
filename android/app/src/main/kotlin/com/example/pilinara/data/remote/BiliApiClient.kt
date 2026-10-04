@@ -255,15 +255,7 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     }
     
     // ========== Live ==========
-    
-    suspend fun getLiveInfo(roomId: Long): Result<Map<String, Any>> = runCatching {
-        client.get("$API_BASE/room/v1/Room/get_info") {
-            url {
-                parameters.append("room_id", roomId.toString())
-            }
-            header("Referer", "https://live.bilibili.com")
-        }.body()
-    }
+    // getLiveRoomInfo / getLivePlayInfo / roomEntryAction（见下方 xlive 区域）
     
     // ========== Favorites ==========
 
@@ -828,14 +820,5 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     }
 
     // ========== WBI Signature ==========
-    
-    suspend fun withWbi(url: String, params: Map<String, String>): String {
-        // Simplified WBI signing - in production would fetch mixin key and sign
-        return buildString {
-            append(url)
-            params.forEach { (k, v) ->
-                append("&$k=$v")
-            }
-        }
-    }
+    // WBI 签名统一走 WbiSigner.sign()（nav 取 key 缓存 4h + MIXIN_KEY_ENC_TAB 置换 + md5）
 }

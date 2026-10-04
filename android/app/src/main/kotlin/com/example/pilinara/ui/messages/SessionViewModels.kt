@@ -94,4 +94,18 @@ class ChatViewModel(private val talkerId: Long) : ViewModel() {
             }
         }
     }
+
+    /** 发送图片消息（msg_type=2，批次L4）——以 URL 方式发图 */
+    fun sendImage(url: String, width: Int, height: Int) {
+        if (url.isBlank()) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(sending = true)
+            api.sendPrivateImage(_state.value.myMid, talkerId, url, width, height).onSuccess { ok ->
+                _state.value = _state.value.copy(sending = false)
+                if (ok) load() else _state.value = _state.value.copy(error = "图片发送失败")
+            }.onFailure { e ->
+                _state.value = _state.value.copy(sending = false, error = e.message ?: "图片发送失败")
+            }
+        }
+    }
 }

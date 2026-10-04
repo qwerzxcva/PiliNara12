@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -134,6 +135,15 @@ fun ChatScreen(
 ) {
     val state by vm.state.collectAsState()
     var input by remember { mutableStateOf("") }
+    var showEmotePicker by remember { mutableStateOf(false) }
+    val emotes = remember { androidx.compose.runtime.mutableStateListOf<com.example.pilinara.data.model.EmoteItem>() }
+    LaunchedEffect(showEmotePicker) {
+        if (showEmotePicker && emotes.isEmpty()) {
+            com.example.pilinara.data.remote.BiliApiClient().getEmotePackage(1).onSuccess { resp ->
+                emotes.clear(); emotes.addAll(resp.data?.emotes.orEmpty())
+            }
+        }
+    }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     LaunchedEffect(state.messages.size) {
@@ -154,7 +164,29 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            Column {
+                if (showEmotePicker) {
+                    Surface(tonalElevation = 2.dp) {
+                        androidx.compose.foundation.lazy.LazyRow(
+                            Modifier.fillMaxWidth().padding(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(emotes.size) { i ->
+                                val e = emotes[i]
+                                coil.compose.AsyncImage(
+                                    model = e.url,
+                                    contentDescription = e.text,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clickable {
+                                            vm.sendImage(e.url, 120, 120)
+                                        }
+                                )
+                            }
+                        }
+                    }
+                }
+                Surface(tonalElevation = 3.dp) {
                 Row(
                     Modifier.fillMaxWidth().padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -168,6 +200,10 @@ fun ChatScreen(
                         shape = MaterialTheme.shapes.large
                     )
                     Spacer(Modifier.width(8.dp))
+                    // 表情包图片选择（发 msg_type=2 图片消息）
+                    IconButton(onClick = { showEmotePicker = !showEmotePicker }) {
+                        Icon(Icons.Default.EmojiEmotions, "表情")
+                    }
                     IconButton(
                         onClick = {
                             if (input.isNotBlank() && !state.sending) {
@@ -179,6 +215,7 @@ fun ChatScreen(
                         if (state.sending) CircularProgressIndicator(Modifier.size(20.dp))
                         else Icon(Icons.AutoMirrored.Filled.Send, "发送")
                     }
+                }
                 }
             }
         }
