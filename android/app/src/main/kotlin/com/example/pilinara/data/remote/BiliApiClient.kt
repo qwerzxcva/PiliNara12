@@ -343,6 +343,59 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         header("Referer", "https://www.bilibili.com")
     }.body()
 
+    // ========== UP 主空间（批次C） ==========
+
+    /** 空间主页信息（wbi 签名） */
+    suspend fun getSpaceInfo(mid: Long): Result<SpaceInfoResponse> = runCatching {
+        val signed = WbiSigner.sign(mapOf("mid" to mid.toString()))
+        client.get("$API_BASE/x/space/wbi/acc/info") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body<SpaceInfoResponse>()
+    }
+
+    /** 粉丝/关注数（无需签名） */
+    suspend fun getRelationStat(mid: Long): Result<RelationStatResponse> = runCatching {
+        client.get("$API_BASE/x/relation/stat") {
+            url { parameters.append("vmid", mid.toString()) }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body<RelationStatResponse>()
+    }
+
+    /** 投稿列表（wbi 签名 + 分页），order: pubdate 最新 / click 最多播放 */
+    suspend fun getSpaceArchives(
+        mid: Long,
+        page: Int = 1,
+        order: String = "pubdate",
+        keyword: String = ""
+    ): Result<SpaceArchiveResponse> = runCatching {
+        val params = buildMap {
+            put("mid", mid.toString())
+            put("pn", page.toString())
+            put("ps", "30")
+            put("order", order)
+            if (keyword.isNotEmpty()) put("keyword", keyword)
+        }
+        val signed = WbiSigner.sign(params)
+        client.get("$API_BASE/x/space/wbi/arc/search") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body<SpaceArchiveResponse>()
+    }
+
+    /** 关注/取关 UP 主（csrf）。act: 1 关注 / 2 取关 */
+    suspend fun modifyFollow(mid: Long, follow: Boolean): Result<Boolean> = runCatching {
+        val form = linkedMapOf(
+            "fid" to mid.toString(),
+            "act" to if (follow) "1" else "2",
+            "re_src" to "11"
+        )
+        val resp: String = BiliHttpClient.postAuthForm(
+            "$API_BASE/x/relation/modify", form
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     // ========== History ==========
     
     suspend fun getHistory(limit: Int = 20): Result<List<VideoItem>> = runCatching {

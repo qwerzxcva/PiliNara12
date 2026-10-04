@@ -47,6 +47,9 @@ sealed class Screen(val route: String) {
     object Comment : Screen("comment/{bvid}") {
         fun createRoute(bvid: String) = "comment/$bvid"
     }
+    object Member : Screen("member/{mid}") {
+        fun createRoute(mid: Long) = "member/$mid"
+    }
 }
 
 @Composable
@@ -65,7 +68,14 @@ fun AppNavigation() {
             )
         }
         composable(Screen.Search.route) {
-            SearchScreen()
+            SearchScreen(
+                onVideoClick = { bvid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
+                },
+                onUserClick = { mid ->
+                    navController.navigate(Screen.Member.createRoute(mid))
+                }
+            )
         }
         composable(Screen.Dynamics.route) {
             DynamicsScreen(
@@ -145,6 +155,16 @@ fun AppNavigation() {
         composable(Screen.Comment.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             CommentScreen(bvid = bvid)
+        }
+        composable(Screen.Member.route) { backStackEntry ->
+            val mid = backStackEntry.arguments?.getString("mid")?.toLongOrNull() ?: 0L
+            com.example.pilinara.ui.pages.member.MemberScreen(
+                mid = mid,
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
+            )
         }
     }
 }

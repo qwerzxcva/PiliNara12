@@ -24,7 +24,9 @@ object AccountSession {
 
     @Volatile
     var isLogin: Boolean = false
-        private set
+
+    /** csrf token（写操作用） */
+    val biliJct: String get() = cookies["bili_jct"] ?: ""
 
     @Volatile
     var mid: Long = 0L
