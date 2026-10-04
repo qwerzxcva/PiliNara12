@@ -437,6 +437,39 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    // ========== 直播（批次F） ==========
+
+    /** 直播间播放信息（含 HLS/FLV 流地址）。roomId 支持短号 */
+    suspend fun getLivePlayInfo(roomId: Long): Result<LivePlayInfoResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo") {
+            url {
+                parameters.append("room_id", roomId.toString())
+                parameters.append("protocol", "0,1")     // 0=flv 1=hls
+                parameters.append("format", "0,1,2")     // flv/ts/fmp4
+                parameters.append("codec", "0,1")        // avc/hevc
+                parameters.append("qn", "10000")         // 最高画质
+            }
+            header("Referer", "https://live.bilibili.com")
+        }.body()
+    }
+
+    /** 直播间信息（标题/分区/人气） */
+    suspend fun getLiveRoomInfo(roomId: Long): Result<LiveRoomInfoResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/xlive/web-interface/v1/index/getInfoByRoom") {
+            url { parameters.append("room_id", roomId.toString()) }
+            header("Referer", "https://live.bilibili.com")
+        }.body()
+    }
+
+    /** 直播人气入口上报（进入直播间必须调，否则风控） */
+    suspend fun liveRoomEntryAction(roomId: Long): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "https://api.live.bilibili.com/xlive/web-room/v1/index/roomEntryAction",
+            mapOf("room_id" to roomId.toString())
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     // ========== History / 稍后再看（批次G） ==========
 
     /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */

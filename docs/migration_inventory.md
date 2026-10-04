@@ -101,3 +101,7 @@
   - 批次B 搜索增强 ✅：热搜榜 /x/v2/search/trending/ranking、搜索历史（进程内）、分类筛选 video/bili_user/live、排序/时长筛选、结果三种卡片真实渲染、无限翻页、建议联想接输入框。剩：历史 Room 持久化、分区搜索。
   - 批次C UP主空间 ✅：SpaceModels（SpaceInfo/RelationStat/SpaceArchive）、getSpaceInfo(wbi)/getRelationStat/getSpaceArchives(wbi+分页)/modifyFollow(csrf)、MemberScreen（头像/等级/签名/粉丝数/投稿卡片/排序/翻页/关注）、member/{mid} 路由接搜索用户点击。剩：空间动态 tab、收藏的 UP。
   - 下一批：批次D 番剧（pgc/index + season 详情 + ep_id 播放）、批次E 评论区增强（楼中楼/点赞/发评论）。
+- 2026-10-04 r3（批次E+G 完成，commit ef00f55 + 276f3ac）：总体 **13%**。
+  - 批次E 评论区增强 ✅：CommentNode 补 rpid/rpid层级/ctime/rcount/action；getReplyList 楼中楼、likeComment、addComment（csrf）；CommentViewModel（bv→aid、mode 3/2、楼中楼展开、点赞±1、发评论刷新）；CommentScreen 整页重写删假数据（头像/时间/心形/排序Chip/翻页/发送栏）。剩：表情包、@用户、图片评论。
+  - 批次G 稍后再看+历史 ✅：getHistoryCursor(cursor 翻页)、getToView/addToView/delToView/delHistory(csrf)；历史长按删除+触底翻页；ToViewScreen 新页+路由+Mine 入口+播放器"稍后看"按钮。剩：历史搜索、暂停记录开关。
+  - 累计待办：批次D 番剧、批次F 直播真实链路、批次H 关注/粉丝+消息、批次I 下载离线。

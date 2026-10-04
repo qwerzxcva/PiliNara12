@@ -94,3 +94,86 @@ data class SpaceVideoItem(
     val description: String = "",
     val comment: Long = 0L
 )
+
+// ===== 批次F：直播 =====
+
+/** /xlive/web-room/v2/index/getRoomPlayInfo —— 直播间播放信息 */
+@kotlinx.serialization.Serializable
+data class LivePlayInfoResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: LivePlayInfoData? = null
+)
+
+@kotlinx.serialization.Serializable
+data class LivePlayInfoData(
+    @kotlinx.serialization.SerialName("room_id") val roomId: Long = 0L,
+    @kotlinx.serialization.SerialName("short_id") val shortId: Long = 0L,
+    val uid: Long = 0L,
+    @kotlinx.serialization.SerialName("live_status") val liveStatus: Int = 0,  // 0未开播 1直播中 2轮播
+    @kotlinx.serialization.SerialName("live_time") val liveTime: Long = 0L,
+    @kotlinx.serialization.SerialName("playurl_info") val playurlInfo: LivePlayurlInfo? = null
+)
+
+@kotlinx.serialization.Serializable
+data class LivePlayurlInfo(
+    @kotlinx.serialization.SerialName("playurl") val playurl: LivePlayurl? = null
+)
+
+@kotlinx.serialization.Serializable
+data class LivePlayurl(
+    val host: String = "",
+    val base_url: String = "",
+    val extra: String = "",
+    val streams: List<LiveStreamItem> = emptyList()
+)
+
+@kotlinx.serialization.Serializable
+data class LiveStreamItem(
+    @kotlinx.serialization.SerialName("protocol_name") val protocolName: String = "",  // flv / hls
+    val format: List<LiveFormatItem> = emptyList()
+)
+
+@kotlinx.serialization.Serializable
+data class LiveFormatItem(
+    @kotlinx.serialization.SerialName("format_name") val formatName: String = "",  // flv / ts / fmp4
+    val codec: List<LiveCodecItem> = emptyList()
+)
+
+@kotlinx.serialization.Serializable
+data class LiveCodecItem(
+    @kotlinx.serialization.SerialName("codec_name") val codecName: String = "",   // avc / hevc
+    @kotlinx.serialization.SerialName("current_qn") val currentQn: Int = 0,
+    @kotlinx.serialization.SerialName("accept_qn") val acceptQn: List<Int> = emptyList(),
+    @kotlinx.serialization.SerialName("base_url") val baseUrl: String = "",
+    val url_info: List<LiveUrlInfo> = emptyList()
+)
+
+@kotlinx.serialization.Serializable
+data class LiveUrlInfo(
+    val host: String = "",
+    val extra: String = "",
+    @kotlinx.serialization.SerialName("host_ttl") val hostTtl: Int = 0
+) {
+    fun fullUrl(baseUrl: String, extra: String) = host + baseUrl + extra
+}
+
+/** /xlive/web-interface/v1/index/getInfoByRoom —— 直播间标题/主播信息 */
+@kotlinx.serialization.Serializable
+data class LiveRoomInfoResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: LiveRoomInfoData? = null
+)
+
+@kotlinx.serialization.Serializable
+data class LiveRoomInfoData(
+    @kotlinx.serialization.SerialName("room_id") val roomId: Long = 0L,
+    @kotlinx.serialization.SerialName("live_status") val liveStatus: Int = 0,
+    @kotlinx.serialization.SerialName("live_time") val liveTime: Long = 0L,
+    @kotlinx.serialization.SerialName("parent_area_name") val parentAreaName: String = "",
+    @kotlinx.serialization.SerialName("area_name") val areaName: String = "",
+    val title: String = "",
+    @kotlinx.serialization.SerialName("user_count") val userCount: Long = 0L,
+    @kotlinx.serialization.SerialName("keyframe_url") val keyframeUrl: String = ""
+)
