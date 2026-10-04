@@ -5,9 +5,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.pilinara.ui.comments.CommentScreen
-import com.example.pilinara.ui.library.FavMediaScreen
-import com.example.pilinara.ui.library.FavoritesScreen
-import com.example.pilinara.ui.library.HistoryScreen
 import com.example.pilinara.ui.live.LiveRoomScreen
 import com.example.pilinara.ui.login.LoginScreen
 import com.example.pilinara.ui.main.SearchScreen
@@ -39,13 +36,6 @@ sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Settings : Screen("settings")
 }
-    object LiveRoom : Screen("live/{roomId}") {
-        fun createRoute(roomId: String) = "live/$roomId"
-    }
-    object Comment : Screen("comment/{bvid}") {
-        fun createRoute(bvid: String) = "comment/$bvid"
-    }
-}
 
 @Composable
 fun AppNavigation() {
@@ -71,32 +61,6 @@ fun AppNavigation() {
             MineScreen(
                 onSettingsClick = { navController.navigate(Screen.Settings.route) },
                 onLoginClick = { navController.navigate(Screen.Login.route) }
-            )
-        }
-        composable(Screen.Login.route) {
-            LoginScreen(
-                onBack = { navController.popBackStack() },
-                onLoggedIn = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.Favorites.route) { backStackEntry ->
-            val mid = backStackEntry.arguments?.getString("mid")?.toLongOrNull() ?: 0L
-            FavoritesScreen(
-                mid = mid,
-                onBack = { navController.popBackStack() },
-                onOpenFolder = { mediaId -> navController.navigate(Screen.FavMedia.createRoute(mediaId)) }
-            )
-        }
-        composable(Screen.FavMedia.route) { backStackEntry ->
-            val mediaId = backStackEntry.arguments?.getString("mediaId")?.toLongOrNull() ?: 0L
-            FavMediaScreen(
-                mediaId = mediaId,
-                onBack = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.History.route) {
-            HistoryScreen(
-                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.VideoPlayer.route) { backStackEntry ->
