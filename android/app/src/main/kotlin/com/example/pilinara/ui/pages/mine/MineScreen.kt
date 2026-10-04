@@ -335,7 +335,7 @@ val menuItems = listOf(
     MenuItem("离线缓存", Icons.Default.Download, {}),
     MenuItem("追番列表", Icons.Default.VideoLibrary, {}),
     MenuItem("创作中心", Icons.Default.AddCircle, {}),
-    MenuItem("设置", Icons.Default.Settings, onSettingsClick)
+    MenuItem("设置", Icons.Default.Settings, {})
 )
 
 @Composable
