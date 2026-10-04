@@ -42,9 +42,6 @@ fun VideoPlayerScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showControls by remember { mutableStateOf(true) }
-    var isLiked by remember { mutableStateOf(false) }
-    var isFavorited by remember { mutableStateOf(false) }
-    var coinCount by remember { mutableStateOf(0) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showVolumeSlider by remember { mutableStateOf(false) }
     var isInPiP by remember { mutableStateOf(false) }
@@ -53,6 +50,14 @@ fun VideoPlayerScreen(
     
     LaunchedEffect(videoUrl) {
         viewModel.loadVideo(videoUrl, bvid, cid)
+    }
+
+    // 播放中每 15 秒上报一次历史进度（需登录）
+    LaunchedEffect(state.isPlaying) {
+        while (state.isPlaying) {
+            kotlinx.coroutines.delay(15_000L)
+            viewModel.reportProgress()
+        }
     }
     
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -173,21 +178,24 @@ fun VideoPlayerScreen(
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly) {
                     EngagementButton(
-                        icon = if (isLiked) Icons.Filled.ThumbUp else Icons.Filled.ThumbUp,
-                        label = "点赞", count = if (isLiked) "1" else "",
-                        onClick = { isLiked = !isLiked },
-                        tintColor = if (isLiked) Color(0xFF00A1D6) else Color.White
+                        icon = Icons.Filled.ThumbUp,
+                        label = "点赞",
+                        count = if (state.isLiked) "1" else "",
+                        onClick = { viewModel.toggleLike() },
+                        tintColor = if (state.isLiked) Color(0xFF00A1D6) else Color.White
                     )
                     EngagementButton(
                         icon = Icons.Default.MonetizationOn,
-                        label = "投币", count = if (coinCount > 0) coinCount.toString() else "",
-                        onClick = { coinCount++ },
+                        label = "投币",
+                        count = if (state.coinCount > 0) state.coinCount.toString() else "",
+                        onClick = { viewModel.coinOnce() },
                         tintColor = Color.White
                     )
                     EngagementButton(
-                        icon = if (isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        label = "收藏", onClick = { isFavorited = !isFavorited },
-                        tintColor = if (isFavorited) Color(0xFFFF6B9D) else Color.White
+                        icon = if (state.isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        label = "收藏",
+                        onClick = { viewModel.toggleFavorite(mediaId = 0L) },  // TODO: 默认收藏夹 mediaId
+                        tintColor = if (state.isFavorited) Color(0xFFFF6B9D) else Color.White
                     )
                     EngagementButton(
                         icon = Icons.Default.Comment,

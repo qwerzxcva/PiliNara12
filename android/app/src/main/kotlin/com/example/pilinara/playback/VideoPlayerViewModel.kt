@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.data.remote.BiliApiClient
 import com.example.pilinara.data.repository.VideoRepository
 
@@ -34,7 +35,10 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val isMuted: Boolean = false,
         val isBuffering: Boolean = false,
         val error: String? = null,
-        val position: Int = 0
+        val position: Int = 0,
+        val isLiked: Boolean = false,
+        val isFavorited: Boolean = false,
+        val coinCount: Int = 0
     )
     
     data class DanmakuEvent(
@@ -99,12 +103,14 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             }
 
         // 2) playurl + Rust 流选择
-        val (_, videoUrl, audioUrl) = repo.getPlayUrl(bvid, effectiveCid, qn = 80)
+        val (_, videoUrl2, audioUrl2) = repo.getPlayUrl(bvid, effectiveCid, qn = 80)
             .getOrElse {
                 setError("playurl 获取失败: ${it.message}")
                 return
             }
-        if (videoUrl.isNullOrEmpty()) {
+        this.effectiveCid = effectiveCid
+        this.currentBvid = bvid
+        if (videoUrl2.isNullOrEmpty()) {
             setError("未解析到视频流地址（可能需要登录后观看）")
             return
         }
@@ -115,13 +121,13 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
 
-        val videoItem = MediaItem.Builder().setUri(Uri.parse(videoUrl)).build()
+        val videoItem = MediaItem.Builder().setUri(Uri.parse(videoUrl2)).build()
         val videoSource: androidx.media3.exoplayer.source.MediaSource =
             androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(videoItem)
 
-        val merged = if (!audioUrl.isNullOrEmpty()) {
-            val audioItem = MediaItem.Builder().setUri(Uri.parse(audioUrl)).build()
+        val merged = if (!audioUrl2.isNullOrEmpty()) {
+            val audioItem = MediaItem.Builder().setUri(Uri.parse(audioUrl2)).build()
             val audioSource: androidx.media3.exoplayer.source.MediaSource =
                 androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
                     .createMediaSource(audioItem)
@@ -267,5 +273,81 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     fun getPositionPercent(): Int {
         val duration = _state.value.duration
         return if (duration == 0L) 0 else ((_state.value.currentTime * 100) / duration).toInt()
+    }
+
+    // ========== 互动（点赞/投币/收藏/历史上报） ==========
+
+    private var aid: Long = 0L
+    private var effectiveCid: Long = 0L
+    private var currentBvid: String = ""
+    private val repo by lazy { VideoRepository(BiliApiClient()) }
+
+    /** 点赞（需登录） */
+    fun toggleLike() {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) {
+                setError("请先登录后再点赞")
+                return@launch
+            }
+            ensureAid()
+            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
+            val liked = _state.value.isLiked
+            repo.likeVideo(aid, if (liked) 2 else 1)
+                .onSuccess { ok ->
+                    if (ok) _state.value = _state.value.copy(isLiked = !liked)
+                    else setError("点赞失败（接口返回非 0）")
+                }
+                .onFailure { setError("点赞失败: ${it.message}") }
+        }
+    }
+
+    /** 投币 1 枚（需登录） */
+    fun coinOnce() {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) {
+                setError("请先登录后再投币")
+                return@launch
+            }
+            ensureAid()
+            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
+            repo.coinVideo(aid, 1)
+                .onSuccess { ok ->
+                    if (ok) _state.value = _state.value.copy(coinCount = _state.value.coinCount + 1)
+                    else setError("投币失败（余额不足或已投满）")
+                }
+                .onFailure { setError("投币失败: ${it.message}") }
+        }
+    }
+
+    /** 收藏（需登录，deal=1 收藏） */
+    fun toggleFavorite(mediaId: Long) {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) {
+                setError("请先登录后再收藏")
+                return@launch
+            }
+            ensureAid()
+            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
+            val fav = _state.value.isFavorited
+            repo.favoriteVideo(aid, mediaId, if (fav) 2 else 1)
+                .onSuccess { ok ->
+                    if (ok) _state.value = _state.value.copy(isFavorited = !fav)
+                    else setError("收藏失败（接口返回非 0）")
+                }
+                .onFailure { setError("收藏失败: ${it.message}") }
+        }
+    }
+
+    /** 上报历史进度（播放中每 15 秒调一次） */
+    fun reportProgress() {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin || aid == 0L || effectiveCid == 0L) return@launch
+            repo.reportHistory(aid, effectiveCid, _state.value.currentTime / 1000)
+        }
+    }
+
+    private suspend fun ensureAid() {
+        if (aid > 0L) return
+        aid = repo.getVideoDetail(currentBvid).getOrNull()?.data?.aid ?: 0L
     }
 }
