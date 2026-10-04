@@ -47,11 +47,11 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                             pic = item.pic,
                             duration = item.duration?.toInt() ?: 0,
                             play = item.stat?.view ?: 0L,
-                            danmaku = item.stat?.danmaku ?: 0,
-                            reply = item.stat?.reply ?: 0,
-                            favorite = item.stat?.favorite ?: 0,
-                            coin = item.stat?.coin ?: 0,
-                            like = item.stat?.like ?: 0,
+                            danmaku = item.stat?.danmaku ?: 0L,
+                            reply = item.stat?.reply ?: 0L,
+                            favorite = item.stat?.favorite ?: 0L,
+                            coin = item.stat?.coin ?: 0L,
+                            like = item.stat?.like ?: 0L,
                             desc = item.desc,
                             pubdate = item.pubdate
                         )

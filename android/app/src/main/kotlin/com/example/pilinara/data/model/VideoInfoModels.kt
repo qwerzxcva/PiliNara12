@@ -88,11 +88,11 @@ fun VideoInfoData.toVideoItem(): VideoItem {
         ),
         stat = Stat(
             view = stat?.play ?: 0L,
-            danmaku = (stat?.danmaku ?: 0L).toInt(),
-            reply = (stat?.reply ?: 0L).toInt(),
-            favorite = (stat?.favorite ?: 0L).toInt(),
-            coin = (stat?.coin ?: 0L).toInt(),
-            like = (stat?.like ?: 0L).toInt()
+            danmaku = stat?.danmaku ?: 0L,
+            reply = stat?.reply ?: 0L,
+            favorite = stat?.favorite ?: 0L,
+            coin = stat?.coin ?: 0L,
+            like = stat?.like ?: 0L
         )
     )
 }
