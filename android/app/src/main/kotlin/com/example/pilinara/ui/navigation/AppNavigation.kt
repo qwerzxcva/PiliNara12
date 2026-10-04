@@ -5,6 +5,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.pilinara.ui.comments.CommentScreen
+import com.example.pilinara.ui.library.LibraryScreen
 import com.example.pilinara.ui.live.LiveRoomScreen
 import com.example.pilinara.ui.login.LoginScreen
 import com.example.pilinara.ui.main.SearchScreen
@@ -35,6 +36,7 @@ sealed class Screen(val route: String) {
     }
     object Login : Screen("login")
     object Settings : Screen("settings")
+    object Library : Screen("library")
 }
 
 @Composable
@@ -64,7 +66,8 @@ fun AppNavigation() {
         composable(Screen.Profile.route) {
             MineScreen(
                 onSettingsClick = { navController.navigate(Screen.Settings.route) },
-                onLoginClick = { navController.navigate(Screen.Login.route) }
+                onLoginClick = { navController.navigate(Screen.Login.route) },
+                onLibraryClick = { navController.navigate(Screen.Library.route) }
             )
         }
         composable(Screen.VideoPlayer.route) { backStackEntry ->
@@ -72,7 +75,8 @@ fun AppNavigation() {
             VideoPlayerScreen(
                 videoUrl = "",
                 bvid = bvid,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onCommentClick = { navController.navigate(Screen.Comment.createRoute(bvid)) }
             )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->
@@ -91,6 +95,9 @@ fun AppNavigation() {
         }
         composable(Screen.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Library.route) {
+            LibraryScreen()
         }
     }
 }
