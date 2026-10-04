@@ -122,3 +122,11 @@
   - 私聊 ✅：api.vc.bilibili.com 会话列表/消息记录(poll)/发送(web_im/send_msg csrf)；SessionModels；SessionListScreen（头像/未读角标/最后消息）+ ChatScreen（气泡对话+发送+自动滚底）；消息中心顶栏私聊入口。剩：已读回执、图片/撤销消息。
   - 播放器 ep_id 模式 ✅：loadVideo(…, epId) → loadPgcEpisode（pgc season 详情取 cid → 分集填充分P面板 → pgc playurl wbi+Rust 选流 → ExoPlayer + 番剧弹幕）；路由 video/ep{id} 自动识别；BangumiScreen 播放按钮走 ep 链路。
   - 下一批：下载离线（缓存+离线播放）、播放器字幕（/x/player/v2 subtitle）、直播弹幕 websocket。
+
+## 四、长期 Roadmap（2026-10-04 与用户对齐；来源：旧 plan 精简，剔除代理软件内容）
+- 批次J 直播弹幕 WebSocket：getDanmuInfo(token/host_list) → wss://…:port/sub → auth(op7,protover=2) → zlib 解包(op3/8跳过, op5 JSON) → DANMU_MSG 渲染弹幕+聊天列表；心跳30s。+ 发送弹幕 /xlive/web-room/v1/index/SendMsg (csrf)。
+- 批次I 下载离线：下载队列(Room)+缓存目录+离线播放页。
+- 批次K 播放器字幕：/x/player/v2 subtitle 拉取+渲染。
+- 批次L UI 主题：Kototoro 风格渐变/大圆角设计 token。
+- 暂缓（性价比低）：Vulkan 渲染/HDR/多引擎切换、缩略图 storyboard、pgc 首页分类、@用户评论、私聊图片消息。
+- 完成上述后总体 ~35%+。
