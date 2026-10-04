@@ -36,11 +36,7 @@ class SearchRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             val response = apiClient.search(keyword, page)
             
             response.onSuccess { resp ->
-                if (resp.code == 0) {
-                    _searchResults.value = resp.result.filter { it.resultType == "video" }
-                } else {
-                    _error.value = resp.message ?: "搜索失败"
-                }
+                _searchResults.value = resp.result.filter { it.resultType == "video" }
             }.onFailure { e ->
                 _error.value = e.message ?: "网络错误"
             }
@@ -53,7 +49,7 @@ class SearchRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     /**
      * 获取搜索建议
      */
-    suspend fun getSearchSuggestions(keyword: String): Result<List<SuggestResult>> = withContext(Dispatchers.IO) {
+    suspend fun searchSuggestions(keyword: String): Result<List<SuggestResult>> = withContext(Dispatchers.IO) {
         return@withContext runCatching {
             val response = apiClient.searchSuggest(keyword)
             
@@ -62,6 +58,7 @@ class SearchRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             }.onFailure { e ->
                 // 忽略错误
             }
+            _suggestions.value
         }
     }
     

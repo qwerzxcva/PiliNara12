@@ -71,14 +71,14 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     /**
      * 刷新视频列表
      */
-    suspend fun refresh() {
-        getPopularVideos(1, 20)
+    suspend fun refresh(): Result<List<VideoItem>> {
+        return getPopularVideos(1, 20)
     }
     
     /**
      * 加载更多视频
      */
-    suspend fun loadMore(page: Int) {
+    suspend fun loadMore(page: Int): Result<List<VideoItem>> {
         val currentVideos = _videos.value.toMutableList()
         val response = apiClient.popularVideos(page, 20)
         

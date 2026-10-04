@@ -330,9 +330,9 @@ data class MenuItem(
 )
 
 val menuItems = listOf(
-    MenuItem("历史观看", Icons.Default.History, onLibraryClick),
-    MenuItem("我的收藏", Icons.Default.Favorite, onLibraryClick),
-    MenuItem("离线缓存", Icons.Default.Download, onLibraryClick),
+    MenuItem("历史观看", Icons.Default.History, {}),
+    MenuItem("我的收藏", Icons.Default.Favorite, {}),
+    MenuItem("离线缓存", Icons.Default.Download, {}),
     MenuItem("追番列表", Icons.Default.VideoLibrary, {}),
     MenuItem("创作中心", Icons.Default.AddCircle, {}),
     MenuItem("设置", Icons.Default.Settings, onSettingsClick)

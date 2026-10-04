@@ -52,7 +52,7 @@ class SearchViewModel(
             searchRepository.searchVideos(keyword, page).onSuccess { result ->
                 _searchState.value = _searchState.value.copy(
                     isSearching = false,
-                    searchResults = result.result,
+                    searchResults = result,
                     hotSearches = emptyList()
                 )
             }.onFailure { e ->
