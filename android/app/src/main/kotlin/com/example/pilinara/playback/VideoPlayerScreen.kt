@@ -35,6 +35,7 @@ fun VideoPlayerScreen(
     cid: Long = 0L,
     title: String = "",
     onBack: () -> Unit = {},
+    onOpenComments: (bvid: String) -> Unit = {},
     viewModel: VideoPlayerViewModel = viewModel(
         factory = VideoPlayerViewModelFactory(LocalContext.current)
     )
@@ -190,7 +191,7 @@ fun VideoPlayerScreen(
                     )
                     EngagementButton(
                         icon = Icons.Default.Comment,
-                        label = "评论", onClick = { /* TODO: Navigate to comments */ },
+                        label = "评论", onClick = { onOpenComments(bvid) },
                         tintColor = Color.White
                     )
                 }

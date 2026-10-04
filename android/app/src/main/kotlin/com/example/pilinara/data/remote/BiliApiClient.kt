@@ -66,6 +66,50 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }
     }
     
+    // ========== Write operations（需登录 + csrf） ==========
+
+    /** 点赞/取消点赞（like=1 点赞, 2 取消；返回 code 0 成功） */
+    suspend fun like(aid: Long, like: Int = 1): Result<Map<String, Any>> = runCatching {
+        BiliHttpClient.postAuthForm<Map<String, Any>>(
+            "https://api.bilibili.com/x/web-interface/archive/like",
+            mapOf("aid" to aid.toString(), "like" to like.toString())
+        )
+    }
+
+    /** 投币（multiply=1/2 个币，需先 like=1 一起勾选可传） */
+    suspend fun coin(aid: Long, multiply: Int = 1): Result<Map<String, Any>> = runCatching {
+        BiliHttpClient.postAuthForm<Map<String, Any>>(
+            "https://api.bilibili.com/x/web-interface/coin/add",
+            mapOf("aid" to aid.toString(), "multiply" to multiply.toString(), "select_like" to "0")
+        )
+    }
+
+    /** 收藏/取消收藏到默认收藏夹（需要先知道 target mid 的默认夹 id；deal=1 收藏 2 取消） */
+    suspend fun favorite(aid: Long, mediaId: Long, deal: Int = 1): Result<Map<String, Any>> = runCatching {
+        BiliHttpClient.postAuthForm<Map<String, Any>>(
+            "https://api.bilibili.com/x/v3/fav/resource/deal",
+            mapOf(
+                "rid" to aid.toString(),
+                "type" to "2",
+                "add_media_ids" to if (deal == 1) mediaId.toString() else "",
+                "del_media_ids" to if (deal == 2) mediaId.toString() else ""
+            )
+        )
+    }
+
+    /** 上报观看历史（progress 秒；sid/cid 可选） */
+    suspend fun reportHistory(aid: Long, cid: Long, progress: Long): Result<Map<String, Any>> = runCatching {
+        BiliHttpClient.postAuthForm<Map<String, Any>>(
+            "https://api.bilibili.com/x/v2/history/report",
+            mapOf(
+                "aid" to aid.toString(),
+                "cid" to cid.toString(),
+                "progress" to progress.toString(),
+                "type" to "3"
+            )
+        )
+    }
+
     // ========== Search ==========
     
     suspend fun search(keyword: String, page: Int = 1, order: String = "totalrank"): Result<SearchResponse> = runCatching {

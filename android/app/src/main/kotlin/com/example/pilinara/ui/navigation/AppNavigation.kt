@@ -126,7 +126,8 @@ fun AppNavigation() {
                 videoUrl = "",
                 bvid = bvid,
                 cid = cid,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenComments = { bv -> navController.navigate(Screen.Comment.createRoute(bv)) }
             )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->

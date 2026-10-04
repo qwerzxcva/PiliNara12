@@ -61,4 +61,24 @@ object BiliHttpClient {
             }
         ).body()
     }
+
+    /**
+     * 带登录态的表单 POST（写操作：点赞/投币/收藏等）。
+     * B站写操作统一要求：SESSDATA cookie（CookieJar 自动带）+ csrf=bili_jct 表单字段 + Referer。
+     */
+    suspend inline fun <reified T : Any> postAuthForm(
+        path: String,
+        form: Map<String, String>,
+        noinline block: HttpRequestBuilder.() -> Unit = {}
+    ): T = withContext(Dispatchers.IO) {
+        val csrf = AccountSession.snapshot()["bili_jct"].orEmpty()
+        client.post(path) {
+            header("Referer", "https://www.bilibili.com")
+            setBody(FormDataContent(Parameters.build {
+                form.forEach { (k, v) -> append(k, v) }
+                if (csrf.isNotEmpty()) append("csrf", csrf)
+            }))
+            block()
+        }.body()
+    }
 }
