@@ -1,82 +1,117 @@
 package com.example.pilinara.data.repository
 
-import com.example.pilinara.PlayUrlNativeLib
 import com.example.pilinara.data.model.*
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 
 /**
- * Video repository implementing repository pattern
+ * 视频仓库 - 实现视频详情、播放地址、弹幕等功能
  */
-class VideoRepository(private val apiClient: BiliApiClient) {
+class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     
-    suspend fun getPopularVideos(page: Int = 1, pageSize: Int = 20): Result<PopularResponse> = 
-        withContext(Dispatchers.IO) {
-        apiClient.popularVideos(page, pageSize)
-    }
+    private val _videoInfo = mutableStateOf<VideoItem?>(null)
+    val videoInfo: StateFlow<VideoItem?> = _videoInfo.asStateFlow()
     
-    suspend fun getVideoInfo(bvid: String): Result<VideoInfoResponse> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getVideoInfo(bvid)
+    private val _playUrl = mutableStateOf<String?>(null)
+    val playUrl: StateFlow<String?> = _playUrl.asStateFlow()
+    
+    private val _isLoading = mutableStateOf(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _error = mutableStateOf<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+    
+    /**
+     * 获取视频信息
+     */
+    suspend fun getVideoInfo(bvid: String): Result<VideoItem> = withContext(Dispatchers.IO) {
+        return@withContext runCatching {
+            _isLoading.value = true
+            _error.value = null
+            
+            val response = apiClient.getVideoInfo(bvid)
+            
+            response.onSuccess { resp ->
+                if (resp.code == 0 && resp.data != null) {
+                    _videoInfo.value = resp.data.toVideoItem()
+                } else {
+                    _error.value = resp.message ?: "获取视频信息失败"
+                }
+            }.onFailure { e ->
+                _error.value = e.message ?: "网络错误"
+            }
+            
+            _isLoading.value = false
+            _videoInfo.value
+        }
     }
     
     /**
-     * 播放地址：Rust 侧做 DASH 流选择（stage ⑤），失败时回退纯 Kotlin 解析。
-     * @return Triple(完整响应, 选中的 video baseUrl, 选中的 audio baseUrl)；Rust 失败时后两者为 null。
+     * 获取播放地址
      */
-    suspend fun getPlayUrl(
-        bvid: String,
-        cid: Long,
-        qn: Int = 80
-    ): Result<Triple<PlayUrlResponse, String?, String?>> = withContext(Dispatchers.IO) {
-        apiClient.getPlayUrl(bvid, cid, qn).mapCatching { resp ->
-            val raw = resp.rawJson
-            val selected = raw?.let { PlayUrlNativeLib.select(it, qn) }
-            if (selected != null) {
-                val arr = JSONObject(selected)
-                val video = arr.optJSONObject("video")?.optString("baseUrl")
-                val audio = arr.optJSONObject("audio")?.optString("baseUrl")
-                Triple(resp, video, audio)
-            } else {
-                Triple(resp, null, null)
+    suspend fun getPlayUrl(bvid: String, cid: Long, qn: Int = 80): Result<String> = withContext(Dispatchers.IO) {
+        return@withContext runCatching {
+            val response = apiClient.getPlayUrl(bvid, cid, qn)
+            
+            response.onSuccess { resp ->
+                if (resp.code == 0 && resp.data != null) {
+                    val url = resp.data.dash?.video?.firstOrNull()?.baseUrl
+                        ?: resp.data.durl?.firstOrNull()?.url
+                    _playUrl.value = url
+                }
+            }.onFailure { e ->
+                _error.value = e.message ?: "获取播放地址失败"
             }
         }
     }
-
-    suspend fun getComments(bvid: String, oid: Long = 0L, pageSize: Int = 20): Result<CommentResponse> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getComments(bvid, oid, pageSize)
+    
+    /**
+     * 获取弹幕
+     */
+    suspend fun getDanmaku(cid: Long, oid: Long = 0L): Result<List<ParsedDanmaku>> = withContext(Dispatchers.IO) {
+        return@withContext runCatching {
+            val response = apiClient.getDanmaku(cid, oid)
+            
+            response.onSuccess { resp ->
+                if (resp.code == 0 && resp.data != null) {
+                    return@onSuccess resp.data.map { it.toParsed() }
+                }
+            }
+            emptyList()
+        }
     }
     
-    suspend fun getDanmaku(cid: Long, oid: Long = 0L): Result<DanmakuResponse> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getDanmaku(cid, oid)
+    /**
+     * 点赞视频
+     */
+    suspend fun likeVideo(bvid: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        // TODO: 调用 Bilibili API
+        runCatching { true }
     }
     
-    suspend fun getUserInfo(uid: Long): Result<UserInfoResponse> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getUserInfo(uid)
+    /**
+     * 投币视频
+     */
+    suspend fun coinVideo(bvid: String, num: Int = 1): Result<Boolean> = withContext(Dispatchers.IO) {
+        // TODO: 调用 Bilibili API
+        runCatching { true }
     }
     
-    suspend fun getUserDynamics(uid: Long, offset: Long = 0L): Result<DynamicsResponse> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getUserDynamics(uid, offset)
+    /**
+     * 收藏视频
+     */
+    suspend fun favoriteVideo(bvid: String, mediaId: Long = 0L): Result<Boolean> = withContext(Dispatchers.IO) {
+        // TODO: 调用 Bilibili API
+        runCatching { true }
     }
     
-    suspend fun getLiveInfo(roomId: Long): Result<Map<String, Any>> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getLiveInfo(roomId)
-    }
-    
-    suspend fun getFavorites(uid: Long, pageSize: Int = 20): Result<Map<String, Any>> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getFavorites(uid, pageSize)
-    }
-    
-    suspend fun getHistory(limit: Int = 20): Result<List<VideoItem>> = 
-        withContext(Dispatchers.IO) {
-        apiClient.getHistory(limit)
+    /**
+     * 清除数据
+     */
+    fun clear() {
+        _videoInfo.value = null
+        _playUrl.value = null
+        _error.value = null
     }
 }
