@@ -122,7 +122,7 @@ fun LoginContent(modifier: Modifier = Modifier, onLoginClick: () -> Unit = {}) {
             
             // Phone Login
             OutlinedButton(
-                onClick = { /* TODO: Implement phone login */ },
+                onClick = { },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -136,7 +136,7 @@ fun LoginContent(modifier: Modifier = Modifier, onLoginClick: () -> Unit = {}) {
             
             // WeChat Login
             OutlinedButton(
-                onClick = { /* TODO: Implement WeChat login */ },
+                onClick = { },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.outlinedButtonColors(

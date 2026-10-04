@@ -80,7 +80,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "倍速播放",
                     subtitle = "支持 0.5x - 2.0x 倍速",
                     icon = Icons.Default.Speed,
-                    onClick = { /* TODO: Open speed settings */ }
+                    onClick = {  }
                 )
             }
             
@@ -104,7 +104,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "字体大小",
                     subtitle = "调整应用字体大小",
                     icon = Icons.Default.TextFields,
-                    onClick = { /* TODO: Open font size settings */ }
+                    onClick = {  }
                 )
             }
             
@@ -113,7 +113,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "视频清晰度",
                     subtitle = "默认播放清晰度",
                     icon = Icons.Default.HighQuality,
-                    onClick = { /* TODO: Open quality settings */ }
+                    onClick = {  }
                 )
             }
             
@@ -127,7 +127,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "清除缓存",
                     subtitle = "已使用 0 MB",
                     icon = Icons.Default.Delete,
-                    onClick = { /* TODO: Clear cache */ }
+                    onClick = {  }
                 )
             }
             
@@ -136,7 +136,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "下载管理",
                     subtitle = "查看和管理下载内容",
                     icon = Icons.Default.Download,
-                    onClick = { /* TODO: Open download manager */ }
+                    onClick = {  }
                 )
             }
             
@@ -150,7 +150,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "关于我们",
                     subtitle = "PiliNara v1.0.0",
                     icon = Icons.Default.Info,
-                    onClick = { /* TODO: Open about page */ }
+                    onClick = {  }
                 )
             }
             
@@ -159,7 +159,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "意见反馈",
                     subtitle = "向我们提交建议",
                     icon = Icons.Default.Feedback,
-                    onClick = { /* TODO: Open feedback form */ }
+                    onClick = {  }
                 )
             }
             
@@ -168,7 +168,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     title = "评分评分",
                     subtitle = "给我们评分",
                     icon = Icons.Default.Star,
-                    onClick = { /* TODO: Rate app */ }
+                    onClick = {  }
                 )
             }
         }

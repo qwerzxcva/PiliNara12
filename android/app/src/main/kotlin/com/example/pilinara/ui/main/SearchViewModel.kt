@@ -72,7 +72,9 @@ class SearchViewModel(
     private fun fetchSuggestions(keyword: String) {
         viewModelScope.launch {
             searchRepository.searchSuggestions(keyword).onSuccess { result ->
-                // Parse suggestions
+                _searchState.value = _searchState.value.copy(suggestions = result)
+            }.onFailure {
+                // 忽略错误
             }
         }
     }

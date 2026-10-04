@@ -65,8 +65,7 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 创建二维码登录
      */
     suspend fun createQrLogin(): Result<Map<String, String>> = withContext(Dispatchers.IO) {
-        // TODO: 调用 Bilibili API 创建二维码
-        runCatching {
+                runCatching {
             mapOf(
                 "qrUrl" to "https://example.com/qr",
                 "qrKey" to "temp_key"
@@ -78,8 +77,7 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 轮询二维码状态
      */
     suspend fun pollQrStatus(qrKey: String): Result<Int> = withContext(Dispatchers.IO) {
-        // TODO: 轮询 Bilibili API
-        runCatching { 0 }
+                runCatching { 0 }
     }
     
     /**

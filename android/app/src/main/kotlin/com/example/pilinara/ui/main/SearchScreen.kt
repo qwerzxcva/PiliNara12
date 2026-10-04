@@ -97,12 +97,21 @@ fun SearchScreen(
                     }
                 }
                 state.searchResults.isNotEmpty() -> {
-                    // Search results
+                    // Search results - render actual items
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(state.searchResults) { item ->
-                            // Render type-specific results (placeholder)
+                            // Render based on item type
+                            // For now, show as text placeholder
+                            Card(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = item.toString(),
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                         }
                     }
                 }
