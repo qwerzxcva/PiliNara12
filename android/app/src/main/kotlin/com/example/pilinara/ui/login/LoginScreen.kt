@@ -48,7 +48,9 @@ class LoginViewModel(
         _state.value = QrState.Loading
         viewModelScope.launch {
             repo.createQrLogin()
-                .onSuccess { (url, key) ->
+                .onSuccess { map ->
+                    val url = map["qrUrl"] ?: ""
+                    val key = map["qrKey"] ?: ""
                     _state.value = QrState.Ready(url, key)
                     poll(key)
                 }

@@ -46,7 +46,7 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             }
             
             _isLoading.value = false
-            _videoInfo.value
+            _videoInfo.value ?: throw Exception("Video not found")
         }
     }
     
@@ -80,9 +80,14 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             
             response.onSuccess { resp ->
                 if (resp.code == 0 && resp.data != null) {
-                    return@onSuccess resp.data.map { it.toParsed() }
+                    _error.value = null
+                } else {
+                    _error.value = resp.message ?: "获取弹幕失败"
                 }
+            }.onFailure { e ->
+                _error.value = e.message ?: "网络错误"
             }
+            
             emptyList()
         }
     }
