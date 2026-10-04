@@ -134,3 +134,6 @@
   - 批次J 直播弹幕 WebSocket ✅：LiveDanmakuWsClient（16字节大端包头/op2心跳/op5业务/op7认证/op8认证回复/op3人气回复；protover2 zlib 递归解包；DANMU_MSG 解析 uid/name/彩色/徽章/emote）；getDanmuInfo(token+host_list)；30s 心跳；Ktor WebSocket(OkHttp engine)+ktor-client-websockets 依赖。LiveRoomViewModel 接 chat 流（保留80条）+人气；LiveRoomScreen 弹幕聊天列表（徽章/彩色/自动滚底）+发送栏（SendMsg csrf+本地回显）+WS 连接状态指示。剩：重连退避、SC/礼物消息、表情渲染。
   - 批次K 播放器字幕 ✅：getPlayerV2(/x/player/v2)+fetchSubtitleBody；SubtitleCues 按时间定位；播放器底部半透明字幕层。剩：字幕选择 UI、番剧 ep 字幕。
   - 剩余：批次I 下载离线、批次L Kototoro 主题、缩略图 storyboard、pgc 首页分类、@用户、私聊图片。
+- 2026-10-04 r9（批次I 下载离线，commit aa0203d）：总体 **31%**。
+  - 批次I ✅：Room v2 DownloadItemEntity/Dao（bvid 主键、STATE_PENDING/RUNNING/DONE/FAILED、进度、双流路径）；DownloadManager（详情→playurl wbi+Rust 选流→video/audio.m4s 下载到 Downloads/{bvid}/，Referer+UA，进度回调 0..1→Room upsert；cancel/delete/getLocalPlayback）；DownloadScreen（封面卡/LinearProgress/状态/删除/播放）；播放器 local 模式（video/{bvid}?local=1 → 本地 m4s DefaultDataSource 合流播放，startPlayback 本地/远程自适应）；Mine UserContent/QuickActions 离线缓存入口。剩：选清晰度下载、批量下载、弹幕/字幕离线、断点续传。
+  - 剩余：批次L Kototoro 主题、缩略图 storyboard、pgc 首页分类、@用户、私聊图片、批次J 的 SC/礼物消息与重连。
