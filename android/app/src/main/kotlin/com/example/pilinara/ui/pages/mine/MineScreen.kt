@@ -63,6 +63,7 @@ fun MineScreen(
     onLoginClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onFavoritesClick: (Long) -> Unit = {},
+    viewModel: MineViewModel = viewModel()
 ) {
     val nav by viewModel.nav.collectAsState()
     val isLoggedIn = nav != null
@@ -86,7 +87,7 @@ fun MineScreen(
                     modifier = Modifier.padding(padding),
                     nav = n,
                     onHistoryClick = onHistoryClick,
-                    onFavoritesClick = { onFavoritesClick(n.mid) },
+                    onFavoritesClick = { onFavoritesClick(n.uid) },
                     onLogout = { viewModel.logout() }
                 )
             }

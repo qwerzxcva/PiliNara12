@@ -75,8 +75,8 @@ fun AppNavigation() {
         }
         composable(Screen.Profile.route) {
             MineScreen(
-                onLoginClick = { navController.navigate(Screen.Login.route) },
-                onSettingsClick = { navController.navigate(Screen.Settings.route) }
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                onLoginClick = { navController.navigate(Screen.Login.route) }
             )
         }
         composable(Screen.Settings.route) {
