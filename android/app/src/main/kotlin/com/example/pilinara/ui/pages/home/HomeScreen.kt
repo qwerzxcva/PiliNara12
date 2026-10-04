@@ -48,8 +48,7 @@ import com.example.pilinara.data.model.VideoItem
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenSearch: () -> Unit = {},
-    onOpenVideo: (bvid: String, cid: Long) -> Unit = { _, _ -> },
+    onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()

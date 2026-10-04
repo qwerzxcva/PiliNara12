@@ -59,11 +59,10 @@ class MineViewModel(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MineScreen(
-    onOpenLogin: () -> Unit = {},
-    onOpenFavorites: (Long) -> Unit = {},
-    onOpenHistory: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
-    viewModel: MineViewModel = viewModel()
+    onSettingsClick: () -> Unit = {},
+    onLoginClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    onFavoritesClick: (Long) -> Unit = {},
 ) {
     val nav by viewModel.nav.collectAsState()
     val isLoggedIn = nav != null

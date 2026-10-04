@@ -57,7 +57,7 @@ fun MainApp(viewModel: MainViewModel, onNavigateToSettings: () -> Unit = {}, onN
     ) { padding ->
         Box(Modifier.padding(padding)) {
             NavHost(navController = navController, startDestination = "home") {
-                composable("home") { HomeScreen(onVideoClick = { bvid, _ -> navController.navigate("video/$bvid") }) }
+                composable("home") { HomeScreen(onVideoClick = { bvid, cid -> navController.navigate("video/$bvid") }) }
                 composable("dynamics") { DynamicsScreen() }
                 composable("mine") { MineScreen(onSettingsClick = onNavigateToSettings, onLoginClick = onNavigateToLogin) }
                 composable("video/{bvid}") { backStackEntry ->
