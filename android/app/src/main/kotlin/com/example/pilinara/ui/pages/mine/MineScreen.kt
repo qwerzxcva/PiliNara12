@@ -72,7 +72,7 @@ fun MineScreen(
             TopAppBar(
                 title = { Text("我的") },
                 actions = {
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "设置")
                     }
                 }
@@ -85,18 +85,18 @@ fun MineScreen(
                 UserContent(
                     modifier = Modifier.padding(padding),
                     nav = n,
-                    onOpenHistory = onOpenHistory,
-                    onOpenFavorites = { onOpenFavorites(n.mid) },
+                    onHistoryClick = onHistoryClick,
+                    onFavoritesClick = { onFavoritesClick(n.mid) },
                     onLogout = { viewModel.logout() }
                 )
             }
-            else -> LoginContent(modifier = Modifier.padding(padding), onOpenLogin = onOpenLogin)
+            else -> LoginContent(modifier = Modifier.padding(padding), onLoginClick = onLoginClick)
         }
     }
 }
 
 @Composable
-fun LoginContent(modifier: Modifier = Modifier, onOpenLogin: () -> Unit = {}) {
+fun LoginContent(modifier: Modifier = Modifier, onLoginClick: () -> Unit = {}) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -153,8 +153,8 @@ fun LoginContent(modifier: Modifier = Modifier, onOpenLogin: () -> Unit = {}) {
 fun UserContent(
     modifier: Modifier = Modifier,
     nav: NavData,
-    onOpenHistory: () -> Unit = {},
-    onOpenFavorites: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    onFavoritesClick: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     LazyColumn(
@@ -163,10 +163,10 @@ fun UserContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { UserCard(nav = nav) }
-        item { QuickActions(onHistory = onOpenHistory, onFavorites = onOpenFavorites) }
+        item { QuickActions(onHistory = onHistoryClick, onFavorites = onFavoritesClick) }
         item { HorizontalDivider() }
-        item { MenuItemRow(MenuItemData("历史观看", Icons.Default.History, onOpenHistory)) }
-        item { MenuItemRow(MenuItemData("我的收藏", Icons.Default.Favorite, onOpenFavorites)) }
+        item { MenuItemRow(MenuItemData("历史观看", Icons.Default.History, onHistoryClick)) }
+        item { MenuItemRow(MenuItemData("我的收藏", Icons.Default.Favorite, onFavoritesClick)) }
         item { MenuItemRow(MenuItemData("设置", Icons.Default.Settings, {})) }
         item { MenuItemRow(MenuItemData("退出登录", Icons.AutoMirrored.Filled.Logout, onLogout)) }
     }

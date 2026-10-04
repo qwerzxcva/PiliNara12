@@ -118,7 +118,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(s.items, key = { it.aid }) { card ->
-                        VideoCardItem(card, onClick = { onOpenVideo(card.bvid, card.cid) })
+                        VideoCardItem(card, onClick = { onVideoClick(card.bvid, card.cid) })
                     }
                 }
             }
