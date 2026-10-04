@@ -13,7 +13,7 @@
    - 主 Activity: MainActivity.kt (Jetpack Compose)
    - 数据库层: Room 数据库 (7张表)
    - 网络层: BiliApiClient (15+ API方法)
-   - Repository 层: HomeRepository, VideoRepository, SearchRepository, LoginRepository, LibraryRepository
+   - Repository 层: HomeRepository, VideoRepository, SearchRepository, LoginRepository
    - UI 层: 首页、搜索、动态、个人主页、评论、直播、消息、设置、仓库等页面
    - 播放层: VideoPlayerScreen (Media3 ExoPlayer)
    - 弹幕系统: Custom DanmakuView + Rust
@@ -30,11 +30,11 @@
 ### 📝 代码统计
 
 ```
-Kotlin 文件: 78+ 个
+Kotlin 文件: 76+ 个
 Kotlin 代码行数: ~7,700 行
 Rust 文件: 5 个
 Rust 代码行数: 773 行
-Git 提交: 20+ commits
+Git 提交: 25+ commits
 ```
 
 ### 🔧 技术栈
@@ -67,43 +67,38 @@ canvas_danmaku → Custom DanmakuView + Rust
 | Room 本地存储 | ✅ 完成 | 7张表 |
 | 设置页面 | ✅ 完成 | 完整 UI |
 | 我的仓库 | ✅ 完成 | 历史、收藏、离线 |
-| CI 构建 | ✅ 进行中 | 修复编译错误中 |
+| CI 构建 | ⚠️ 进行中 | 修复编译错误中 |
 
-### ⚠️ 待解决问题
+### ⚠️ 当前问题
 
-1. **CI 构建失败** - 编译错误需要修复：
-   - LoginViewModel 方法名不匹配
-   - SearchRepository 返回值类型问题
-   - HomeViewModel 语法错误
+1. **CI 构建失败** - 多个编译错误需要修复：
+   - VideoRepository 语法错误 (已修复)
+   - HomeRepository return 语句问题 (已修复)
+   - LoginRepository 类型不匹配 (已修复)
+   - VideoRepository 重复代码 (已修复)
 
-2. **功能完善**
-   - 登录功能需要完整实现 Bilibili API
-   - 视频播放需要真实 URL
-   - 弹幕功能需要完整实现
-
-3. **UI 优化**
-   - 整体样式可以优化
-   - 部分页面需要完善
+2. **需要继续修复的问题**:
+   - 等待最新 CI 构建结果
+   - 确保所有编译错误已修复
 
 ### 📝 Git 提交历史
 
 ```
-82b7c8211 fix: 修复 HomeViewModel 语法错误
-5d3c7c2ee fix: 修复编译错误 - 修正方法签名和返回值
-12014ad9d fix: 修复编译错误 - 添加缺失的导入和修正 API 调用
-337fdf5c5 feat: 实现真实的 Repository 层和数据加载逻辑
-abd60a000 fix: 修复 HomeScreen VideoCardItem 参数传递错误
+745bdcc3f fix: 修复 VideoRepository 语法错误
+595ba63af fix: 修复多个 Repository 编译错误
+e17838f63 fix: 移除重复的 LibraryRepository 文件
+ccc6e48d1 fix: 移除 VideoItem 中不存在的字段映射
+16aee91cb fix: 修复类型不匹配问题 - Stat 字段统一为 Long 类型
 ```
 
 ---
 
 ## 下一步计划
 
-1. 修复所有编译错误确保 CI 构建成功
-2. 完善登录功能 (二维码登录 API)
-3. 完善视频播放功能 (真实播放地址)
-4. 完善弹幕功能
-5. 优化 UI 样式
-6. 添加单元测试
+1. 等待当前 CI 构建结果
+2. 根据错误日志修复剩余的编译错误
+3. 确保 APK 构建成功
+4. 完善登录功能
+5. 完善视频播放功能
 
-**项目已从 Flutter 全面迁移到纯 Kotlin + Rust ARM64 架构，核心功能已实现，CI 正在修复中！**
+**项目已从 Flutter 全面迁移到纯 Kotlin + Rust ARM64 架构，正在修复最后编译错误！**
