@@ -49,6 +49,7 @@ import com.example.pilinara.data.model.VideoItem
 @Composable
 fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
+    onSearchClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -71,7 +72,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("PiliNara") },
                 actions = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = onSearchClick) {
                         Icon(Icons.Filled.Search, contentDescription = "搜索")
                     }
                 },
@@ -84,41 +85,40 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize().padding(padding),
         ) {
             when (val s = state) {
-                is HomeUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                is HomeUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Filled.PlayCircleOutline,
-                            contentDescription = null,
-                            modifier = Modifier.height(64.dp).width(64.dp),
-                            tint = MaterialTheme.colorScheme.outline,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "加载失败：${s.message}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "下拉重试",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                is HomeUiState.Loading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
                 }
-                is HomeUiState.Success -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    state = gridState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(s.items, key = { it.aid }) { card ->
-                        VideoCardItem(card, onClick = { onVideoClick(card.bvid, card.cid) })
+                is HomeUiState.Success -> {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        state = gridState,
+                        contentPadding = PaddingValues(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(s.items, key = { it.bvid }) { card ->
+                            VideoCardItem(card, onClick = { onVideoClick(card.bvid, card.cid) })
+                        }
+                    }
+                }
+                is HomeUiState.Error -> {
+                    Box(
+                        Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "加载失败：${s.message}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            androidx.compose.material3.Button(onClick = { viewModel.refresh() }) {
+                                androidx.compose.material3.Text("重试")
+                            }
+                        }
                     }
                 }
             }
@@ -127,55 +127,41 @@ fun HomeScreen(
 }
 
 @Composable
-private fun VideoCardItem(card: VideoItem, onClick: () -> Unit = {}) {
-    Card(onClick = onClick) {
-        Column {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 10f),
+private fun VideoCardItem(card: VideoItem, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    ) {
+        Box {
+            AsyncImage(
+                model = card.pic,
+                contentDescription = card.title,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                contentScale = ContentScale.Crop,
+            )
+            Row(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                AsyncImage(
-                    model = card.pic,
-                    contentDescription = card.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                Icon(
+                    Icons.Filled.PlayCircleOutline,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
                 )
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = card.durationText,
+                    text = "${card.viewCountText}播放",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp),
                 )
             }
-            Column(Modifier.padding(10.dp)) {
-                Text(
-                    card.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    minLines = 2,
-                )
-                Spacer(Modifier.height(6.dp))
-                Row {
-                    Text(
-                        card.owner.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "${card.viewCountText}观看",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                }
-            }
+            Text(
+                text = card.title,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(8.dp),
+            )
         }
     }
 }

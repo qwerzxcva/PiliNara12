@@ -79,14 +79,17 @@ fun AppNavigation() {
         composable(Screen.Home.route) {
             HomeScreen(
                 onVideoClick = { bvid, cid ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                },
+                onSearchClick = {
+                    navController.navigate(Screen.Search.route)
                 }
             )
         }
         composable(Screen.Search.route) {
             SearchScreen(
                 onVideoClick = { bvid ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
                 },
                 onUserClick = { mid ->
                     navController.navigate(Screen.Member.createRoute(mid))
