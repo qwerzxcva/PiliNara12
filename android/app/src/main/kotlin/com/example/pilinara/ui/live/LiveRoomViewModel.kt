@@ -111,6 +111,14 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
     private val _chatMessages = MutableStateFlow<List<com.example.pilinara.data.model.LiveDanmakuMsg>>(emptyList())
     val chatMessages: StateFlow<List<com.example.pilinara.data.model.LiveDanmakuMsg>> = _chatMessages.asStateFlow()
 
+    /** 聊天列表中的 SC（醒目留言），与弹幕合并展示（批次L4） */
+    private val _superChats = MutableStateFlow<List<com.example.pilinara.data.model.LiveSuperChat>>(emptyList())
+    val superChats: StateFlow<List<com.example.pilinara.data.model.LiveSuperChat>> = _superChats.asStateFlow()
+
+    /** 最近礼物消息（顶部飘条） */
+    private val _gifts = MutableStateFlow<List<com.example.pilinara.data.model.LiveGift>>(emptyList())
+    val gifts: StateFlow<List<com.example.pilinara.data.model.LiveGift>> = _gifts.asStateFlow()
+
     private val _popularity = MutableStateFlow(0L)
     val popularity: StateFlow<Long> = _popularity.asStateFlow()
 
@@ -140,6 +148,16 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                 launch {
                     client.chat.collect { msg ->
                         _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                    }
+                }
+                launch {
+                    client.superChat.collect { sc ->
+                        _superChats.value = (_superChats.value + sc).takeLast(20)
+                    }
+                }
+                launch {
+                    client.gift.collect { g ->
+                        _gifts.value = (_gifts.value + g).takeLast(20)
                     }
                 }
                 client.connect()

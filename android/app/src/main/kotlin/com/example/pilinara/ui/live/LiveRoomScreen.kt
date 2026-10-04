@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -166,12 +167,31 @@ fun LiveRoomScreen(
                 }
             }
 
-            // 弹幕聊天区（批次J）
+            // 弹幕聊天区（批次J）+ SC 醒目留言（批次L4）
             var input by remember { mutableStateOf("") }
             val chat by viewModel.chatMessages.collectAsState()
+            val superChats by viewModel.superChats.collectAsState()
+            val gifts by viewModel.gifts.collectAsState()
             val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-            LaunchedEffect(chat.size) {
-                if (chat.isNotEmpty()) listState.animateScrollToItem(chat.size - 1)
+            LaunchedEffect(chat.size, superChats.size) {
+                val total = chat.size + superChats.size
+                if (total > 0) listState.animateScrollToItem(total - 1)
+            }
+            // 顶部最近礼物飘条
+            if (gifts.isNotEmpty()) {
+                val g = gifts.last()
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        "🎁 ${g.name} 投喂 ${g.giftName} ×${g.num}",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        maxLines = 1
+                    )
+                }
             }
             Card(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp).weight(1f),
@@ -184,6 +204,35 @@ fun LiveRoomScreen(
                     modifier = Modifier.fillMaxSize().padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // SC 醒目留言卡片（置顶展示，含价格/背景色）
+                    items(superChats) { sc ->
+                        Surface(
+                            color = runCatching {
+                                Color(android.graphics.Color.parseColor(sc.backgroundColor))
+                            }.getOrDefault(Color(0xFFC0000F)),
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "¥${sc.price}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        sc.name,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text(sc.message, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                     items(chat) { msg ->
                         Row(verticalAlignment = Alignment.Top) {
                             if (msg.medalName != null) {
