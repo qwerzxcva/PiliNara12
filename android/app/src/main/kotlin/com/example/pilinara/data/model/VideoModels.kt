@@ -29,6 +29,9 @@ data class VideoItem(
     val duration: Int = 0,
     val pubdate: Long = 0,
     val tname: String? = null,
+    val author: String = "",
+    val authorMid: Long = 0,
+    val authorFace: String = "",
     val owner: Owner = Owner(),
     val stat: Stat = Stat(),
 ) {
