@@ -34,6 +34,7 @@ fun BangumiScreen(
     epId: Long = 0L,
     onBack: () -> Unit = {},
     onOpenVideo: (String, Long) -> Unit = { _, _ -> },
+    onOpenIndex: () -> Unit = {},
     viewModel: BangumiViewModel = viewModel(
         key = "$seasonId-$epId",
         factory = object : ViewModelProvider.Factory {
@@ -62,6 +63,9 @@ fun BangumiScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
                     }
+                },
+                actions = {
+                    TextButton(onClick = onOpenIndex) { Text("分类") }
                 }
             )
         }

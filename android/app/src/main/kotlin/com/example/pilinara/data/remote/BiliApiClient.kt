@@ -465,6 +465,24 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** pgc 索引分类列表（批次L2）：season_type 1番剧 2电影 3纪录片 4国创 5电视剧 7综艺 */
+    suspend fun getPgcIndex(
+        seasonType: Int,
+        page: Int,
+        order: String = "update"
+    ): Result<PgcIndexResponse> = runCatching {
+        client.get("$API_BASE/pgc/season/index/result") {
+            url {
+                parameters.append("season_type", seasonType.toString())
+                parameters.append("type", "1")
+                parameters.append("order", order)
+                parameters.append("page", page.toString())
+                parameters.append("pagesize", "20")
+            }
+            header("Referer", "https://www.bilibili.com/")
+        }.body()
+    }
+
     /** 番剧播放地址（pgc playurl，ep_id + cid） */
     suspend fun getPgcPlayUrl(epId: Long, cid: Long, qn: Int = 80): Result<PgcPlayUrlResponse> = runCatching {
         val signed = WbiSigner.sign(

@@ -60,6 +60,7 @@ sealed class Screen(val route: String) {
             "bangumi?seasonId=$seasonId&epId=$epId"
     }
     object LiveList : Screen("livelist")
+    object PgcIndex : Screen("pgcindex")
     object DanmakuBlock : Screen("danmakublock")
     object Sessions : Screen("sessions")
 
@@ -249,13 +250,22 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onOpenVideo = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
-                }
+                },
+                onOpenIndex = { navController.navigate(Screen.PgcIndex.route) }
             )
         }
         composable(Screen.LiveList.route) {
             com.example.pilinara.ui.pages.livelist.LiveListScreen(
                 onBack = { navController.popBackStack() },
                 onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId)) }
+            )
+        }
+        composable(Screen.PgcIndex.route) {
+            com.example.pilinara.ui.pages.bangumi.PgcIndexScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeason = { sid ->
+                    navController.navigate(Screen.Bangumi.createRoute(seasonId = sid))
+                }
             )
         }
         composable(Screen.DanmakuBlock.route) {
