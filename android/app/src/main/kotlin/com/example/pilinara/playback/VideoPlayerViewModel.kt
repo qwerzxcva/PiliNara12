@@ -192,6 +192,35 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
 
+    // ==================== 字幕（批次K） ====================
+
+    private var subtitleCues: List<com.example.pilinara.data.model.SubtitleCue> = emptyList()
+
+    private val _currentSubtitle = MutableStateFlow("")
+    val currentSubtitle: StateFlow<String> = _currentSubtitle.asStateFlow()
+
+    /** resolveAndPlay 成功后调用：拉字幕列表并取第一条可用字幕内容 */
+    private fun loadSubtitles(bvid: String, cid: Long) {
+        if (bvid.isEmpty() || cid <= 0L || bvid.startsWith("ep")) return
+        viewModelScope.launch {
+            runCatching {
+                val api = BiliApiClient()
+                val subs = api.getPlayerV2(bvid, cid).getOrNull()?.data?.subtitle?.subtitles.orEmpty()
+                val pick = subs.firstOrNull { !it.isLock } ?: return@launch
+                val body = api.fetchSubtitleBody(pick.subtitleUrl).getOrNull() ?: return@launch
+                subtitleCues = body.body.sortedBy { it.from }
+            }
+        }
+    }
+
+    /** 播放器每帧/每秒调：更新当前字幕文本 */
+    fun updateSubtitleAt(currentTimeMs: Long) {
+        val sec = currentTimeMs / 1000f
+        val cue = subtitleCues.firstOrNull { sec >= it.from && sec <= it.to }
+        val text = cue?.content.orEmpty().replace("<br/>", "\n")
+        if (text != _currentSubtitle.value) _currentSubtitle.value = text
+    }
+
     /**
      * 真实播放链路：
      * 1) cid 缺失时拉 /x/web-interface/view 取 cid
@@ -247,6 +276,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         currentQn = resp.data?.quality ?: currentQn
 
         startPlayback(videoUrl2, audioUrl2)
+        loadSubtitles(bvid, effectiveCid)
     }
 
     /** 组装 MergingMediaSource 并启动播放（可带恢复进度） */

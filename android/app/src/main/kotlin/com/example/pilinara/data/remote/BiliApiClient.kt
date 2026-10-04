@@ -635,6 +635,27 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    // ========== 播放器字幕（批次K） ==========
+
+    /** /x/player/v2 —— 字幕列表等播放器附加信息 */
+    suspend fun getPlayerV2(bvid: String, cid: Long): Result<PlayerV2Response> = runCatching {
+        client.get("$API_BASE/x/player/v2") {
+            url {
+                parameters.append("bvid", bvid)
+                parameters.append("cid", cid.toString())
+            }
+            header("Referer", "https://www.bilibili.com/")
+        }.body()
+    }
+
+    /** 拉取字幕内容 JSON（subtitle_url，协议相对 // 开头） */
+    suspend fun fetchSubtitleBody(url: String): Result<SubtitleBody> = runCatching {
+        val full = if (url.startsWith("//")) "https:$url" else url
+        client.get(full) {
+            header("Referer", "https://www.bilibili.com/")
+        }.body()
+    }
+
     // ========== History / 稍后再看（批次G） ==========
 
     /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */

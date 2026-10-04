@@ -91,6 +91,31 @@ fun VideoPlayerScreen(
             factory = { ctx -> DanmakuView(ctx) },
             modifier = Modifier.fillMaxSize()
         )
+
+        // 字幕层（批次K）
+        val subtitle by viewModel.currentSubtitle.collectAsState()
+        LaunchedEffect(state.isPlaying, state.currentTime) {
+            viewModel.updateSubtitleAt(state.currentTime)
+        }
+        if (subtitle.isNotEmpty()) {
+            Box(
+                Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.padding(bottom = 64.dp)
+                ) {
+                    Text(
+                        subtitle,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
         
         // Error overlay
         state.error?.let { error ->
