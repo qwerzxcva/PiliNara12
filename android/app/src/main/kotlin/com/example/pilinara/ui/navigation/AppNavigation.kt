@@ -46,7 +46,11 @@ fun AppNavigation() {
         startDestination = Screen.Home.route
     ) {
         composable(Screen.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onVideoClick = { bvid, cid -> 
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
+                }
+            )
         }
         composable(Screen.Search.route) {
             SearchScreen()
