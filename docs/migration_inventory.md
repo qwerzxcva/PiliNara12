@@ -111,3 +111,8 @@
 - 2026-10-04 r5（批次H 完成，commit 10ad519）：总体 **17%**。
   - 批次H ✅：getFollowings/getFollowers、getMsgUnread/Reply/At/Like 四接口；MessageScreen 整页重写（三 Tab+未读角标+真实消息卡片+登录引导+来源视频跳转）；FollowListScreen 新页（关注/粉丝，点击进空间）+ MemberScreen 粉丝/关注数可点。剩：私聊会话(session_svr)、系统通知。
   - 剩余大批次：D 番剧(pgc)、直播列表页/弹幕ws、设置页扩展、下载离线、表情包、我的页面完善。
+- 2026-10-04 r6（批次D+直播列表+设置页完成，commit c89e25f + 32300fc + 播放器接线）：总体 **20%**。
+  - 批次D 番剧 ✅：getPgcSeason/getPgcPlayUrl(wbi)/followBangumi(csrf)；Rust select_streams 兼容 result.dash；BangumiScreen（封面/简介/统计/选集横滑/追番/播放）；路由 + Mine 追番中心入口。剩：pgc 首页分类、播放器内 ep_id 模式。
+  - 直播列表 ✅：getLiveList(second/getList 分页) + LiveListScreen 网格（人气/分区/主播）+ 路由。
+  - 设置页扩展 ✅：StorageManager 补齐 setter；SettingsViewModel 七项状态机；SettingsScreen 重写（Switch/Slider/单选弹窗全真实持久化）；**播放器 ViewModel 读 DataStore**（默认清晰度 qn 映射 + 弹幕开关/透明度真实生效）。
+  - 剩余：弹幕屏蔽规则、下载离线、表情包、私聊、播放器字幕/缩略图、直播弹幕ws。

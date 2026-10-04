@@ -71,6 +71,25 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             .setWakeMode(android.os.PowerManager.PARTIAL_WAKE_LOCK)
             .build()
         _player?.addListener(this)
+        // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
+        val storage = com.example.pilinara.utils.StorageManager(context)
+        viewModelScope.launch {
+            storage.videoQualityFlow.collect { q ->
+                currentQn = when (q) {
+                    "1080p" -> 80; "720p" -> 64; "480p" -> 32; else -> currentQn
+                }
+            }
+        }
+        viewModelScope.launch {
+            storage.danmakuEnabledFlow.collect { on ->
+                _state.value = _state.value.copy(danmakuOn = on)
+            }
+        }
+        viewModelScope.launch {
+            storage.danmakuOpacityFlow.collect { a ->
+                _state.value = _state.value.copy(danmakuAlpha = a)
+            }
+        }
     }
     
     fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L) {
