@@ -112,3 +112,32 @@ data class RelationData(
     val favourite: Int = 0,  // 1=已收藏
     val tweetFav: Int = 0
 )
+
+/** /x/web-interface/archive/related —— 相关视频推荐 */
+@Serializable
+data class RelatedVideoResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: List<RelatedVideo>? = null
+)
+
+@Serializable
+data class RelatedVideo(
+    val aid: Long = 0L,
+    val bvid: String = "",
+    val cid: Long = 0L,
+    val title: String = "",
+    val pic: String = "",
+    val desc: String = "",
+    val duration: Int = 0,
+    val pubdate: Long = 0L,
+    val owner: OwnerInfo? = null,
+    val stat: RelatedStat? = null
+)
+
+@Serializable
+data class RelatedStat(
+    val view: Long = 0L,
+    val danmaku: Long = 0L,
+    val like: Long = 0L
+)

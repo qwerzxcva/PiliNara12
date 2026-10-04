@@ -276,6 +276,59 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    // ========== Video extras（批次A：播放器补全） ==========
+
+    /** 相关视频推荐（无需登录） */
+    suspend fun getRelatedVideos(bvid: String): Result<List<RelatedVideo>> = runCatching {
+        val resp: RelatedVideoResponse = client.get("$API_BASE/x/web-interface/archive/related") {
+            url { parameters.append("bvid", bvid) }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+        if (resp.code == 0) resp.data.orEmpty() else error(resp.message.ifEmpty { "相关视频获取失败" })
+    }
+
+    // ========== Search extras（批次B） ==========
+
+    /** 热搜榜（无需登录） */
+    suspend fun getSearchTrending(): Result<List<TrendingItem>> = runCatching {
+        val resp: SearchTrendingResponse = client.get("$API_BASE/x/v2/search/trending/ranking") {
+            url { parameters.append("limit", "20") }
+            header("Referer", "https://search.bilibili.com")
+        }.body()
+        if (resp.code == 0) {
+            (resp.data?.top_list.orEmpty()) + resp.data?.list.orEmpty()
+        } else error(resp.message.ifEmpty { "热搜获取失败" })
+    }
+
+    /**
+     * 分类搜索：video（视频）/ bili_user（用户）/ live（直播）。
+     * order: totalrank(默认)/click/pubdate/danmaku/stow
+     * duration: 0全部/10分钟内/30分钟内/60分钟内
+     * 需要 wbi 签名 + buvid3。
+     */
+    suspend fun searchByType(
+        keyword: String,
+        searchType: String = "video",
+        page: Int = 1,
+        order: String = "",
+        duration: Int = 0
+    ): Result<SearchResultResponse> = runCatching {
+        AccountSession.ensureBuvid()
+        val params = mutableMapOf(
+            "search_type" to searchType,
+            "keyword" to keyword,
+            "page" to page.toString(),
+            "page_size" to "20"
+        )
+        if (order.isNotEmpty()) params["order"] = order
+        if (duration > 0) params["duration"] = duration.toString()
+        val signed = WbiSigner.sign(params)
+        client.get("$API_BASE/x/web-interface/wbi/search/type") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
+            header("Referer", "https://search.bilibili.com")
+        }.body()
+    }
+
     /**
      * 通用 GET：给路径 + 追加查询参数，反序列化为 reified T。
      * 用于收藏夹/历史等带具体模型的新接口，避免每个都加 wrapper。

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.data.remote.BiliApiClient
 import com.example.pilinara.data.repository.VideoRepository
@@ -41,7 +42,19 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val coinCount: Int = 0,
         val likeCount: Long = 0L,
         val coinCountTotal: Long = 0L,
-        val favCount: Long = 0L
+        val favCount: Long = 0L,
+        // 批次A：播放器补全
+        val currentPart: Int = 1,
+        val currentPartTitle: String = "",
+        val partCount: Int = 1,
+        val danmakuOn: Boolean = true,
+        val danmakuAlpha: Float = 1f,
+        val danmakuScale: Float = 1f,
+        val brightness: Float = 0.5f,
+        val gestureSeekDeltaMs: Long = 0L,
+        val qualities: List<QualityOption> = emptyList(),
+        val currentQn: Int = 80,
+        val related: List<RelatedItem> = emptyList()
     )
     
     data class DanmakuEvent(
@@ -97,42 +110,71 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
      */
     private suspend fun resolveAndPlay(bvid: String, cidIn: Long) {
         val repo = VideoRepository(BiliApiClient())
-        // 1) 补 cid
+        // 1) 补 cid + 分P列表 + aid
+        val detail = repo.getVideoDetail(bvid).getOrNull()?.data
         val effectiveCid = cidIn.takeIf { it > 0L }
-            ?: repo.getVideoDetail(bvid).getOrNull()?.data?.cid
+            ?: detail?.cid
             ?: run {
                 setError("无法获取视频 cid（详情接口失败）")
                 return
             }
+        aid = detail?.aid ?: 0L
+        // 分P 列表（单P视频 pages 只有 1 项）
+        pages = (detail?.pages.orEmpty()).map {
+            PartInfo(cid = it.cid, page = it.page, part = it.part, durationSec = it.duration)
+        }.ifEmpty { listOf(PartInfo(effectiveCid, 1, "", 0L)) }
+        currentPartIndex = pages.indexOfFirst { it.cid == effectiveCid }.coerceAtLeast(0)
+        _state.value = _state.value.copy(
+            partCount = pages.size,
+            currentPart = pages[currentPartIndex].page,
+            currentPartTitle = pages[currentPartIndex].part
+        )
+        loadEngagement(aid, bvid)
+        loadRelated(bvid)
 
         // 2) playurl + Rust 流选择
-        val (_, videoUrl2, audioUrl2) = repo.getPlayUrl(bvid, effectiveCid, qn = 80)
+        val (resp, videoUrl2, audioUrl2) = repo.getPlayUrl(bvid, effectiveCid, qn = currentQn)
             .getOrElse {
                 setError("playurl 获取失败: ${it.message}")
                 return
             }
         this.effectiveCid = effectiveCid
         this.currentBvid = bvid
-        this.aid = repo.getVideoDetail(bvid).getOrNull()?.data?.aid ?: 0L
-        loadEngagement(this.aid, bvid)
+        cachedAudioUrl = audioUrl2
         if (videoUrl2.isNullOrEmpty()) {
             setError("未解析到视频流地址（可能需要登录后观看）")
             return
         }
 
-        // 3) 拼接播放：Media3 的 MergingMediaSource 合并视频轨+音频轨
+        // 3) 缓存清晰度列表（accept_quality + 当前 dash 可选流）
+        dashVideos = resp.data?.dash?.video.orEmpty()
+        val accepted = resp.data?.acceptDescription.orEmpty()
+        val acceptQn = resp.data?.acceptQuality?.map { it.quality } ?: emptyList()
+        availableQualities = accepted.zip(acceptQn).map { (desc, q) -> QualityOption(q, desc) }
+        currentQn = resp.data?.quality ?: currentQn
+
+        startPlayback(videoUrl2, audioUrl2)
+    }
+
+    /** 组装 MergingMediaSource 并启动播放（可带恢复进度） */
+    private fun startPlayback(
+        videoUrl: String,
+        audioUrl: String?,
+        resumePositionMs: Long = 0L,
+        playWhenReady: Boolean = true
+    ) {
         val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
 
-        val videoItem = MediaItem.Builder().setUri(Uri.parse(videoUrl2)).build()
+        val videoItem = MediaItem.Builder().setUri(Uri.parse(videoUrl)).build()
         val videoSource: androidx.media3.exoplayer.source.MediaSource =
             androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(videoItem)
 
-        val merged = if (!audioUrl2.isNullOrEmpty()) {
-            val audioItem = MediaItem.Builder().setUri(Uri.parse(audioUrl2)).build()
+        val merged = if (!audioUrl.isNullOrEmpty()) {
+            val audioItem = MediaItem.Builder().setUri(Uri.parse(audioUrl)).build()
             val audioSource: androidx.media3.exoplayer.source.MediaSource =
                 androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
                     .createMediaSource(audioItem)
@@ -141,12 +183,14 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             videoSource
         }
 
-        _player?.setMediaSource(merged)
+        _player?.setMediaSource(merged, resumePositionMs)
         _player?.prepare()
-        _player?.playWhenReady = true
+        _player?.playWhenReady = playWhenReady
         _state.value = _state.value.copy(
-            isPlaying = true, isBuffering = true,
-            error = null, currentTime = 0L, duration = 0L
+            isPlaying = playWhenReady, isBuffering = true,
+            error = null, duration = 0L,
+            qualities = availableQualities, currentQn = currentQn,
+            brightness = _state.value.brightness
         )
     }
 
@@ -398,4 +442,136 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         if (aid > 0L) return
         aid = repo.getVideoDetail(currentBvid).getOrNull()?.data?.aid ?: 0L
     }
+
+    // ========== 批次A：播放器补全（多P/清晰度/相关视频/弹幕设置） ==========
+
+    /** 视频分P列表（来自详情接口 pages[]） */
+    data class PartInfo(val cid: Long, val page: Int, val part: String, val durationSec: Long)
+
+    /** 可选清晰度 */
+    data class QualityOption(val qn: Int, val label: String)
+
+    /** 相关视频 */
+    data class RelatedItem(
+        val bvid: String, val cid: Long, val title: String, val pic: String,
+        val author: String, val durationText: String, val viewText: String
+    )
+
+    private var pages: List<PartInfo> = emptyList()
+    private var currentPartIndex: Int = 0
+    private var availableQualities: List<QualityOption> = emptyList()
+    private var currentQn: Int = 80
+    private var dashVideos: List<com.example.pilinara.data.model.StreamInfo> = emptyList()
+
+    /** 当前分P 页码（1-based，单P视频恒为 1） */
+    val currentPage: Int get() = pages.getOrNull(currentPartIndex)?.page ?: 1
+    val hasMultipleParts: Boolean get() = pages.size > 1
+
+    /** 弹幕开关 + 透明度（UI 直接读写） */
+    var danmakuEnabled: Boolean
+        get() = _state.value.danmakuOn
+        set(v) { _state.value = _state.value.copy(danmakuOn = v) }
+
+    /**
+     * 切换分P：重走播放链路（不重取详情）。
+     */
+    fun playPart(pageIndex: Int) {
+        val p = pages.getOrNull(pageIndex) ?: return
+        currentPartIndex = pageIndex
+        _state.value = _state.value.copy(currentPart = p.page, currentPartTitle = p.part)
+        viewModelScope.launch {
+            resolveAndPlay(currentBvid, p.cid)
+        }
+    }
+
+    /**
+     * 切换清晰度：从已缓存的 dash.video[] 中按 qn 找流，无缝换源（保持进度）。
+     * dash.video[].id 即 qn。
+     */
+    fun switchQuality(qn: Int) {
+        if (qn == currentQn) return
+        val target = dashVideos.firstOrNull { it.id == qn } ?: return
+        currentQn = qn
+        val pos = _player?.currentPosition ?: 0L
+        val playing = _state.value.isPlaying
+        viewModelScope.launch {
+            val audio = bestAudio()
+            startPlayback(target.baseUrl ?: return@launch, audio, resumePositionMs = pos, playWhenReady = playing)
+        }
+    }
+
+    private fun bestAudio(): String? = cachedAudioUrl
+
+    private var cachedAudioUrl: String? = null
+
+    /** 加载相关视频列表 */
+    private fun loadRelated(bvid: String) {
+        viewModelScope.launch {
+            runCatching {
+                val list = BiliApiClient().getRelatedVideos(bvid).getOrNull().orEmpty()
+                _state.value = _state.value.copy(
+                    related = list.map {
+                        RelatedItem(
+                            bvid = it.bvid, cid = it.cid, title = it.title, pic = it.pic,
+                            author = it.owner?.name ?: "",
+                            durationText = it.duration.let { s -> "%d:%02d".format(s / 60, s % 60) },
+                            viewText = formatCount(it.stat?.view ?: 0L)
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    /** 播放相关视频（重置状态换源） */
+    fun playRelated(item: RelatedItem) {
+        _state.value = _state.value.copy(related = _state.value.related, error = null)
+        viewModelScope.launch {
+            currentBvid = item.bvid
+            aid = item.bvid.let { repo.getVideoDetail(it).getOrNull()?.data?.aid ?: 0L }
+            loadEngagement(aid, item.bvid)
+            loadRelated(item.bvid)
+            resolveAndPlay(item.bvid, item.cid)
+        }
+    }
+
+    /** 弹幕透明度 0..1 */
+    fun setDanmakuAlpha(alpha: Float) {
+        _state.value = _state.value.copy(danmakuAlpha = alpha.coerceIn(0f, 1f))
+    }
+
+    /** 弹幕大小倍率 0.5..2.0 */
+    fun setDanmakuScale(scale: Float) {
+        _state.value = _state.value.copy(danmakuScale = scale.coerceIn(0.5f, 2f))
+    }
+
+    /** 手势进度（UI 层渲染提示条用）：deltaX 横滑快进 */
+    fun onGestureSeek(deltaX: Float, widthPx: Float) {
+        if (widthPx <= 0f || duration() <= 0L) return
+        val ratio = deltaX / widthPx
+        val deltaMs = (ratio * duration() * 2).toLong()  // 全屏横滑≈2倍时长
+        _state.value = _state.value.copy(gestureSeekDeltaMs = deltaMs)
+    }
+
+    fun commitGestureSeek() {
+        val d = _state.value.gestureSeekDeltaMs
+        if (d != 0L) {
+            seekTo((_state.value.currentTime + d).coerceIn(0L, duration()))
+            _state.value = _state.value.copy(gestureSeekDeltaMs = 0L)
+        }
+    }
+
+    /** 左半屏竖滑调系统亮度（0..1），右半屏调音量 */
+    fun onVerticalDrag(leftSide: Boolean, deltaY: Float, heightPx: Float) {
+        if (heightPx <= 0f) return
+        val delta = -deltaY / heightPx
+        if (leftSide) {
+            val nv = (_state.value.brightness + delta).coerceIn(0.05f, 1f)
+            _state.value = _state.value.copy(brightness = nv)
+        } else {
+            setVolume((_state.value.volume + delta).coerceIn(0f, 1f))
+        }
+    }
+
+    private fun duration(): Long = _player?.duration?.takeIf { it > 0 } ?: _state.value.duration
 }

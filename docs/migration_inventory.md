@@ -1,0 +1,98 @@
+# Flutter → Kotlin+Rust 功能移植总清单（Master Inventory）
+
+> 参照物：`~/flutter_ref/`（git 0635112^ 取出的 Flutter 版 lib/，1422 dart 文件，~48万行，其中 grpc/ 24.9万行为自动生成可忽略，实际业务代码约 23 万行）
+> 现状：Kotlin 76 文件 / 8214 行 + Rust 773 行
+> 约定：✅已移植 🟨部分/框架 🟥未开始 ➖Flutter独有（评估后不移植或后期再说）
+
+## 一、总体进度（按功能域加权估算：约 8%）
+
+| 功能域 | Flutter 规模 | 状态 | Kotlin 对应 |
+|---|---|---|---|
+| 视频播放链路 | pages/video/ 21380行 | 🟨 25% | playback/VideoPlayerScreen+ViewModel（DASH合并、倍速、PiP、音量；缺：选集/多P、字幕、缩略图预览、手势、投屏） |
+| 设置 | pages/setting/ 11687行 | 🟨 10% | ui/settings/SettingsScreen（DataStore 少量项；缺：主题/播放设置/弹幕设置/cookie管理/网络代理等全套） |
+| 直播 | pages/live*/ 7000+行 | 🟥 5% | ui/live/LiveRoomScreen 仅 UI 壳 |
+| 动态 | pages/dynamics*/ 10000+行 | 🟨 15% | DynamicsScreen 聚合流+翻页（缺：详情/评论/转发/发布/话题/图片九宫格） |
+| 弹幕 | pages/danmaku/ 2351行+utils | 🟨 40% | DanmakuView+Rust danmaku.rs（缺：屏蔽规则UI/合并/密度调节接UI） |
+| 收藏 | pages/fav*/ 3500+行 | 🟨 30% | LibraryScreens 三屏（缺：收藏夹管理/排序/搜索/fav_panel选夹收藏） |
+| 搜索 | pages/search*/ 4000+行 | 🟨 30% | SearchScreen（缺：热搜/筛选/分区/历史记录） |
+| UP主空间 | pages/member*/ 9000+行 | 🟥 0% | 无 |
+| 番剧影视 | pages/pgc*/ 2000+行 | 🟥 0% | 无 |
+| 文章专栏 | pages/article*/ 3000+行 | 🟥 0% | 无 |
+| 音频 | pages/audio/ 2165行 | 🟥 0% | 无 |
+| 私信 | pages/whisper*/ 3000+行 | 🟥 0% | MessageScreen 仅壳 |
+| 消息中心 | pages/msg_feed_top/ 1471行 | 🟥 0% | MessageScreen 仅壳 |
+| 下载/离线 | pages/download/ 3265行 | 🟥 0% | 无（有 DocumentsProvider 骨架） |
+| 登录 | pages/login/ 1991行 | 🟨 40% | 扫码登录+Room 持久化（缺：密码/短信/多账号/cookie校验） |
+| 历史/稍后再看 | pages/history+later/ 1700行 | 🟨 25% | HistoryScreen 列表（缺：搜索/暂停记录/稍后再看） |
+| 关注/粉丝 | pages/follow+fan/ 1600行 | 🟥 0% | 无 |
+| 我的 | pages/mine/ 1752行 | 🟨 30% | MineScreen 基础 |
+| 排行榜/热门系列 | pages/rank+popular*/ | 🟥 0% | 无 |
+| 今日Watch | pages/today_watch/ | 🟥 0% | 无 |
+| AI助手 | pages/ai_chat/ 1762行 | ➖ 依赖B站AI接口，后议 |
+| 音乐识别 | pages/music/ 1167行 | ➖ 后议 |
+| SponsorBlock | 1218行 | ➖ 后议 |
+| DLNA投屏 | 3265+行 | ➖ 后议 |
+| WebDAV备份 | 1000行 | ➖ 后议 |
+| 弹幕屏蔽 | pages/danmaku_block/ | 🟥 0% | DB表已有，无UI无API |
+| 评论 | pages/main_reply/ | 🟨 30% | CommentScreen（缺：回复楼中楼/表情/点赞评论/排序） |
+| 底层服务 | services/ 8230行 | 🟨 10% | 部分散落（无 version/upgrade、无 badge、无 quick_start） |
+| utils 工具 | utils/ 21883行 | 🟨 15% | wbi/账号/storage 有；无 emote/extension/global_data 等 |
+| API 层 | http/ 9815行(29文件) | 🟨 20% | BiliApiClient 集中一个文件，缺大量接口 |
+
+## 二、本批次实施顺序（由用户核心使用路径决定）
+
+### 批次A：播放器补全（pages/video 精华）
+1. 多P/选集（pages 列表切换、详情 pages[] 已有）
+2. 播放器手势：亮度（左半屏竖滑）/音量（右半屏竖滑）/快进（横滑）
+3. 清晰度切换菜单（dash.video[] 的 id 列表 + 登录态对应）
+4. 弹幕开关/透明度/大小的设置面板
+5. 字幕（subtitle 字段，subUrl 已在 playurl 返回）
+6. 相关视频推荐（/x/web-interface/archive/related）
+7. 视频简介展开、标签、UP主卡片跳转
+
+### 批次B：搜索+热搜
+1. 热搜榜（/x/web-interface/search/square?limit=10 → hot_search）
+2. 搜索历史（Room 存储）
+3. 结果分类筛选（视频/直播/用户，order/duration 过滤参数）
+4. 搜索建议实时联想（已有 suggest API，接输入框）
+
+### 批次C：UP主空间（member）
+1. 空间主页（/x/space/wbi/acc/info，wbi）
+2. 投稿列表（/x/space/wbi/arc/search，wbi+分页）
+3. 关注/取关（/x/relation/modify，csrf）
+4. 粉丝/关注数（/x/relation/stat）
+5. 空间动态 tab（复用 dynamics feed/space）
+
+### 批次D：番剧/影视（pgc）
+1. 番剧首页（/pgc/index）
+2. 番剧详情（/pgc/view/web/season?season_id=/ep_id=）
+3. 播放（playurl 传 ep_id，与普通视频共用链路）
+4. 追番/取消（/pgc/app/follow/add，csrf）
+
+### 批次E：评论区增强
+1. 楼中楼回复（/x/v2/reply/reply）
+2. 评论点赞（/x/v2/reply/action，csrf）
+3. 发评论（/x/v2/reply/add，csrf）
+4. 表情包（emote 包）
+
+### 批次F：直播
+1. 直播列表（/xlive/web-interface/index/getAllList）
+2. 直播间信息（/xlive/web-room/v2/index/getRoomPlayInfo + 链路）
+3. 直播播放（HLS 流 ExoPlayer 原生支持）
+4. 直播弹幕（websocket）
+
+### 批次G：稍后再看 + 历史增强
+1. 稍后再看列表（/x/v2/history/toview/web）
+2. 添加/删除稍后再看（csrf）
+3. 历史搜索、暂停/恢复记录开关
+
+### 批次H：关注/粉丝 + 消息
+1. 关注列表（/x/relation/followings）
+2. 粉丝列表（/x/relation/followers）
+3. 消息中心真实数据（/x/msgfeed/unread）
+
+### 批次I：下载离线 + 其余
+（下载、webdav、dlna、sponsorblock、audio、article 等后期）
+
+## 三、复盘记录
+- 2026-10-04 初建：总体 8%。上批完成：互动状态/默认收藏夹/动态页。

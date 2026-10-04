@@ -5,8 +5,12 @@ import android.os.Build
 import android.content.Context
 import android.util.Rational
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -46,6 +50,10 @@ fun VideoPlayerScreen(
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showVolumeSlider by remember { mutableStateOf(false) }
     var isInPiP by remember { mutableStateOf(false) }
+    var showQualityMenu by remember { mutableStateOf(false) }
+    var showPartSheet by remember { mutableStateOf(false) }
+    var showDanmakuSheet by remember { mutableStateOf(false) }
+    var showRelatedSheet by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     
@@ -115,8 +123,37 @@ fun VideoPlayerScreen(
                     }
                     Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     Row {
+                        // 清晰度
+                        if (state.qualities.isNotEmpty()) {
+                            Text(
+                                state.qualities.firstOrNull { it.qn == state.currentQn }?.label
+                                    ?: "清晰度",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier
+                                    .clickable { showQualityMenu = true }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            )
+                        }
+                        // 分P
+                        if (state.partCount > 1) {
+                            Text(
+                                "P${state.currentPart}",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier
+                                    .clickable { showPartSheet = true }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            )
+                        }
                         IconButton(onClick = { showSpeedMenu = !showSpeedMenu }) {
                             Icon(Icons.Default.Speed, "Speed", tint = Color.White)
+                        }
+                        IconButton(onClick = { showDanmakuSheet = true }) {
+                            Icon(
+                                if (state.danmakuOn) Icons.Default.Subtitles else Icons.Default.SubtitlesOff,
+                                "Danmaku", tint = Color.White
+                            )
                         }
                         IconButton(onClick = { showVolumeSlider = !showVolumeSlider }) {
                             Icon(
@@ -204,6 +241,13 @@ fun VideoPlayerScreen(
                         label = "评论", onClick = { onOpenComments(bvid) },
                         tintColor = Color.White
                     )
+                    EngagementButton(
+                        icon = Icons.Default.AutoAwesome,
+                        label = "相关",
+                        count = if (state.related.isNotEmpty()) state.related.size.toString() else "",
+                        onClick = { showRelatedSheet = true },
+                        tintColor = Color.White
+                    )
                 }
             }
         }
@@ -244,6 +288,121 @@ fun VideoPlayerScreen(
             }
         }
         
+        // Quality menu
+        DropdownMenu(expanded = showQualityMenu, onDismissRequest = { showQualityMenu = false }) {
+            state.qualities.forEach { q ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            q.label,
+                            color = if (state.currentQn == q.qn) MaterialTheme.colorScheme.primary else Color.Black
+                        )
+                    },
+                    onClick = { viewModel.switchQuality(q.qn); showQualityMenu = false }
+                )
+            }
+        }
+
+        // 分P 选择面板
+        if (showPartSheet) {
+            ModalBottomSheet(onDismissRequest = { showPartSheet = false }) {
+                Text(
+                    "选集（共 ${state.partCount} P）",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                    items((1..state.partCount).toList()) { p ->
+                        ListItem(
+                            headlineContent = { Text("P$p") },
+                            supportingContent = { Text("第 $p 集") },
+                            modifier = Modifier.clickable {
+                                viewModel.playPart(p - 1); showPartSheet = false
+                            },
+                            colors = if (p == state.currentPart)
+                                ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                            else ListItemDefaults.colors()
+                        )
+                    }
+                }
+            }
+        }
+
+        // 弹幕设置面板
+        if (showDanmakuSheet) {
+            ModalBottomSheet(onDismissRequest = { showDanmakuSheet = false }) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("弹幕设置", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("显示弹幕", modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = state.danmakuOn,
+                            onCheckedChange = { viewModel.danmakuEnabled = it }
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("透明度 ${(state.danmakuAlpha * 100).toInt()}%")
+                    Slider(
+                        value = state.danmakuAlpha,
+                        onValueChange = { viewModel.setDanmakuAlpha(it) },
+                        valueRange = 0.1f..1f
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("大小 ${"%.1f".format(state.danmakuScale)}x")
+                    Slider(
+                        value = state.danmakuScale,
+                        onValueChange = { viewModel.setDanmakuScale(it) },
+                        valueRange = 0.5f..2f
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
+
+        // 相关视频面板
+        if (showRelatedSheet) {
+            ModalBottomSheet(onDismissRequest = { showRelatedSheet = false }) {
+                Text(
+                    "相关推荐",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                    items(state.related) { r ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    viewModel.playRelated(r); showRelatedSheet = false
+                                }
+                                .padding(12.dp)
+                        ) {
+                            coil.compose.AsyncImage(
+                                model = r.pic,
+                                contentDescription = r.title,
+                                modifier = Modifier.width(120.dp).height(68.dp),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    r.title, maxLines = 2,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "${r.author} · ${r.viewText}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Gesture handler
         Box(
             modifier = Modifier
@@ -261,7 +420,37 @@ fun VideoPlayerScreen(
                         }
                     )
                 }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragEnd = { viewModel.commitGestureSeek() },
+                        onDrag = { change, drag ->
+                            change.consume()
+                            val horizontal = kotlin.math.abs(drag.x) > kotlin.math.abs(drag.y)
+                            if (horizontal) {
+                                viewModel.onGestureSeek(drag.x, size.width.toFloat())
+                            } else {
+                                viewModel.onVerticalDrag(
+                                    change.position.x < size.width / 2,
+                                    drag.y, size.height.toFloat()
+                                )
+                            }
+                        }
+                    )
+                }
         )
+
+        // 手势提示浮层（快进/音量/亮度）
+        if (state.gestureSeekDeltaMs != 0L) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Surface(color = Color.Black.copy(0.6f), shape = MaterialTheme.shapes.medium) {
+                    Text(
+                        (if (state.gestureSeekDeltaMs > 0) "快进 " else "快退 ") +
+                            "${kotlin.math.abs(state.gestureSeekDeltaMs) / 1000}s",
+                        color = Color.White, modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
