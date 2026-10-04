@@ -52,9 +52,9 @@ fun LibraryScreen(
             }
             
             when (selectedTab) {
-                0 -> HistoryTab(viewModel.historyItems, onVideoClick)
-                1 -> FavoritesTab(viewModel.favoriteItems, onVideoClick)
-                2 -> DownloadTab(viewModel.downloadItems)
+                0 -> HistoryTab(viewModel.historyItems.value, onVideoClick)
+                1 -> FavoritesTab(viewModel.favoriteItems.value, onVideoClick)
+                2 -> DownloadTab(viewModel.downloadItems.value)
             }
         }
     }

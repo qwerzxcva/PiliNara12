@@ -29,7 +29,7 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 获取视频信息
      */
     suspend fun getVideoInfo(bvid: String): Result<VideoItem> = withContext(Dispatchers.IO) {
-        return@withContext runCatching {
+        runCatching {
             _isLoading.value = true
             _error.value = null
             
@@ -54,7 +54,7 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 获取播放地址
      */
     suspend fun getPlayUrl(bvid: String, cid: Long, qn: Int = 80): Result<String> = withContext(Dispatchers.IO) {
-        return@withContext runCatching {
+        runCatching {
             val response = apiClient.getPlayUrl(bvid, cid, qn)
             
             response.onSuccess { resp ->
@@ -66,6 +66,8 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             }.onFailure { e ->
                 _error.value = e.message ?: "获取播放地址失败"
             }
+            
+            _playUrl.value ?: ""
         }
     }
     
@@ -73,7 +75,7 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 获取弹幕
      */
     suspend fun getDanmaku(cid: Long, oid: Long = 0L): Result<List<ParsedDanmaku>> = withContext(Dispatchers.IO) {
-        return@withContext runCatching {
+        runCatching {
             val response = apiClient.getDanmaku(cid, oid)
             
             response.onSuccess { resp ->

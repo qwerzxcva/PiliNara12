@@ -26,7 +26,7 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 检查登录状态
      */
     suspend fun checkLoginStatus(): Result<Boolean> = withContext(Dispatchers.IO) {
-        return@withContext runCatching {
+        runCatching {
             val response = apiClient.getUserInfo(0L)
             
             response.onSuccess { resp ->
@@ -35,15 +35,14 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                         isLogin = true,
                         userInfo = resp.data
                     )
-                    true
                 } else {
                     _loginState.value = LoginState(isLogin = false)
-                    false
                 }
             }.onFailure {
                 _loginState.value = LoginState(isLogin = false)
-                false
             }
+            
+            _loginState.value.isLogin
         }
     }
     
@@ -51,7 +50,7 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 获取用户信息
      */
     suspend fun getUserInfo(uid: Long): Result<UserInfoData> = withContext(Dispatchers.IO) {
-        return@withContext runCatching {
+        runCatching {
             val response = apiClient.getUserInfo(uid)
             
             response.onSuccess { resp ->
@@ -60,7 +59,7 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                 }
             }
             
-            response.getOrDefault(UserInfoData())
+            _loginState.value.userInfo ?: UserInfoData()
         }
     }
     
@@ -68,7 +67,8 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 创建二维码登录
      */
     suspend fun createQrLogin(): Result<Map<String, String>> = withContext(Dispatchers.IO) {
-                runCatching {
+        // TODO: 调用 Bilibili API
+        runCatching {
             mapOf(
                 "qrUrl" to "https://example.com/qr",
                 "qrKey" to "temp_key"
@@ -80,7 +80,8 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
      * 轮询二维码状态
      */
     suspend fun pollQrStatus(qrKey: String): Result<Int> = withContext(Dispatchers.IO) {
-                runCatching { 0 }
+        // TODO: 轮询 Bilibili API
+        runCatching { 0 }
     }
     
     /**
