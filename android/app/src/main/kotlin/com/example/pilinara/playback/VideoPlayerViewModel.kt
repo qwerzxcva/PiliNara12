@@ -93,9 +93,21 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
     
-    fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L) {
+    fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L, local: Boolean = false) {
         viewModelScope.launch {
             try {
+                // 离线播放（批次I）：本地 video.m4s + audio.m4s 合流播放
+                if (local && bvid.isNotEmpty()) {
+                    val playback = com.example.pilinara.data.repository.DownloadManager
+                        .getLocalPlayback(context, bvid)
+                    if (playback != null) {
+                        _state.value = _state.value.copy(isBuffering = true, error = null)
+                        startPlayback(playback.videoPath, playback.audioPath.takeIf { it.isNotEmpty() })
+                    } else {
+                        setError("离线缓存不存在或未完成")
+                    }
+                    return@launch
+                }
                 // 番剧模式：pgc playurl（Rust 已兼容 result.dash）
                 if (epId > 0L) {
                     loadPgcEpisode(epId)
@@ -291,16 +303,26 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
 
-        val videoItem = MediaItem.Builder().setUri(Uri.parse(videoUrl)).build()
+        val isLocal = !videoUrl.startsWith("http") && !videoUrl.startsWith("//")
+        val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else Uri.parse(videoUrl)
+        val videoItem = MediaItem.Builder().setUri(videoUri).build()
+        val localFactory = androidx.media3.datasource.DefaultDataSource.Factory(context)
         val videoSource: androidx.media3.exoplayer.source.MediaSource =
-            androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(videoItem)
+            if (isLocal) {
+                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(localFactory)
+                    .createMediaSource(videoItem)
+            } else {
+                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                    .createMediaSource(videoItem)
+            }
 
         val merged = if (!audioUrl.isNullOrEmpty()) {
-            val audioItem = MediaItem.Builder().setUri(Uri.parse(audioUrl)).build()
+            val audioUri = if (audioUrl.startsWith("/")) Uri.fromFile(java.io.File(audioUrl)) else Uri.parse(audioUrl)
+            val audioItem = MediaItem.Builder().setUri(audioUri).build()
             val audioSource: androidx.media3.exoplayer.source.MediaSource =
-                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(audioItem)
+                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(
+                    if (isLocal) localFactory else dataSourceFactory
+                ).createMediaSource(audioItem)
             androidx.media3.exoplayer.source.MergingMediaSource(videoSource, audioSource)
         } else {
             videoSource

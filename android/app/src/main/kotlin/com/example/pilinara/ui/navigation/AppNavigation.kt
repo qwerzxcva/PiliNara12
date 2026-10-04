@@ -37,7 +37,7 @@ sealed class Screen(val route: String) {
     }
     object History : Screen("history")
     object Settings : Screen("settings")
-    object VideoPlayer : Screen("video/{bvid}?cid={cid}") {
+    object VideoPlayer : Screen("video/{bvid}?cid={cid}&local={local}") {
         const val CID_ARG = "cid"
         fun createRoute(bvid: String, cid: Long = 0L) = "video/$bvid?cid=$cid"
     }
@@ -64,6 +64,8 @@ sealed class Screen(val route: String) {
     object Sessions : Screen("sessions")
 
     fun chat(talkerId: Long) = "chat/$talkerId"
+
+    object Downloads : Screen("downloads")
 }
 
 @Composable
@@ -120,7 +122,8 @@ fun AppNavigation() {
                 onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) },
                 onFavoritesClick = { mid ->
                     navController.navigate(Screen.Favorites.createRoute(mid))
-                }
+                },
+                onDownloadsClick = { navController.navigate(Screen.Downloads.route) }
             )
         }
         composable(Screen.Settings.route) {
@@ -164,11 +167,13 @@ fun AppNavigation() {
         composable(Screen.VideoPlayer.route,
             arguments = listOf(
                 navArgument("bvid") { type = NavType.StringType },
-                navArgument("cid") { type = NavType.LongType; defaultValue = 0L }
+                navArgument("cid") { type = NavType.LongType; defaultValue = 0L },
+                navArgument("local") { type = NavType.StringType; defaultValue = "0" }
             )
         ) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             val cid = backStackEntry.arguments?.getLong("cid") ?: 0L
+            val local = backStackEntry.arguments?.getString("local") == "1"
             // ep 请求参数（番剧模式）：video/ep123 形式
             val epId = if (bvid.startsWith("ep")) bvid.removePrefix("ep").toLongOrNull() ?: 0L else 0L
             VideoPlayerScreen(
@@ -176,6 +181,7 @@ fun AppNavigation() {
                 bvid = bvid,
                 cid = cid,
                 epId = epId,
+                local = local,
                 onBack = { navController.popBackStack() },
                 onOpenComments = { bv -> navController.navigate(Screen.Comment.createRoute(bv)) }
             )
@@ -269,6 +275,12 @@ fun AppNavigation() {
                 talkerId = backStackEntry.arguments?.getLong("talkerId") ?: 0L,
                 onBack = { navController.popBackStack() },
                 onGoLogin = { navController.navigate(Screen.Login.route) }
+            )
+        }
+        composable(Screen.Downloads.route) {
+            com.example.pilinara.ui.download.DownloadScreen(
+                onBack = { navController.popBackStack() },
+                onPlayLocal = { bvid -> navController.navigate("video/$bvid?local=1") }
             )
         }
     }

@@ -65,6 +65,7 @@ fun MineScreen(
     onFavoritesClick: (Long) -> Unit = {},
     onToViewClick: () -> Unit = {},
     onBangumiClick: () -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
     viewModel: MineViewModel = viewModel()
 ) {
     val nav by viewModel.nav.collectAsState()
@@ -92,6 +93,7 @@ fun MineScreen(
                     onFavoritesClick = { onFavoritesClick(n.mid) },
                     onToViewClick = onToViewClick,
                     onBangumiClick = onBangumiClick,
+                    onDownloadsClick = onDownloadsClick,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -162,6 +164,7 @@ fun UserContent(
     onFavoritesClick: () -> Unit = {},
     onToViewClick: () -> Unit = {},
     onBangumiClick: () -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     LazyColumn(
@@ -170,7 +173,7 @@ fun UserContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { UserCard(nav = nav) }
-        item { QuickActions(onHistory = onHistoryClick, onFavorites = onFavoritesClick) }
+        item { QuickActions(onHistory = onHistoryClick, onFavorites = onFavoritesClick, onDownloads = onDownloadsClick) }
         item { HorizontalDivider() }
         item { MenuItemRow(MenuItemData("历史观看", Icons.Default.History, onHistoryClick)) }
         item { MenuItemRow(MenuItemData("稍后再看", Icons.Default.PlayArrow, onToViewClick)) }
@@ -229,11 +232,15 @@ fun UserCard(nav: NavData) {
 }
 
 @Composable
-fun QuickActions(onHistory: () -> Unit = {}, onFavorites: () -> Unit = {}) {
+fun QuickActions(
+    onHistory: () -> Unit = {},
+    onFavorites: () -> Unit = {},
+    onDownloads: () -> Unit = {}
+) {
     val actions = listOf(
         Triple("历史", Icons.Default.History, onHistory),
         Triple("收藏", Icons.Default.Favorite, onFavorites),
-        Triple("离线缓存", Icons.Default.Download, {} as () -> Unit),
+        Triple("离线缓存", Icons.Default.Download, onDownloads),
         Triple("稍后再看", Icons.Default.PlayArrow, {} as () -> Unit)
     )
 

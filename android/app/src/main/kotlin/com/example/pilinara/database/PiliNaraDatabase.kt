@@ -18,9 +18,10 @@ import androidx.room.TypeConverters
         SettingEntity::class,
         VideoSettingEntity::class,
         LocalCacheEntity::class,
-        TodayWatchFeedbackEntity::class
+        TodayWatchFeedbackEntity::class,
+        DownloadItemEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -29,6 +30,7 @@ abstract class PiliNaraDatabase : RoomDatabase() {
     abstract fun userInfoDao(): UserInfoDao
     abstract fun loginAccountDao(): LoginAccountDao
     abstract fun danmakuFilterRuleDao(): DanmakuFilterRuleDao
+    abstract fun downloadItemDao(): DownloadItemDao
     abstract fun settingDao(): SettingDao
     abstract fun videoSettingDao(): VideoSettingDao
     abstract fun localCacheDao(): LocalCacheDao
