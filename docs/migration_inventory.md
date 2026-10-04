@@ -137,3 +137,18 @@
 - 2026-10-04 r9（批次I 下载离线，commit aa0203d）：总体 **31%**。
   - 批次I ✅：Room v2 DownloadItemEntity/Dao（bvid 主键、STATE_PENDING/RUNNING/DONE/FAILED、进度、双流路径）；DownloadManager（详情→playurl wbi+Rust 选流→video/audio.m4s 下载到 Downloads/{bvid}/，Referer+UA，进度回调 0..1→Room upsert；cancel/delete/getLocalPlayback）；DownloadScreen（封面卡/LinearProgress/状态/删除/播放）；播放器 local 模式（video/{bvid}?local=1 → 本地 m4s DefaultDataSource 合流播放，startPlayback 本地/远程自适应）；Mine UserContent/QuickActions 离线缓存入口。剩：选清晰度下载、批量下载、弹幕/字幕离线、断点续传。
   - 剩余：批次L Kototoro 主题、缩略图 storyboard、pgc 首页分类、@用户、私聊图片、批次J 的 SC/礼物消息与重连。
+
+
+## 复盘 r10（2026-10-05，批次L 主题+分类+storyboard+私聊图片+SC/礼物）
+
+**本轮新增（4 commit）**：
+- **批次L Kototoro 主题**（aac2d8e）：Theme.kt 重写——20 色主题色板（ACCENT_OPTIONS，对齐 Flutter colorThemeTypes）+ accentFromHex 派生 light/dark scheme + DataStore accentColor/themeMode 真实接入 PiliNaraTheme（system/light/dark 生效）+ PiliShapes 大圆角 token + PiliGradients 品牌渐变 + 设置页"主题颜色"色板弹窗（AccentColorDialog）
+- **pgc 首页分类**（672ca86）：/pgc/season/index/result（season_type 1番剧/2电影/3纪录片/4国创/5电视剧/7综艺，type=1 必须）+ PgcIndexScreen（ScrollableTabRow 类型切换 + FilterChip 排序 update/score/play + 无限分页 has_next）+ 番剧中心顶栏"分类"入口
+- **批次L3 storyboard 缩略图**（be1562e）：/x/player/videoshot（bvid+cid+index=1）+ VideoShotData.frameAt(秒)→(雪碧图URL,格x,格y) + 播放器拖动进度条时 BoxWithConstraints+graphicsLayer 平移裁剪显示当前帧预览 + 修复原 seekTo(0) bug
+- **私聊图片+SC/礼物**（9db558f/07cd281）：msg_type=2 图片消息解析(msgImage)/渲染(AsyncImage 气泡)/发送(sendPrivateImage)；WS 解析 SUPER_CHAT_MESSAGE(价格/背景色/时长)与 SEND_GIFT/COMBO_SEND；直播间 SC 置顶卡片(解析背景色)+礼物飘条
+
+**坑**：VideoRepository.apiClient 是 private（playback VM 内直接 new BiliApiClient）；BoxWithConstraints 内 scope 不在 Modifier 链（graphicsLayer 用 density）；collectAsState 要在 if 块外调用。
+**API 备忘**：/x/v2/reply/at 匿名始终 4101001（需登录态，@用户搜索暂缓，评论发送可带 at_name_to_mid）。
+**规模**：Kotlin 104 文件 / 14,295 行。**进度：31% → 34%**。
+
+**剩余**：Kototoro 页面级打磨、@用户评论搜索（需登录态实测）、下载选清晰度/断点续传、直播进房/点赞消息、Vulkan/HDR/多引擎（最后）。
