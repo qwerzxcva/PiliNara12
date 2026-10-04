@@ -59,12 +59,12 @@ data class Owner(
 @Serializable
 data class Stat(
     val view: Long = 0,
-    val danmaku: Int = 0,
-    val reply: Int = 0,
-    val favorite: Int = 0,
-    val coin: Int = 0,
-    val share: Int = 0,
-    val like: Int = 0,
+    val danmaku: Long = 0,
+    val reply: Long = 0,
+    val favorite: Long = 0,
+    val coin: Long = 0,
+    val share: Long = 0,
+    val like: Long = 0,
 )
 
 fun formatCount(n: Long): String = when {
