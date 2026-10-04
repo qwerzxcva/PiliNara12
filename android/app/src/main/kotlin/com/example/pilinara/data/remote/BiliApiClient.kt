@@ -158,6 +158,47 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
             header("Referer", "https://www.bilibili.com")
         }.body()
     }
+
+    /** 楼中楼回复 /x/v2/reply/reply（无需 wbi） */
+    suspend fun getReplyList(oid: Long, rootRpid: Long, page: Int = 1, pageSize: Int = 20): Result<ReplyListResponse> = runCatching {
+        client.get("$API_BASE/x/v2/reply/reply") {
+            url {
+                parameters.append("oid", oid.toString())
+                parameters.append("type", "1")
+                parameters.append("root", rootRpid.toString())
+                parameters.append("pn", page.toString())
+                parameters.append("ps", pageSize.toString())
+            }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
+    /** 评论点赞 /x/v2/reply/action（csrf）。like: 1 点赞 / 0 取消 */
+    suspend fun likeComment(oid: Long, rpid: Long, like: Boolean): Result<Boolean> = runCatching {
+        val form = linkedMapOf(
+            "oid" to oid.toString(),
+            "type" to "1",
+            "rpid" to rpid.toString(),
+            "action" to if (like) "1" else "0"
+        )
+        val resp: String = BiliHttpClient.postAuthForm("$API_BASE/x/v2/reply/action", form)
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
+    /** 发评论 /x/v2/reply/add（csrf） */
+    suspend fun addComment(oid: Long, message: String, rootRpid: Long = 0L, parentRpid: Long = 0L): Result<Boolean> = runCatching {
+        val form = linkedMapOf(
+            "oid" to oid.toString(),
+            "type" to "1",
+            "message" to message,
+            "plat" to "1",
+            "web_location" to "1315875"
+        )
+        if (rootRpid > 0L) form["root"] = rootRpid.toString()
+        if (parentRpid > 0L) form["parent"] = parentRpid.toString()
+        val resp: String = BiliHttpClient.postAuthForm("$API_BASE/x/v2/reply/add", form)
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
     
     // ========== Danmaku ==========
     

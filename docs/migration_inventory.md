@@ -96,3 +96,8 @@
 
 ## 三、复盘记录
 - 2026-10-04 初建：总体 8%。上批完成：互动状态/默认收藏夹/动态页。
+- 2026-10-04 r2（批次A+B+C 完成，commit 56d4fac + 9ff4406）：总体 **10%**。
+  - 批次A 播放器补全 ✅：多P pages、清晰度切换（dash cachedQualities + Rust选流）、相关视频（archive/related）、弹幕开关/设置面板、分P面板、恢复进度 startPlayback(resumePositionMs)、手势层。剩：字幕、缩略图预览、投屏。
+  - 批次B 搜索增强 ✅：热搜榜 /x/v2/search/trending/ranking、搜索历史（进程内）、分类筛选 video/bili_user/live、排序/时长筛选、结果三种卡片真实渲染、无限翻页、建议联想接输入框。剩：历史 Room 持久化、分区搜索。
+  - 批次C UP主空间 ✅：SpaceModels（SpaceInfo/RelationStat/SpaceArchive）、getSpaceInfo(wbi)/getRelationStat/getSpaceArchives(wbi+分页)/modifyFollow(csrf)、MemberScreen（头像/等级/签名/粉丝数/投稿卡片/排序/翻页/关注）、member/{mid} 路由接搜索用户点击。剩：空间动态 tab、收藏的 UP。
+  - 下一批：批次D 番剧（pgc/index + season 详情 + ep_id 播放）、批次E 评论区增强（楼中楼/点赞/发评论）。

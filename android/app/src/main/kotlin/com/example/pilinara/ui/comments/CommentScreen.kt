@@ -1,176 +1,177 @@
 package com.example.pilinara.ui.comments
 
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.pilinara.data.model.CommentNode
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-/**
- * Comment Screen - Replaces Flutter comment page
- */
+private val timeFormat by lazy { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA) }
+private fun formatTime(ts: Long): String =
+    if (ts <= 0) "" else timeFormat.format(Date(ts * 1000))
+
+private fun formatCount(n: Long): String = when {
+    n >= 100_000_000 -> String.format("%.1f亿", n / 100_000_000.0)
+    n >= 10_000 -> String.format("%.1f万", n / 10_000.0)
+    else -> n.toString()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentScreen(
     bvid: String,
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onGoLogin: () -> Unit = {},
+    viewModel: CommentViewModel = viewModel(
+        key = bvid,
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                CommentViewModel(bvid) as T
+        }
+    )
 ) {
-    var sortBy by remember { mutableStateOf("hot") }
-    val sortOptions = listOf("热门", "最新")
-    
+    val state by viewModel.state.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    var inputText by remember { mutableStateOf("") }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbar.showSnackbar(it)
+            viewModel.consumeError()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("评论 ($bvid)") },
+                title = {
+                    Text("评论 ${if (state.totalCount > 0) "(${formatCount(state.totalCount.toLong())})" else ""}")
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
                     }
                 }
             )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            // Sort tabs
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                sortOptions.forEach { option ->
-                    FilterChip(
-                        selected = sortBy == option.lowercase(),
-                        onClick = { sortBy = option.lowercase() },
-                        label = { Text(option) }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-            }
-            
-            // Comment count
-            Text(
-                text = "共 1,234 条评论",
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(8.dp)
-            )
-            
-            // Comment list
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Top comments (sorted by likes)
-                items(commentData.take(10)) { comment ->
-                    CommentItem(comment = comment)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CommentItem(comment: CommentItem) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // Header
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Avatar
-                Surface(
-                    modifier = Modifier.size(36.dp),
-                    shape = CircleShape
+        },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Row(
+                    Modifier.fillMaxWidth().padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // User info
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(comment.username, style = MaterialTheme.typography.titleSmall)
-                        if (comment.isVip) {
-                            com.example.pilinara.ui.pages.mine.Badge("大会员")
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("发一条友善的评论") },
+                        maxLines = 3,
+                        shape = MaterialTheme.shapes.large
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            if (inputText.isNotBlank() && !state.sending) {
+                                viewModel.sendComment(inputText)
+                                inputText = ""
+                                focusManager.clearFocus()
+                            }
+                        },
+                        enabled = inputText.isNotBlank() && !state.sending
+                    ) {
+                        if (state.sending) {
+                            CircularProgressIndicator(Modifier.size(20.dp))
+                        } else {
+                            Icon(Icons.AutoMirrored.Filled.Send, "发送")
                         }
                     }
-                    Text(comment.time, style = MaterialTheme.typography.labelSmall)
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                // Like button
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(16.dp))
-                    if (comment.likes > 0) {
-                        Text(comment.likes.toString(), style = MaterialTheme.typography.labelSmall)
-                    }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Content
-            Text(comment.content, style = MaterialTheme.typography.bodyMedium)
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Footer actions
+        }
+    ) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            // 排序切换（3=热门 2=最新）
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                CommentActionButton(
-                    icon = Icons.Default.Reply,
-                    label = "回复"
+                FilterChip(
+                    selected = state.mode == 3,
+                    onClick = { viewModel.setMode(3) },
+                    label = { Text("热门") }
                 )
-                CommentActionButton(
-                    icon = Icons.Default.ThumbUp,
-                    label = "点赞"
+                FilterChip(
+                    selected = state.mode == 2,
+                    onClick = { viewModel.setMode(2) },
+                    label = { Text("最新") }
                 )
-                if (comment.isAuthor) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            "UP主",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+            }
+
+            when {
+                state.isLoading -> Box(
+                    Modifier.fillMaxSize(), Alignment.Center
+                ) { CircularProgressIndicator() }
+
+                state.error != null && state.comments.isEmpty() -> Box(
+                    Modifier.fillMaxSize(), Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("评论加载失败", color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = { viewModel.load(1) }) { Text("重试") }
+                    }
+                }
+
+                state.comments.isEmpty() -> Box(
+                    Modifier.fillMaxSize(), Alignment.Center
+                ) {
+                    Text("还没有评论，来抢沙发吧", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                else -> LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(state.comments, key = { it.rpid }) { comment ->
+                        CommentRow(
+                            comment = comment,
+                            liked = comment.rpid in state.likedRpid,
+                            expanded = state.expandedReplies[comment.rpid],
+                            onLike = { viewModel.toggleCommentLike(comment.rpid) },
+                            onExpand = { viewModel.expandReplies(comment.rpid) },
+                            onCollapse = { viewModel.collapseReplies(comment.rpid) }
                         )
                     }
-                }
-            }
-            
-            // Replies
-            if (comment.replies.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                comment.replies.forEach { reply ->
-                    ReplyItem(reply = reply)
+                    if (state.hasMore) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(12.dp), Alignment.Center) {
+                                LaunchedEffect(state.comments.size) { viewModel.loadMore() }
+                                CircularProgressIndicator(Modifier.size(22.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -178,90 +179,124 @@ fun CommentItem(comment: CommentItem) {
 }
 
 @Composable
-fun ReplyItem(reply: ReplyItem) {
-    Row(
-        modifier = Modifier.padding(start = 44.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text("@", style = MaterialTheme.typography.bodySmall)
-        Text(reply.username, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-        Text(": ", style = MaterialTheme.typography.bodySmall)
-        Text(reply.content, style = MaterialTheme.typography.bodySmall)
-        Spacer(modifier = Modifier.weight(1f))
-        Text(reply.time, style = MaterialTheme.typography.labelSmall)
+private fun CommentRow(
+    comment: CommentNode,
+    liked: Boolean,
+    expanded: List<CommentNode>?,
+    onLike: () -> Unit,
+    onExpand: () -> Unit,
+    onCollapse: () -> Unit
+) {
+    val member = comment.member
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.Top) {
+            AsyncImage(
+                model = member?.face,
+                contentDescription = member?.uname,
+                modifier = Modifier.size(36.dp).clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    member?.uname ?: "匿名",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    formatTime(comment.ctime),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // 点赞
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onLike() }.padding(4.dp)
+            ) {
+                Icon(
+                    if (liked || comment.action == 1) Icons.Default.Favorite
+                    else Icons.Default.FavoriteBorder,
+                    contentDescription = "点赞",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (liked || comment.action == 1) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (comment.like > 0) {
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        formatCount(comment.like),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            comment.content?.message ?: "",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        // 楼中楼
+        val inlineReplies = comment.replies
+        when {
+            expanded != null -> {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "收起回复",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onCollapse() }.padding(vertical = 2.dp)
+                )
+                expanded.forEach { reply -> SubReplyRow(reply) }
+            }
+            comment.replyCount > 0 -> {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "▶ 共 ${comment.replyCount} 条回复",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onExpand() }.padding(vertical = 2.dp)
+                )
+            }
+            inlineReplies.isNotEmpty() -> {
+                Spacer(Modifier.height(4.dp))
+                inlineReplies.forEach { reply -> SubReplyRow(reply) }
+            }
+        }
     }
 }
 
 @Composable
-fun CommentActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+private fun SubReplyRow(reply: CommentNode) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+        Modifier.padding(start = 46.dp, top = 4.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.Top
     ) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(16.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall)
+        AsyncImage(
+            model = reply.member?.face,
+            contentDescription = reply.member?.uname,
+            modifier = Modifier.size(22.dp).clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Row {
+                Text(
+                    reply.member?.uname ?: "",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    formatTime(reply.ctime),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(reply.content?.message ?: "", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
-
-// Data classes and sample data
-data class CommentItem(
-    val id: Long,
-    val username: String,
-    val content: String,
-    val time: String,
-    val likes: Int = 0,
-    val isVip: Boolean = false,
-    val isAuthor: Boolean = false,
-    val replies: List<ReplyItem> = emptyList()
-)
-
-data class ReplyItem(
-    val username: String,
-    val content: String,
-    val time: String
-)
-
-// Sample comment data
-val commentData = listOf(
-    CommentItem(
-        id = 1,
-        username = "用户A",
-        content = "这个视频太棒了！期待更多这样的内容！",
-        time = "2小时前",
-        likes = 1234,
-        isVip = true
-    ),
-    CommentItem(
-        id = 2,
-        username = "用户B",
-        content = "UP主辛苦了，制作质量很高",
-        time = "5小时前",
-        likes = 567,
-        isAuthor = true
-    ),
-    CommentItem(
-        id = 3,
-        username = "用户C",
-        content = "学到了，感谢分享！",
-        time = "1天前",
-        likes = 89,
-        replies = listOf(
-            ReplyItem("UP主", "谢谢支持！记得一键三连~", "1天前")
-        )
-    ),
-    CommentItem(
-        id = 4,
-        username = "用户D",
-        content = "什么时候出下一期？",
-        time = "2天前",
-        likes = 45
-    ),
-    CommentItem(
-        id = 5,
-        username = "用户E",
-        content = "质量在线，继续加油！",
-        time = "3天前",
-        likes = 23,
-        isVip = true
-    )
-)
