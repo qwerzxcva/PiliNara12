@@ -23,21 +23,21 @@ class HomeViewModel(
 
     private var loadingMore = false
 
-    fun refresh().getOrDefault(emptyList()) {
+    fun refresh() {
         viewModelScope.launch {
             _state.value = HomeUiState.Loading
-            repo.refresh().getOrDefault(emptyList())
+            repo.refresh()
                 .onSuccess { _state.value = HomeUiState.Success(it) }
                 .onFailure { _state.value = HomeUiState.Error(it.message ?: "网络请求失败") }
         }
     }
 
-    fun loadMore(2).getOrDefault(emptyList()) {
+    fun loadMore() {
         val current = (_state.value as? HomeUiState.Success)?.items ?: return
         if (loadingMore) return
         loadingMore = true
         viewModelScope.launch {
-            repo.loadMore(2).getOrDefault(emptyList())
+            repo.loadMore()
                 .onSuccess { _state.value = HomeUiState.Success(it) }
                 .onFailure { /* 加载更多失败静默保留当前列表 */ }
             loadingMore = false
@@ -45,6 +45,6 @@ class HomeViewModel(
     }
 
     init {
-        refresh().getOrDefault(emptyList())
+        refresh()
     }
 }
