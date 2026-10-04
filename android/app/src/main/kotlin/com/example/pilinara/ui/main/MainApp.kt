@@ -13,13 +13,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.pilinara.ui.pages.dynamics.DynamicsScreen
 import com.example.pilinara.ui.pages.home.HomeScreen
 import com.example.pilinara.ui.pages.mine.MineScreen
+import com.example.pilinara.ui.login.LoginScreen
+import com.example.pilinara.ui.settings.SettingsScreen
+import com.example.pilinara.playback.VideoPlayerScreen
 
 @Composable
-fun MainApp(viewModel: MainViewModel) {
+fun MainApp(viewModel: MainViewModel, onNavigateToSettings: () -> Unit = {}, onNavigateToLogin: () -> Unit = {}) {
     val selected by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val navController = rememberNavController()
 
     Scaffold(
         bottomBar = {
@@ -27,7 +34,14 @@ fun MainApp(viewModel: MainViewModel) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = selected == tab,
-                        onClick = { viewModel.selectTab(tab) },
+                        onClick = { 
+                            viewModel.selectTab(tab)
+                            when (tab) {
+                                MainTab.HOME -> navController.navigate("home") { popUpTo("home") { inclusive = true } }
+                                MainTab.DYNAMICS -> navController.navigate("dynamics") { popUpTo("dynamics") { inclusive = true } }
+                                MainTab.MINE -> navController.navigate("mine") { popUpTo("mine") { inclusive = true } }
+                            }
+                        },
                         icon = {
                             Icon(
                                 if (selected == tab) tab.iconFilled else tab.iconOutlined,
@@ -42,10 +56,16 @@ fun MainApp(viewModel: MainViewModel) {
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Box(Modifier.padding(padding)) {
-            when (selected) {
-                MainTab.HOME -> HomeScreen()
-                MainTab.DYNAMICS -> DynamicsScreen()
-                MainTab.MINE -> MineScreen()
+            NavHost(navController = navController, startDestination = "home") {
+                composable("home") { HomeScreen(onVideoClick = { bvid, _ -> navController.navigate("video/$bvid") }) }
+                composable("dynamics") { DynamicsScreen() }
+                composable("mine") { MineScreen(onSettingsClick = onNavigateToSettings, onLoginClick = onNavigateToLogin) }
+                composable("video/{bvid}") { backStackEntry ->
+                    val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
+                    VideoPlayerScreen(videoUrl = "", bvid = bvid, onBack = { navController.popBackStack() })
+                }
+                composable("settings") { SettingsScreen(onBack = { navController.popBackStack() }) }
+                composable("login") { LoginScreen(onBack = { navController.popBackStack() }, onLoggedIn = { navController.popBackStack() }) }
             }
         }
     }
