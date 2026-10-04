@@ -1,7 +1,9 @@
 package com.example.pilinara
 
 import android.app.Application
+import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.database.DatabaseInitializer
+import kotlinx.coroutines.launch
 
 /**
  * Main Application class
@@ -17,7 +19,12 @@ class MainApplication : Application() {
 
         // 进程级 Application 上下文，供无 Context 层（LoginRepository 等）取 Room
         AppContext.init(this)
-        
+
+        // 匿名启动即取 buvid3（风控接口强依赖），协程后台执行
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            AccountSession.ensureBuvid()
+        }
+
         // Load native libraries
         try {
             System.loadLibrary("pilinara_native")

@@ -1,5 +1,8 @@
 package com.example.pilinara.data.remote
 
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -64,5 +67,28 @@ object AccountSession {
         cookies.clear()
         isLogin = false
         mid = 0L
+    }
+
+    /** buvid3 是否已就绪（搜索/点赞/投币等风控接口强依赖） */
+    fun hasBuvid3(): Boolean = !cookies["buvid3"].isNullOrEmpty()
+
+    /**
+     * 匿名获取 buvid3/buvid4（GET /x/frontend/finger/spi，返回 b_3/b_4）。
+     * 匿名启动时调用一次并持久化到内存；由 BiliHttpClient 挂到后续请求。
+     */
+    suspend fun ensureBuvid(): Boolean {
+        if (hasBuvid3()) return true
+        return runCatching {
+            val json = BiliHttpClient.client.get("https://api.bilibili.com/x/frontend/finger/spi") {
+                header("User-Agent", "Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
+            }.bodyAsText()
+            val obj = org.json.JSONObject(json)
+            val data = obj.optJSONObject("data") ?: return@runCatching false
+            val b3 = data.optString("b_3")
+            val b4 = data.optString("b_4")
+            if (b3.isNotEmpty()) cookies["buvid3"] = b3
+            if (b4.isNotEmpty()) cookies["buvid4"] = b4
+            hasBuvid3()
+        }.getOrDefault(false)
     }
 }

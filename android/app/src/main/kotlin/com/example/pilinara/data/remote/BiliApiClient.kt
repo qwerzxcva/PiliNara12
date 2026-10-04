@@ -55,9 +55,10 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
                 "bvid" to bvid,
                 "cid" to cid.toString(),
                 "qn" to qn.toString(),
-                "fnval" to "16",
+                "fnval" to "4048", // DASH + HDR/杜比/8K 等全部位（对齐 PiliPala/PiliPlus）
                 "fnver" to "0",
-                "fourk" to "1"
+                "fourk" to "1",
+                "try_look" to "1"  // 免登录试看（提升匿名可播概率）
             )
         )
         client.get("$API_BASE/x/player/wbi/playurl") {
@@ -119,12 +120,13 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     // ========== Search ==========
     
     suspend fun search(keyword: String, page: Int = 1, order: String = "totalrank"): Result<SearchResponse> = runCatching {
-        client.get("$API_BASE/x/web-interface/search/all/v2") {
-            url {
-                parameters.append("keyword", keyword)
-                parameters.append("page", page.toString())
-                parameters.append("order", order)
-            }
+        // wbi 签名接口；缺 buvid3 会 -412 风控（见 docs/bilibili_api_checklist.md）
+        AccountSession.ensureBuvid()
+        val signed = WbiSigner.sign(
+            mapOf("keyword" to keyword, "page" to page.toString(), "order" to order)
+        )
+        client.get("$API_BASE/x/web-interface/wbi/search/all/v2") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
             header("Referer", "https://www.bilibili.com")
         }.body()
     }
@@ -141,14 +143,18 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     // ========== Comments ==========
     
     suspend fun getComments(bvid: String, oid: Long = 0L, page: Int = 1, pageSize: Int = 20): Result<CommentResponse> = runCatching {
-        client.get("$API_BASE/x/v2/reply/main") {
-            url {
-                parameters.append("oid", oid.toString())
-                parameters.append("type", "1")  // 1=video
-                parameters.append("pn", page.toString())
-                parameters.append("ps", pageSize.toString())
-                parameters.append("sort", "1")  // 1=hot, 0=time
-            }
+        // /x/v2/reply/wbi/main 需 wbi 签名，签名错返回 -403（见 docs §1.5）
+        val signed = WbiSigner.sign(
+            mapOf(
+                "oid" to oid.toString(),
+                "type" to "1",
+                "mode" to "3",
+                "pn" to page.toString(),
+                "ps" to pageSize.toString()
+            )
+        )
+        client.get("$API_BASE/x/v2/reply/wbi/main") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
             header("Referer", "https://www.bilibili.com")
         }.body()
     }
