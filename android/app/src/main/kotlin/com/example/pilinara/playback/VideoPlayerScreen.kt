@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.pilinara.danmaku.DanmakuView
+import com.example.pilinara.data.model.formatCount
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,21 +181,22 @@ fun VideoPlayerScreen(
                     EngagementButton(
                         icon = Icons.Filled.ThumbUp,
                         label = "点赞",
-                        count = if (state.isLiked) "1" else "",
+                        count = formatCount(state.likeCount),
                         onClick = { viewModel.toggleLike() },
                         tintColor = if (state.isLiked) Color(0xFF00A1D6) else Color.White
                     )
                     EngagementButton(
                         icon = Icons.Default.MonetizationOn,
                         label = "投币",
-                        count = if (state.coinCount > 0) state.coinCount.toString() else "",
+                        count = formatCount(state.coinCountTotal),
                         onClick = { viewModel.coinOnce() },
                         tintColor = Color.White
                     )
                     EngagementButton(
                         icon = if (state.isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         label = "收藏",
-                        onClick = { viewModel.toggleFavorite(mediaId = 0L) },  // TODO: 默认收藏夹 mediaId
+                        count = formatCount(state.favCount),
+                        onClick = { viewModel.toggleFavorite() },
                         tintColor = if (state.isFavorited) Color(0xFFFF6B9D) else Color.White
                     )
                     EngagementButton(

@@ -225,12 +225,52 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     }
     
     // ========== Favorites ==========
-    
+
     suspend fun getFavorites(uid: Long, pageSize: Int = 20, mediaType: String = "video"): Result<Map<String, Any>> = runCatching {
         client.get("$API_BASE/x/v3/fav/folder/created/list-all") {
             url {
                 parameters.append("up_mid", uid.toString())
                 parameters.append("media_type", mediaType)
+            }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
+    /** 当前用户收藏夹列表（需登录，用于取默认收藏夹 id） */
+    suspend fun getMyFavFolders(): Result<List<FavFolder>> = runCatching {
+        val mid = AccountSession.mid
+        require(mid > 0L) { "未登录" }
+        val resp: FavFolderListResponse = client.get("$API_BASE/x/v3/fav/folder/created/list-all") {
+            url { parameters.append("up_mid", mid.toString()) }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+        resp.data.orEmpty()
+    }
+
+    /** 查询视频交互状态（like=1 已赞, coin=1 已投币, favourite=1 已藏；需登录） */
+    suspend fun getVideoRelation(aid: Long): Result<Triple<Boolean, Boolean, Boolean>> = runCatching {
+        val resp: RelationResponse = client.get("$API_BASE/x/web-interface/archive/relation") {
+            url { parameters.append("aid", aid.toString()) }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+        val d = resp.data
+        if (resp.code == 0 && d != null) {
+            Triple(d.like == 1, d.coin == 1, d.favourite == 1)
+        } else error(resp.message.ifEmpty { "查询交互状态失败" })
+    }
+
+    // ========== Dynamic（动态，需登录） ==========
+
+    /**
+     * 动态聚合流。首次传 offset=null，后续用上一页返回的 data.offset 翻页。
+     * 需 SESSDATA（未登录返回 -101）。
+     */
+    suspend fun getDynamicFeed(offset: String? = null): Result<DynamicFeedResponse> = runCatching {
+        client.get("$API_BASE/x/polymer/web-dynamic/v1/feed/all") {
+            url {
+                parameters.append("type", "all")
+                if (!offset.isNullOrEmpty()) parameters.append("offset", offset)
+                parameters.append("web_location", "333.1369")
             }
             header("Referer", "https://www.bilibili.com")
         }.body()

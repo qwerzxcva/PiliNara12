@@ -68,7 +68,12 @@ fun AppNavigation() {
             SearchScreen()
         }
         composable(Screen.Dynamics.route) {
-            DynamicsScreen()
+            DynamicsScreen(
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                },
+                onGoLogin = { navController.navigate(Screen.Login.route) }
+            )
         }
         composable(Screen.Message.route) {
             com.example.pilinara.ui.messages.MessageScreen()

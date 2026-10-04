@@ -38,7 +38,10 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val position: Int = 0,
         val isLiked: Boolean = false,
         val isFavorited: Boolean = false,
-        val coinCount: Int = 0
+        val coinCount: Int = 0,
+        val likeCount: Long = 0L,
+        val coinCountTotal: Long = 0L,
+        val favCount: Long = 0L
     )
     
     data class DanmakuEvent(
@@ -110,6 +113,8 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             }
         this.effectiveCid = effectiveCid
         this.currentBvid = bvid
+        this.aid = repo.getVideoDetail(bvid).getOrNull()?.data?.aid ?: 0L
+        loadEngagement(this.aid, bvid)
         if (videoUrl2.isNullOrEmpty()) {
             setError("未解析到视频流地址（可能需要登录后观看）")
             return
@@ -280,7 +285,39 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     private var aid: Long = 0L
     private var effectiveCid: Long = 0L
     private var currentBvid: String = ""
+    private var defaultFavFolderId: Long = 0L
     private val repo by lazy { VideoRepository(BiliApiClient()) }
+
+    /**
+     * 登录态下加载互动状态：已赞/已投/已藏（archive/relation）+ 默认收藏夹 id + stat 计数。
+     * 失败静默（未登录时 relation 会 -101，直接跳过）。
+     */
+    private fun loadEngagement(aid: Long, bvid: String) {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) return@launch
+            // 1) 交互状态
+            BiliApiClient().getVideoRelation(aid).onSuccess { (liked, coined, fav) ->
+                _state.value = _state.value.copy(
+                    isLiked = liked,
+                    coinCount = if (coined) 1 else 0,
+                    isFavorited = fav
+                )
+            }
+            // 2) 默认收藏夹（第一个）
+            runCatching {
+                defaultFavFolderId = BiliApiClient().getMyFavFolders().getOrNull()
+                    ?.firstOrNull()?.id ?: 0L
+            }
+            // 3) 真实计数（点赞/投币/收藏数）
+            runCatching {
+                repo.getVideoDetail(bvid).getOrNull()?.data?.stat?.let { s ->
+                    _state.value = _state.value.copy(
+                        likeCount = s.like, coinCountTotal = s.coin, favCount = s.favorite
+                    )
+                }
+            }
+        }
+    }
 
     /** 点赞（需登录） */
     fun toggleLike() {
@@ -294,7 +331,10 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             val liked = _state.value.isLiked
             repo.likeVideo(aid, if (liked) 2 else 1)
                 .onSuccess { ok ->
-                    if (ok) _state.value = _state.value.copy(isLiked = !liked)
+                    if (ok) _state.value = _state.value.copy(
+                        isLiked = !liked,
+                        likeCount = _state.value.likeCount + if (liked) -1 else 1
+                    )
                     else setError("点赞失败（接口返回非 0）")
                 }
                 .onFailure { setError("点赞失败: ${it.message}") }
@@ -312,15 +352,18 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
             repo.coinVideo(aid, 1)
                 .onSuccess { ok ->
-                    if (ok) _state.value = _state.value.copy(coinCount = _state.value.coinCount + 1)
+                    if (ok) _state.value = _state.value.copy(
+                        coinCount = _state.value.coinCount + 1,
+                        coinCountTotal = _state.value.coinCountTotal + 1
+                    )
                     else setError("投币失败（余额不足或已投满）")
                 }
                 .onFailure { setError("投币失败: ${it.message}") }
         }
     }
 
-    /** 收藏（需登录，deal=1 收藏） */
-    fun toggleFavorite(mediaId: Long) {
+    /** 收藏（需登录，使用用户默认收藏夹） */
+    fun toggleFavorite() {
         viewModelScope.launch {
             if (!AccountSession.isLogin) {
                 setError("请先登录后再收藏")
@@ -329,9 +372,14 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             ensureAid()
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
             val fav = _state.value.isFavorited
+            val mediaId = defaultFavFolderId
+            if (mediaId == 0L && !fav) { setError("未获取到默认收藏夹"); return@launch }
             repo.favoriteVideo(aid, mediaId, if (fav) 2 else 1)
                 .onSuccess { ok ->
-                    if (ok) _state.value = _state.value.copy(isFavorited = !fav)
+                    if (ok) _state.value = _state.value.copy(
+                        isFavorited = !fav,
+                        favCount = _state.value.favCount + if (fav) -1 else 1
+                    )
                     else setError("收藏失败（接口返回非 0）")
                 }
                 .onFailure { setError("收藏失败: ${it.message}") }

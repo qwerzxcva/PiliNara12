@@ -96,3 +96,19 @@ fun VideoInfoData.toVideoItem(): VideoItem {
         )
     )
 }
+
+/** /x/web-interface/archive/relation —— 当前用户对该视频的交互状态 */
+@Serializable
+data class RelationResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: RelationData? = null
+)
+
+@Serializable
+data class RelationData(
+    val like: Int = 0,       // 1=已点赞
+    val coin: Int = 0,       // 1=已投币
+    val favourite: Int = 0,  // 1=已收藏
+    val tweetFav: Int = 0
+)
