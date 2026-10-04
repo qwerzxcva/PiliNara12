@@ -49,7 +49,7 @@ import com.example.pilinara.data.model.VideoItem
 @Composable
 fun HomeScreen(
     onOpenSearch: () -> Unit = {},
-    onVideoClick: (String, Long) -> Unit = { _, _ -> },
+    onOpenVideo: (bvid: String, cid: Long) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -119,7 +119,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(s.items, key = { it.aid }) { card ->
-                        VideoCardItem(card, onVideoClick = onVideoClick)
+                        VideoCardItem(card, onClick = { onOpenVideo(card.bvid, card.cid) })
                     }
                 }
             }
@@ -128,8 +128,8 @@ fun HomeScreen(
 }
 
 @Composable
-private fun VideoCardItem(card: VideoItem, onVideoClick: (String, Long) -> Unit = { _, _ -> }) {
-    Card(onClick = { onVideoClick(card.bvid, card.cid) }) {
+private fun VideoCardItem(card: VideoItem, onClick: () -> Unit = {}) {
+    Card(onClick = onClick) {
         Column {
             Box(
                 Modifier

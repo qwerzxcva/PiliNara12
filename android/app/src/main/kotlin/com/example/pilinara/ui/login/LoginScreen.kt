@@ -47,10 +47,8 @@ class LoginViewModel(
         pollJob?.cancel()
         _state.value = QrState.Loading
         viewModelScope.launch {
-            repo.createQrLogin()
-                .onSuccess { map ->
-                    val url = map["qrUrl"] ?: ""
-                    val key = map["qrKey"] ?: ""
+            repo.createQr()
+                .onSuccess { (url, key) ->
                     _state.value = QrState.Ready(url, key)
                     poll(key)
                 }
@@ -62,13 +60,14 @@ class LoginViewModel(
         pollJob = viewModelScope.launch {
             repeat(180) {                 // 最长约 3 分钟
                 delay(2000)
-                val result = repo.pollQrStatus(key).getOrNull() ?: return@repeat
-                when (result) {
+                val d = repo.pollOnce(key).getOrNull() ?: return@repeat
+                when (d.code) {
                     86101 -> Unit                                        // 未扫码
                     86090 -> _state.value = QrState.Scanned              // 已扫码
                     86038 -> { _state.value = QrState.Expired; return@launch }
                     0 -> {
-                        val nav = repo.getUserInfo(0L).getOrNull()
+                        // 登录成功：cookie 已由 pollOnce 写入 AccountSession，拉取资料确认
+                        val nav = repo.fetchSelfInfo().getOrNull()?.data
                         _state.value = QrState.Success(nav?.uname ?: "已登录")
                         return@launch
                     }

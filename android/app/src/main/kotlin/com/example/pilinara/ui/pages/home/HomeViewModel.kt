@@ -37,7 +37,7 @@ class HomeViewModel(
         if (loadingMore) return
         loadingMore = true
         viewModelScope.launch {
-            repo.loadMore(2)
+            repo.loadMore(current.size / 20 + 1)
                 .onSuccess { _state.value = HomeUiState.Success(it) }
                 .onFailure { /* 加载更多失败静默保留当前列表 */ }
             loadingMore = false

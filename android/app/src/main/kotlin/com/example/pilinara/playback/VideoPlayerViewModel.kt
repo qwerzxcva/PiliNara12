@@ -92,7 +92,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val repo = VideoRepository(BiliApiClient())
         // 1) 补 cid
         val effectiveCid = cidIn.takeIf { it > 0L }
-            ?: repo.getVideoInfo(bvid).getOrNull()?.data?.cid
+            ?: repo.getVideoDetail(bvid).getOrNull()?.data?.cid
             ?: run {
                 setError("无法获取视频 cid（详情接口失败）")
                 return
