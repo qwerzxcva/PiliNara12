@@ -105,12 +105,18 @@ fun AppNavigation() {
             val mediaId = backStackEntry.arguments?.getString("mediaId")?.toLongOrNull() ?: 0L
             FavMediaScreen(
                 mediaId = mediaId,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
             )
         }
         composable(Screen.History.route) {
             HistoryScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
             )
         }
         composable(

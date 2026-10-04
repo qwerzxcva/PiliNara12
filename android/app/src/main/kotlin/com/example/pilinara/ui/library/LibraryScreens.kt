@@ -4,294 +4,313 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.pilinara.data.model.FavFolder
+import com.example.pilinara.data.model.FavMedia
+import com.example.pilinara.data.model.HistoryItem
 import com.example.pilinara.data.repository.LibraryRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-/**
- * 我的仓库 - 包含历史、收藏、离线缓存
- */
+class LibraryViewModel(
+    private val repo: LibraryRepository = LibraryRepository()
+) : ViewModel() {
+
+    private val _history = MutableStateFlow<List<HistoryItem>>(emptyList())
+    val history: StateFlow<List<HistoryItem>> = _history.asStateFlow()
+
+    private val _folders = MutableStateFlow<List<FavFolder>>(emptyList())
+    val folders: StateFlow<List<FavFolder>> = _folders.asStateFlow()
+
+    private val _medias = MutableStateFlow<List<FavMedia>>(emptyList())
+    val medias: StateFlow<List<FavMedia>> = _medias.asStateFlow()
+
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    fun loadHistory() {
+        viewModelScope.launch {
+            _loading.value = true
+            _error.value = null
+            repo.history()
+                .onSuccess { _history.value = it.data?.list.orEmpty() }
+                .onFailure { _error.value = it.message ?: "加载历史失败" }
+            _loading.value = false
+        }
+    }
+
+    fun loadFolders(mid: Long) {
+        viewModelScope.launch {
+            _loading.value = true
+            _error.value = null
+            repo.favFolders(mid)
+                .onSuccess { _folders.value = it.data.orEmpty() }
+                .onFailure { _error.value = it.message ?: "加载收藏夹失败" }
+            _loading.value = false
+        }
+    }
+
+    fun loadMedias(mediaId: Long, force: Boolean = false) {
+        viewModelScope.launch {
+            _loading.value = true
+            _error.value = null
+            repo.favResources(mediaId)
+                .onSuccess { _medias.value = it.data?.medias.orEmpty() }
+                .onFailure { _error.value = it.message ?: "加载收藏内容失败" }
+            _loading.value = false
+        }
+    }
+}
+
+/** 收藏夹列表 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(
-    viewModel: LibraryViewModel = viewModel(),
-    onVideoClick: (String, Long) -> Unit = { _, _ -> }
+fun FavoritesScreen(
+    mid: Long,
+    onBack: () -> Unit = {},
+    onOpenFolder: (Long) -> Unit = {},
+    viewModel: LibraryViewModel = viewModel()
 ) {
-    val tabs = listOf("历史", "收藏", "离线缓存")
-    var selectedTab by remember { mutableStateOf(0) }
-    
+    val folders by viewModel.folders.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(mid) { viewModel.loadFolders(mid) }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("我的仓库") },
+                title = { Text("我的收藏") },
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
-                    )
-                }
+        when {
+            loading && folders.isEmpty() -> Box(Modifier.padding(padding).fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator()
             }
-            
-            when (selectedTab) {
-                0 -> HistoryTab(viewModel.historyItems.value, onVideoClick)
-                1 -> FavoritesTab(viewModel.favoriteItems.value, onVideoClick)
-                2 -> DownloadTab(viewModel.downloadItems.value)
+            error != null && folders.isEmpty() -> Box(Modifier.padding(padding).fillMaxSize(), Alignment.Center) {
+                Text(error ?: "")
             }
-        }
-    }
-}
-
-@Composable
-fun HistoryTab(
-    items: List<HistoryItem>,
-    onVideoClick: (String, Long) -> Unit
-) {
-    if (items.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("暂无观看历史", style = MaterialTheme.typography.bodyMedium)
+            folders.isEmpty() -> Box(Modifier.padding(padding).fillMaxSize(), Alignment.Center) {
+                Text("暂无收藏夹")
             }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(items) { item ->
-                HistoryItemCard(item = item, onClick = { onVideoClick(item.bvid, item.cid) })
-            }
-        }
-    }
-}
-
-@Composable
-fun HistoryItemCard(item: HistoryItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Thumbnail
-            Surface(
-                modifier = Modifier
-                    .size(120.dp)
-                    .padding(end = 12.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant
+            else -> LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                items(folders, key = { it.id }) { folder ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable { onOpenFolder(folder.id) },
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(folder.title, fontWeight = FontWeight.Bold)
+                                Text("${folder.media_count} 个内容",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
                 }
             }
-            
-            // Info
-            Column(modifier = Modifier.weight(1f)) {
+        }
+    }
+}
+
+/** 收藏夹内的视频 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FavMediaScreen(
+    mediaId: Long,
+    onBack: () -> Unit = {},
+    onOpenVideo: (bvid: String, cid: Long) -> Unit = { _, _ -> },
+    viewModel: LibraryViewModel = viewModel()
+) {
+    val medias by viewModel.medias.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(mediaId) { viewModel.loadMedias(mediaId) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("收藏内容") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { viewModel.loadMedias(mediaId, force = true) },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
+            when {
+                loading && medias.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                error != null && medias.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Text(error ?: "")
+                }
+                medias.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Text("暂无内容")
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(medias, key = { it.id }) { media ->
+                        MediaRow(
+                            cover = media.cover,
+                            title = media.title,
+                            subtitle = "${media.upper?.name.orEmpty()} · ${formatDur(media.duration)}",
+                            onClick = { onOpenVideo(media.bvid, 0L) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 观看历史 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HistoryScreen(
+    onBack: () -> Unit = {},
+    onOpenVideo: (bvid: String, cid: Long) -> Unit = { _, _ -> },
+    viewModel: LibraryViewModel = viewModel()
+) {
+    val history by viewModel.history.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.loadHistory() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("观看历史") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { viewModel.loadHistory() },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
+            when {
+                loading && history.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                error != null && history.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Text("${error}\n（历史记录需要登录后查看）")
+                }
+                history.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Text("暂无观看记录")
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(history, key = { it.aid }) { item ->
+                        MediaRow(
+                            cover = item.cover,
+                            title = item.title,
+                            subtitle = "${item.author_name} · ${formatDur(item.duration)}" +
+                                if (item.progress > 0 && item.duration > 0)
+                                    " · 已看 ${item.progress * 100 / item.duration}%" else "",
+                            onClick = { onOpenVideo(item.bvid, item.history?.cid ?: 0L) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaRow(cover: String, title: String, subtitle: String, onClick: () -> Unit = {}) {
+    Card(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
+        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = cover,
+                contentDescription = title,
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(72.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    item.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2
+                    title,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(item.author, style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("观看时长 ${item.watchDuration}", style = MaterialTheme.typography.labelSmall)
-            }
-            
-            // Progress
-            if (item.progress > 0 && item.duration > 0) {
-                Column(horizontalAlignment = Alignment.End) {
-                    LinearProgressIndicator(
-                        progress = item.progress.toFloat() / item.duration,
-                        modifier = Modifier.width(60.dp)
-                    )
-                    Text("${item.progress}s/${item.duration}s", style = MaterialTheme.typography.labelSmall)
-                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
 }
 
-@Composable
-fun FavoritesTab(
-    items: List<FavoriteItem>,
-    onVideoClick: (String, Long) -> Unit
-) {
-    if (items.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.FavoriteBorder, contentDescription = null, modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("暂无收藏", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(items) { item ->
-                FavoriteItemCard(item = item, onClick = { onVideoClick(item.bvid, item.cid) })
-            }
-        }
-    }
+private fun formatDur(seconds: Int): String {
+    val m = seconds / 60
+    val s = seconds % 60
+    return "%d:%02d".format(m, s)
 }
-
-@Composable
-fun FavoriteItemCard(item: FavoriteItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier
-                    .size(100.dp)
-                    .padding(end = 12.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.VideoLibrary, contentDescription = null)
-                }
-            }
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(item.author, style = MaterialTheme.typography.bodySmall)
-                if (item.folderName.isNotEmpty()) {
-                    Text("合集: ${item.folderName}", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DownloadTab(items: List<DownloadItem>) {
-    if (items.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("暂无下载", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(items) { item ->
-                DownloadItemCard(item = item)
-            }
-        }
-    }
-}
-
-@Composable
-fun DownloadItemCard(item: DownloadItem) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.VideoFile, contentDescription = null, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    Text("${item.size}MB • ${item.quality}", style = MaterialTheme.typography.labelSmall)
-                }
-                if (item.status == "已完成") {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                } else if (item.status == "下载中") {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                }
-            }
-            if (item.status == "下载中") {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(progress = item.progress / 100f)
-            }
-        }
-    }
-}
-
-// Data classes
-data class HistoryItem(
-    val id: Long = 0L,
-    val bvid: String = "",
-    val cid: Long = 0L,
-    val title: String = "",
-    val author: String = "",
-    val cover: String = "",
-    val duration: Long = 0L,
-    val progress: Long = 0L,
-    val watchDuration: String = "",
-    val lastWatchTime: Long = 0L
-)
-
-data class FavoriteItem(
-    val id: Long = 0L,
-    val bvid: String = "",
-    val cid: Long = 0L,
-    val title: String = "",
-    val author: String = "",
-    val cover: String = "",
-    val folderName: String = "",
-    val favoritedTime: Long = 0L
-)
-
-data class DownloadItem(
-    val id: Long = 0L,
-    val bvid: String = "",
-    val title: String = "",
-    val quality: String = "1080p",
-    val size: Int = 0,
-    val status: String = "等待中",
-    val progress: Int = 0,
-    val downloadUrl: String = ""
-)
