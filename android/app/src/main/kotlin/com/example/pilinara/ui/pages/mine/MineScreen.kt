@@ -63,6 +63,7 @@ fun MineScreen(
     onLoginClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onFavoritesClick: (Long) -> Unit = {},
+    onToViewClick: () -> Unit = {},
     viewModel: MineViewModel = viewModel()
 ) {
     val nav by viewModel.nav.collectAsState()
@@ -88,6 +89,7 @@ fun MineScreen(
                     nav = n,
                     onHistoryClick = onHistoryClick,
                     onFavoritesClick = { onFavoritesClick(n.mid) },
+                    onToViewClick = onToViewClick,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -156,6 +158,7 @@ fun UserContent(
     nav: NavData,
     onHistoryClick: () -> Unit = {},
     onFavoritesClick: () -> Unit = {},
+    onToViewClick: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     LazyColumn(
@@ -167,6 +170,7 @@ fun UserContent(
         item { QuickActions(onHistory = onHistoryClick, onFavorites = onFavoritesClick) }
         item { HorizontalDivider() }
         item { MenuItemRow(MenuItemData("历史观看", Icons.Default.History, onHistoryClick)) }
+        item { MenuItemRow(MenuItemData("稍后再看", Icons.Default.PlayArrow, onToViewClick)) }
         item { MenuItemRow(MenuItemData("我的收藏", Icons.Default.Favorite, onFavoritesClick)) }
         item { MenuItemRow(MenuItemData("设置", Icons.Default.Settings, {})) }
         item { MenuItemRow(MenuItemData("退出登录", Icons.AutoMirrored.Filled.Logout, onLogout)) }

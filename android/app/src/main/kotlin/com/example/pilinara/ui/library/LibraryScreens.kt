@@ -1,6 +1,8 @@
 package com.example.pilinara.ui.library
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +31,7 @@ import com.example.pilinara.data.repository.LibraryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.launch
 
 class LibraryViewModel(
@@ -50,14 +53,75 @@ class LibraryViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    fun loadHistory() {
+    // 历史游标（cursor 分页，批次G）
+    private var historyMax: Long = 0L
+    private var historyViewAt: Long = 0L
+    private var historyHasMore = false
+
+    private val _toView = MutableStateFlow<List<HistoryItem>>(emptyList())
+    val toView: StateFlow<List<HistoryItem>> = _toView.asStateFlow()
+
+    fun loadHistory(force: Boolean = false) {
+        if (_loading.value) return
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
             repo.history()
-                .onSuccess { _history.value = it.data?.list.orEmpty() }
+                .onSuccess { resp ->
+                    _history.value = resp.data?.list.orEmpty()
+                    historyMax = resp.data?.cursor?.max ?: 0L
+                    historyViewAt = resp.data?.cursor?.view_at ?: 0L
+                    historyHasMore = (resp.data?.cursor?.ps ?: 0) >= 20
+                }
                 .onFailure { _error.value = it.message ?: "加载历史失败" }
             _loading.value = false
+        }
+    }
+
+    /** 历史 cursor 翻页 */
+    fun loadMoreHistory() {
+        if (_loading.value || !historyHasMore) return
+        viewModelScope.launch {
+            val api = BiliApiClient()
+            api.getHistoryCursor(max = historyMax, viewAt = historyViewAt)
+                .onSuccess { resp ->
+                    val list = resp.data?.list.orEmpty()
+                    if (list.isNotEmpty()) {
+                        _history.value = _history.value + list
+                        historyMax = resp.data?.cursor?.max ?: historyMax
+                        historyViewAt = resp.data?.cursor?.view_at ?: historyViewAt
+                        historyHasMore = list.size >= 20
+                    } else historyHasMore = false
+                }
+        }
+    }
+
+    /** 删除单条历史 */
+    fun delHistory(item: HistoryItem) {
+        val kid = "${item.business}:${item.history?.oid ?: item.aid}"
+        viewModelScope.launch {
+            BiliApiClient().delHistory(kid).onSuccess { ok ->
+                if (ok) _history.value = _history.value.filterNot { it.aid == item.aid }
+            }
+        }
+    }
+
+    /** 稍后再看列表 */
+    fun loadToView() {
+        viewModelScope.launch {
+            BiliApiClient().getToView().onSuccess { resp ->
+                if (resp.code == 0) {
+                    _toView.value = resp.data.map { it.toHistoryItem() }
+                }
+            }
+        }
+    }
+
+    fun delToView(aid: Long) {
+        viewModelScope.launch {
+            BiliApiClient().delToView(aid).onSuccess { ok ->
+                if (ok) _toView.value = _toView.value.filterNot { it.aid == aid }
+            }
         }
     }
 
@@ -214,7 +278,7 @@ fun FavMediaScreen(
 }
 
 /** 观看历史 */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     onBack: () -> Unit = {},
@@ -259,15 +323,20 @@ fun HistoryScreen(
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(history, key = { it.aid }) { item ->
+                    items(history, key = { "${it.aid}-${it.history?.cid}" }) { item ->
                         MediaRow(
                             cover = item.cover,
                             title = item.title,
                             subtitle = "${item.author_name} · ${formatDur(item.duration)}" +
                                 if (item.progress > 0 && item.duration > 0)
                                     " · 已看 ${item.progress * 100 / item.duration}%" else "",
-                            onClick = { onOpenVideo(item.bvid, item.history?.cid ?: 0L) }
+                            onClick = { onOpenVideo(item.bvid, item.history?.cid ?: 0L) },
+                            onLongClick = { viewModel.delHistory(item) }
                         )
+                        if (item == history.last() && item != history.first()) {
+                            // 触底加载更多（cursor 分页）
+                            LaunchedEffect(history.size) { viewModel.loadMoreHistory() }
+                        }
                     }
                 }
             }
@@ -275,9 +344,16 @@ fun HistoryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MediaRow(cover: String, title: String, subtitle: String, onClick: () -> Unit = {}) {
-    Card(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
+private fun MediaRow(
+    cover: String, title: String, subtitle: String,
+    onClick: () -> Unit = {},
+    onLongClick: () -> Unit = {}
+) {
+    Card(modifier = Modifier.fillMaxWidth().combinedClickable(
+        onClick = onClick, onLongClick = onLongClick
+    )) {
         Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = cover,
@@ -313,4 +389,61 @@ private fun formatDur(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
     return "%d:%02d".format(m, s)
+}
+
+/** 稍后再看（批次G） */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ToViewScreen(
+    onBack: () -> Unit = {},
+    onOpenVideo: (String, Long) -> Unit = { _, _ -> },
+    viewModel: LibraryViewModel = viewModel()
+) {
+    val toView by viewModel.toView.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.loadToView() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("稍后再看") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { viewModel.loadToView() },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
+            when {
+                loading && toView.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                toView.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Text("暂无稍后再看视频")
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(toView, key = { it.aid }) { item ->
+                        MediaRow(
+                            cover = item.cover,
+                            title = item.title,
+                            subtitle = "${item.author_name} · ${formatDur(item.duration)}",
+                            onClick = { onOpenVideo(item.bvid, item.history?.cid ?: 0L) },
+                            onLongClick = { viewModel.delToView(item.aid) }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

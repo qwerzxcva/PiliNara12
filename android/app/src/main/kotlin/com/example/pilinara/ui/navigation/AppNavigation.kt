@@ -50,6 +50,7 @@ sealed class Screen(val route: String) {
     object Member : Screen("member/{mid}") {
         fun createRoute(mid: Long) = "member/$mid"
     }
+    object ToView : Screen("toview")
 }
 
 @Composable
@@ -91,7 +92,12 @@ fun AppNavigation() {
         composable(Screen.Profile.route) {
             MineScreen(
                 onSettingsClick = { navController.navigate(Screen.Settings.route) },
-                onLoginClick = { navController.navigate(Screen.Login.route) }
+                onLoginClick = { navController.navigate(Screen.Login.route) },
+                onHistoryClick = { navController.navigate(Screen.History.route) },
+                onToViewClick = { navController.navigate(Screen.ToView.route) },
+                onFavoritesClick = { mid ->
+                    navController.navigate(Screen.Favorites.createRoute(mid))
+                }
             )
         }
         composable(Screen.Settings.route) {
@@ -160,6 +166,14 @@ fun AppNavigation() {
             val mid = backStackEntry.arguments?.getString("mid")?.toLongOrNull() ?: 0L
             com.example.pilinara.ui.pages.member.MemberScreen(
                 mid = mid,
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
+            )
+        }
+        composable(Screen.ToView.route) {
+            com.example.pilinara.ui.library.ToViewScreen(
                 onBack = { navController.popBackStack() },
                 onOpenVideo = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))

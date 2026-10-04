@@ -363,9 +363,20 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
 
-    /** 点赞（需登录） */
-    fun toggleLike() {
+    /** 加入稍后再看（需登录） */
+    fun addToWatchLater() {
         viewModelScope.launch {
+            if (!AccountSession.isLogin) { setError("请先登录"); return@launch }
+            ensureAid()
+            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
+            BiliApiClient().addToView(aid)
+                .onSuccess { ok -> setError(if (ok) "已加入稍后再看" else "添加失败") }
+                .onFailure { setError("添加失败: ${it.message}") }
+        }
+    }
+
+    /** 点赞（需登录） */
+    fun toggleLike() {        viewModelScope.launch {
             if (!AccountSession.isLogin) {
                 setError("请先登录后再点赞")
                 return@launch

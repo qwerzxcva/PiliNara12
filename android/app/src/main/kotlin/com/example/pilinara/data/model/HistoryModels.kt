@@ -106,3 +106,38 @@ data class FavUpper(
     val name: String = "",
     val face: String = ""
 )
+
+/** 稍后再看 /x/v2/history/toview */
+@kotlinx.serialization.Serializable
+data class ToViewResponse(
+    val code: Int = 0,
+    val message: String? = null,
+    val data: List<ToViewItem> = emptyList()
+)
+
+@kotlinx.serialization.Serializable
+data class ToViewItem(
+    val aid: Long = 0L,
+    val bvid: String = "",
+    val title: String = "",
+    val pic: String = "",
+    val cid: Long = 0L,
+    val duration: Int = 0,
+    val add_at: Long = 0L,
+    val upper: ToViewUpper? = null
+) {
+    fun toHistoryItem() = HistoryItem(
+        title = title, cover = pic, bvid = bvid, aid = aid,
+        duration = duration, progress = 0,
+        author_name = upper?.name.orEmpty(), author_mid = upper?.mid ?: 0L,
+        business = "archive",
+        history = HistoryMeta(oid = aid, bvid = bvid, cid = cid, business = "archive")
+    )
+}
+
+@kotlinx.serialization.Serializable
+data class ToViewUpper(
+    val mid: Long = 0L,
+    val name: String = "",
+    val face: String = ""
+)

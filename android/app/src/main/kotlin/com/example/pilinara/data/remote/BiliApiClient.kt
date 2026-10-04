@@ -437,12 +437,56 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
-    // ========== History ==========
-    
-    suspend fun getHistory(limit: Int = 20): Result<List<VideoItem>> = runCatching {
+    // ========== History / 稍后再看（批次G） ==========
+
+    /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */
+    suspend fun getHistoryCursor(
+        max: Long = 0L,
+        viewAt: Long = 0L,
+        ps: Int = 20
+    ): Result<HistoryResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/history/cursor") {
+            url {
+                parameters.append("ps", ps.toString())
+                if (max > 0) parameters.append("max", max.toString())
+                if (viewAt > 0) parameters.append("view_at", viewAt.toString())
+            }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
+    /** 稍后再看列表 /x/v2/history/toview（需登录） */
+    suspend fun getToView(): Result<ToViewResponse> = runCatching {
         client.get("$API_BASE/x/v2/history/toview") {
             header("Referer", "https://www.bilibili.com")
         }.body()
+    }
+
+    /** 添加稍后再看（csrf） */
+    suspend fun addToView(aid: Long): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "$API_BASE/x/v2/history/toview/add",
+            mapOf("aid" to aid.toString())
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
+    /** 删除稍后再看（csrf） */
+    suspend fun delToView(aid: Long): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "$API_BASE/x/v2/history/toview/del",
+            mapOf("aid" to aid.toString())
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
+    /** 删除单条历史（csrf）。kid = business:oid，如 archive:123456 */
+    suspend fun delHistory(kid: String): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "$API_BASE/x/v2/history/delete",
+            mapOf("kid" to kid)
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
     }
     
     // ========== WBI Signature ==========
