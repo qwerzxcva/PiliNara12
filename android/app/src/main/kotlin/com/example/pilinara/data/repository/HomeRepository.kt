@@ -76,7 +76,7 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
         val currentVideos = _videos.value.toMutableList()
         val response = apiClient.popularVideos(page, 20)
         
-        response.onSuccess { resp ->
+        return response.onSuccess { resp ->
             if (resp.code == 0 && resp.data != null) {
                 val newVideos = resp.data.list.map { item ->
                     VideoItem(
@@ -96,7 +96,7 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                 currentVideos.addAll(newVideos)
                 _videos.value = currentVideos
             }
-        }
+        }.mapCatching { currentVideos }
     }
     
     /**
