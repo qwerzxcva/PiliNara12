@@ -87,7 +87,7 @@ fun MineScreen(
                     modifier = Modifier.padding(padding),
                     nav = n,
                     onHistoryClick = onHistoryClick,
-                    onFavoritesClick = { onFavoritesClick(n.uid) },
+                    onFavoritesClick = { onFavoritesClick(n.mid) },
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -133,7 +133,7 @@ fun LoginContent(modifier: Modifier = Modifier, onLoginClick: () -> Unit = {}) {
 
         // 只保留扫码登录：B站 Web 端仅支持二维码 / 密码 / 短信，无第三方微信登录
         Button(
-            onClick = onOpenLogin,
+            onClick = onLoginClick,
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
