@@ -49,14 +49,20 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     // ========== Play URL ==========
     
     suspend fun getPlayUrl(bvid: String, cid: Long, qn: Int = 80): Result<PlayUrlResponse> = runCatching {
+        // playurl 必须 wbi 签名，否则 -404/-352（见 docs/bilibili_api_checklist.md §1.2）
+        val signed = WbiSigner.sign(
+            mapOf(
+                "bvid" to bvid,
+                "cid" to cid.toString(),
+                "qn" to qn.toString(),
+                "fnval" to "16",
+                "fnver" to "0",
+                "fourk" to "1"
+            )
+        )
         client.get("$API_BASE/x/player/wbi/playurl") {
             url {
-                parameters.append("bvid", bvid)
-                parameters.append("cid", cid.toString())
-                parameters.append("fnval", "16")  // DASH + flac
-                parameters.append("fnver", "0")
-                parameters.append("fourk", "1")
-                parameters.append("qn", qn.toString())
+                signed.forEach { (k, v) -> parameters.append(k, v) }
             }
             header("Referer", "https://www.bilibili.com")
         }.bodyAsText().let { text ->
