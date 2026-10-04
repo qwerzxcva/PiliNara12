@@ -77,6 +77,12 @@ class StorageManager(private val context: Context) {
     
     val danmakuOpacityFlow: Flow<Float> = context.dataStore.data
         .map { preferences -> preferences[DANMAKU_OPACITY_KEY] ?: 1.0f }
+
+    val danmakuFontSizeFlow: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[DANMAKU_FONT_SIZE_KEY] ?: 25 }
+
+    val danmakuSpeedFlow: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[DANMAKU_SPEED_KEY] ?: 1.0f }
     
     // Account
     val isLoggedInFlow: Flow<Boolean> = context.dataStore.data
@@ -135,6 +141,22 @@ class StorageManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[DANMAKU_OPACITY_KEY] = opacity
         }
+    }
+
+    suspend fun setDanmakuFontSize(size: Int) {
+        context.dataStore.edit { preferences -> preferences[DANMAKU_FONT_SIZE_KEY] = size }
+    }
+
+    suspend fun setDanmakuSpeed(speed: Float) {
+        context.dataStore.edit { preferences -> preferences[DANMAKU_SPEED_KEY] = speed }
+    }
+
+    suspend fun setSubtitleFontSize(size: Int) {
+        context.dataStore.edit { preferences -> preferences[SUBTITLE_FONT_SIZE_KEY] = size }
+    }
+
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
     }
     
     suspend fun login(mid: Long, name: String, accessToken: String, refreshToken: String) {
