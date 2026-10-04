@@ -213,13 +213,29 @@ fun ChatScreen(
                                     bottomEnd = if (mine) 4.dp else 12.dp
                                 )
                             ) {
-                                Text(
-                                    m.msgText(),
-                                    modifier = Modifier.padding(10.dp),
-                                    color = if (mine) MaterialTheme.colorScheme.onPrimary
-                                            else Color.Unspecified,
-                                    fontSize = 15.sp
-                                )
+                                // 图片消息（msg_type=2）→ 显示图片；文本消息 → 文字
+                                val img = m.msgImage()
+                                if (img != null) {
+                                    coil.compose.AsyncImage(
+                                        model = img.url,
+                                        contentDescription = "图片消息",
+                                        modifier = Modifier
+                                            .padding(4.dp)
+                                            .size(
+                                                width = 180.dp,
+                                                height = (180f * img.height / img.width.coerceAtLeast(1)).dp.coerceIn(80.dp, 260.dp)
+                                            ),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(
+                                        m.msgText(),
+                                        modifier = Modifier.padding(10.dp),
+                                        color = if (mine) MaterialTheme.colorScheme.onPrimary
+                                                else Color.Unspecified,
+                                        fontSize = 15.sp
+                                    )
+                                }
                             }
                             Text(
                                 tsFmt.format(Date(m.timestamp * 1000)),

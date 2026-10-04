@@ -790,6 +790,33 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    /** 发送私聊图片消息（msg_type=2，content 为 JSON {"url":...,"width":...,"height":...,"image_type":0}） */
+    suspend fun sendPrivateImage(senderUid: Long, receiverId: Long, url: String, width: Int, height: Int): Result<Boolean> = runCatching {
+        val payload = org.json.JSONObject()
+            .put("url", url)
+            .put("width", width)
+            .put("height", height)
+            .put("image_type", 0)
+            .toString()
+        val resp: String = BiliHttpClient.postAuthForm(
+            "https://api.vc.bilibili.com/web_im/v1/web_im/send_msg",
+            linkedMapOf(
+                "msg[sender_uid]" to senderUid.toString(),
+                "msg[receiver_id]" to receiverId.toString(),
+                "msg[receiver_type]" to "1",
+                "msg[msg_type]" to "2",
+                "msg[msg_status]" to "0",
+                "msg[content]" to payload,
+                "msg[timestamp]" to (System.currentTimeMillis() / 1000).toString(),
+                "msg[new_device_token]" to "",
+                "from_firework" to "0",
+                "build" to "0",
+                "mobi_app" to "web"
+            )
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     // ========== 表情包（批次：表情包） ==========
 
     /** 大表情包详情 /x/emote/package（1=小黄脸，244=小黄脸动态） */

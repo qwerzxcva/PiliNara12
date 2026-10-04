@@ -2,6 +2,8 @@ package com.example.pilinara.data.remote
 
 import android.util.Log
 import com.example.pilinara.data.model.LiveDanmakuMsg
+import com.example.pilinara.data.model.LiveGift
+import com.example.pilinara.data.model.LiveSuperChat
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.websocket.*
@@ -68,6 +70,18 @@ class LiveDanmakuWsClient(
     )
     /** 聊天区列表（含用户名/徽章），弹幕渲染与聊天列表共用来源 */
     val chat: SharedFlow<LiveDanmakuMsg> = _chat.asSharedFlow()
+
+    /** 醒目留言（SUPER_CHAT_MESSAGE） */
+    private val _superChat = MutableSharedFlow<LiveSuperChat>(
+        replay = 0, extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val superChat: SharedFlow<LiveSuperChat> = _superChat.asSharedFlow()
+
+    /** 礼物（SEND_GIFT / COMBO_SEND） */
+    private val _gift = MutableSharedFlow<LiveGift>(
+        replay = 0, extraBufferCapacity = 32, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val gift: SharedFlow<LiveGift> = _gift.asSharedFlow()
 
     /** 人气值（心跳回复 body 前 4 字节 u32） */
     private val _popularity = MutableStateFlow(0L)
@@ -205,7 +219,43 @@ class LiveDanmakuWsClient(
                     Log.w(TAG, "DANMU_MSG 解析失败: ${e.message}")
                 }
             }
-            // 其余 cmd（进房/礼物/SC 等）后续批次按需扩展
+            "SUPER_CHAT_MESSAGE", "SUPER_CHAT_MESSAGE_JPN" -> {
+                try {
+                    val d = obj.getJSONObject("data")
+                    val ui = d.optJSONObject("user_info")
+                    _superChat.tryEmit(
+                        LiveSuperChat(
+                            uid = ui?.optLong("uid") ?: 0L,
+                            name = ui?.optString("uname").orEmpty(),
+                            face = ui?.optString("face").orEmpty(),
+                            price = d.optInt("price", 0),
+                            message = d.optString("message"),
+                            duration = d.optLong("time", 60L),
+                            backgroundColor = d.optString("background_color", "#C0000F")
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "SC 解析失败: ${e.message}")
+                }
+            }
+            "SEND_GIFT", "COMBO_SEND" -> {
+                try {
+                    val d = obj.getJSONObject("data")
+                    _gift.tryEmit(
+                        LiveGift(
+                            uid = d.optLong("uid", 0L),
+                            name = d.optString("uname"),
+                            giftName = d.optString("giftName").ifBlank { d.optString("gift_name") },
+                            num = d.optInt("num", 1),
+                            coinType = d.optString("coin_type", "gold"),
+                            price = d.optLong("price", 0L)
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "礼物解析失败: ${e.message}")
+                }
+            }
+            // 其余 cmd（进房/点赞等）后续批次按需扩展
         }
     }
 

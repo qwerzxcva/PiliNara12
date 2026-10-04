@@ -37,3 +37,29 @@ data class LiveDanmakuMsg(
     val medalLevel: Int = 0,
     val ts: Long = System.currentTimeMillis() / 1000
 )
+
+/** 消息种类标记（聊天列表区分样式） */
+enum class LiveMsgKind { CHAT, SUPER_CHAT, GIFT, WELCOME }
+
+/** SC（醒目留言） */
+data class LiveSuperChat(
+    val uid: Long = 0L,
+    val name: String = "",
+    val face: String = "",
+    val price: Int = 0,          // RMB
+    val message: String = "",
+    val duration: Long = 0L,     // 展示秒数
+    val backgroundColor: String = "#C0000F",
+    val ts: Long = System.currentTimeMillis() / 1000
+)
+
+/** 礼物消息（SEND_GIFT / COMBO_SEND） */
+data class LiveGift(
+    val uid: Long = 0L,
+    val name: String = "",
+    val giftName: String = "",
+    val num: Int = 1,
+    val coinType: String = "gold",   // gold=金瓜子 silver=银瓜子
+    val price: Long = 0,
+    val ts: Long = System.currentTimeMillis() / 1000
+)

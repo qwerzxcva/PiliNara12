@@ -80,3 +80,17 @@ data class SessionMsg(
 fun SessionMsg.msgText(): String = try {
     org.json.JSONObject(content).optString("content").ifBlank { "[消息]" }
 } catch (_: Exception) { "[消息]" }
+
+/** 图片消息（msg_type=2）解析：url/width/height；非图片返回 null */
+data class SessionImage(val url: String, val width: Int, val height: Int)
+
+fun SessionMsg.msgImage(): SessionImage? {
+    if (msgType != 2) return null
+    return try {
+        val o = org.json.JSONObject(content)
+        val url = o.optString("url")
+        if (url.isBlank()) null else SessionImage(
+            url, o.optInt("width", 300), o.optInt("height", 300)
+        )
+    } catch (_: Exception) { null }
+}
