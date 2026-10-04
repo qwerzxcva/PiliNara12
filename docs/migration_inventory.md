@@ -108,3 +108,6 @@
 - 2026-10-04 r4（批次F 完成，commit b3c26bc）：总体 **15%**。
   - 批次F 直播 ✅：getRoomPlayInfo(qn=10000 协议/格式/编码全展开)、getInfoByRoom、roomEntryAction 进房上报；pickStream 流选择（HLS>FLV、avc 优先）；LiveRoomScreen 重写——独立 ExoPlayer 播 m3u8、真实标题/分区/人气/未开播态/重试。剩：直播弹幕 websocket、送礼/舰队、清晰度切换、直播列表页（second/getList）。
   - 下一步：批次D 番剧、批次H 关注/粉丝+消息中心真实数据。
+- 2026-10-04 r5（批次H 完成，commit 10ad519）：总体 **17%**。
+  - 批次H ✅：getFollowings/getFollowers、getMsgUnread/Reply/At/Like 四接口；MessageScreen 整页重写（三 Tab+未读角标+真实消息卡片+登录引导+来源视频跳转）；FollowListScreen 新页（关注/粉丝，点击进空间）+ MemberScreen 粉丝/关注数可点。剩：私聊会话(session_svr)、系统通知。
+  - 剩余大批次：D 番剧(pgc)、直播列表页/弹幕ws、设置页扩展、下载离线、表情包、我的页面完善。
