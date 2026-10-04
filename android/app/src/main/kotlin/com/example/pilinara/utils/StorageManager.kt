@@ -23,6 +23,7 @@ class StorageManager(private val context: Context) {
     
     companion object {
         private val THEME_MODE_KEY = stringPreferencesKey("themeMode")
+        private val ACCENT_COLOR_KEY = stringPreferencesKey("accentColor")
         private val VIDEO_QUALITY_KEY = stringPreferencesKey("defaultVideoQa")
         private val AUTO_PLAY_KEY = booleanPreferencesKey("autoPlayEnable")
         private val FULLSCREEN_MODE_KEY = stringPreferencesKey("fullScreenMode")
@@ -54,6 +55,10 @@ class StorageManager(private val context: Context) {
     // Theme
     val themeModeFlow: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[THEME_MODE_KEY] ?: "system" }
+
+    /** 主题强调色（十六进制字符串，空 = 默认粉/B站绿） */
+    val accentColorFlow: Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[ACCENT_COLOR_KEY] ?: "" }
     
     val videoQualityFlow: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[VIDEO_QUALITY_KEY] ?: "auto" }
@@ -98,6 +103,12 @@ class StorageManager(private val context: Context) {
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { preferences ->
             preferences[THEME_MODE_KEY] = mode
+        }
+    }
+
+    suspend fun setAccentColor(color: String) {
+        context.dataStore.edit { preferences ->
+            preferences[ACCENT_COLOR_KEY] = color
         }
     }
     

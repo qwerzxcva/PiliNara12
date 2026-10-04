@@ -30,7 +30,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val danmakuFontSize: Int = 25,
         val danmakuSpeed: Float = 1.0f,
         // 主题
-        val themeMode: String = "system"     // system/light/dark
+        val themeMode: String = "system",     // system/light/dark
+        val accentColor: String = ""          // 十六进制，空=默认绿
     )
 
     init {
@@ -55,6 +56,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             storage.themeModeFlow.collect { _state.value = _state.value.copy(themeMode = it) }
         }
+        viewModelScope.launch {
+            storage.accentColorFlow.collect { _state.value = _state.value.copy(accentColor = it) }
+        }
     }
 
     fun setAutoPlay(v: Boolean) = viewModelScope.launch { storage.setAutoPlay(v) }
@@ -64,4 +68,5 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setDanmakuFontSize(v: Int) = viewModelScope.launch { storage.setDanmakuFontSize(v) }
     fun setDanmakuSpeed(v: Float) = viewModelScope.launch { storage.setDanmakuSpeed(v) }
     fun setThemeMode(m: String) = viewModelScope.launch { storage.setThemeMode(m) }
+    fun setAccentColor(hex: String) = viewModelScope.launch { storage.setAccentColor(hex) }
 }

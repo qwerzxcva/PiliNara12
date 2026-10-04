@@ -1,8 +1,12 @@
 package com.example.pilinara.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -10,10 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.pilinara.ui.theme.ACCENT_OPTIONS
+import com.example.pilinara.ui.theme.accentFromHex
 
 /**
  * 设置页（真实持久化版）——播放/弹幕/主题，DataStore 存储
@@ -35,6 +42,7 @@ fun SettingsScreen(
     // 弹窗选择器状态
     var showQualityDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showAccentDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -135,6 +143,14 @@ fun SettingsScreen(
                     onClick = { showThemeDialog = true }
                 )
             }
+            item {
+                SettingRow(
+                    title = "主题颜色",
+                    subtitle = accentFromHex(state.accentColor).label,
+                    icon = Icons.Default.Palette,
+                    onClick = { showAccentDialog = true }
+                )
+            }
 
             // ===== 关于 =====
             item { SectionTitle("关于") }
@@ -219,6 +235,15 @@ fun SettingsScreen(
             confirmButton = {}
         )
     }
+
+    // 主题颜色弹窗
+    if (showAccentDialog) {
+        AccentColorDialog(
+            current = state.accentColor,
+            onPick = { viewModel.setAccentColor(it) },
+            onDismiss = { showAccentDialog = false }
+        )
+    }
 }
 
 private fun qualityLabel(v: String) = when (v) {
@@ -227,6 +252,48 @@ private fun qualityLabel(v: String) = when (v) {
 
 private fun themeLabel(v: String) = when (v) {
     "light" -> "浅色"; "dark" -> "深色"; else -> "跟随系统"
+}
+
+/** 主题颜色选择弹窗（20 色板） */
+@Composable
+private fun AccentColorDialog(
+    current: String,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("主题颜色") },
+        text = {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(5),
+                modifier = Modifier.height(220.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(ACCENT_OPTIONS.size) { idx ->
+                    val opt = ACCENT_OPTIONS[idx]
+                    val selected = opt.hex.equals(current, ignoreCase = true) ||
+                        (current.isEmpty() && idx == 0)
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .background(color = opt.color, shape = MaterialTheme.shapes.small)
+                            .clickable {
+                                onPick(if (idx == 0) "" else opt.hex)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (selected) {
+                            Icon(Icons.Default.Check, "已选", tint = Color.White)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {}
+    )
 }
 
 @Composable
