@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,8 +59,10 @@ object DownloadManager {
                     ?: throw IllegalStateException("详情获取失败")
                 val cid = detail.cid
                 val duration = detail.duration.toLong()
-                // 2) playurl + Rust 选流
-                val play = repo.getPlayUrl(bvid, cid, qn = 64).getOrNull()
+                // 2) playurl + Rust 选流（清晰度跟随 DataStore 设置）
+                val qn = com.example.pilinara.utils.StorageManager(appCtx).videoQualityFlow.first()
+                    .let { when (it) { "1080p" -> 80; "720p" -> 64; "480p" -> 32; else -> 64 } }
+                val play = repo.getPlayUrl(bvid, cid, qn = qn).getOrNull()
                     ?: throw IllegalStateException("playurl 获取失败")
                 val videoUrl = play.second
                 val audioUrl = play.third
