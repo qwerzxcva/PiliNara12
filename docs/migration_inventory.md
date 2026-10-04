@@ -130,3 +130,7 @@
 - 批次L UI 主题：Kototoro 风格渐变/大圆角设计 token。
 - 暂缓（性价比低）：Vulkan 渲染/HDR/多引擎切换、缩略图 storyboard、pgc 首页分类、@用户评论、私聊图片消息。
 - 完成上述后总体 ~35%+。
+- 2026-10-04 r8（批次J 直播弹幕WS + 批次K 播放器字幕，commit e87a866 + acca76c）：总体 **28%**。
+  - 批次J 直播弹幕 WebSocket ✅：LiveDanmakuWsClient（16字节大端包头/op2心跳/op5业务/op7认证/op8认证回复/op3人气回复；protover2 zlib 递归解包；DANMU_MSG 解析 uid/name/彩色/徽章/emote）；getDanmuInfo(token+host_list)；30s 心跳；Ktor WebSocket(OkHttp engine)+ktor-client-websockets 依赖。LiveRoomViewModel 接 chat 流（保留80条）+人气；LiveRoomScreen 弹幕聊天列表（徽章/彩色/自动滚底）+发送栏（SendMsg csrf+本地回显）+WS 连接状态指示。剩：重连退避、SC/礼物消息、表情渲染。
+  - 批次K 播放器字幕 ✅：getPlayerV2(/x/player/v2)+fetchSubtitleBody；SubtitleCues 按时间定位；播放器底部半透明字幕层。剩：字幕选择 UI、番剧 ep 字幕。
+  - 剩余：批次I 下载离线、批次L Kototoro 主题、缩略图 storyboard、pgc 首页分类、@用户、私聊图片。
