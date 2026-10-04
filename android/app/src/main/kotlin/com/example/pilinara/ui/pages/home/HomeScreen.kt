@@ -119,7 +119,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(s.items, key = { it.aid }) { card ->
-                        VideoCardItem(card)
+                        VideoCardItem(card, onVideoClick = onVideoClick)
                     }
                 }
             }
@@ -128,8 +128,8 @@ fun HomeScreen(
 }
 
 @Composable
-private fun VideoCardItem(card: VideoItem) {
-    Card(onClick = { onVideoClick(video.bvid, video.cid) }) {
+private fun VideoCardItem(card: VideoItem, onVideoClick: (String, Long) -> Unit = { _, _ -> }) {
+    Card(onClick = { onVideoClick(card.bvid, card.cid) }) {
         Column {
             Box(
                 Modifier
