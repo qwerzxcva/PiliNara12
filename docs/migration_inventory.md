@@ -105,3 +105,6 @@
   - 批次E 评论区增强 ✅：CommentNode 补 rpid/rpid层级/ctime/rcount/action；getReplyList 楼中楼、likeComment、addComment（csrf）；CommentViewModel（bv→aid、mode 3/2、楼中楼展开、点赞±1、发评论刷新）；CommentScreen 整页重写删假数据（头像/时间/心形/排序Chip/翻页/发送栏）。剩：表情包、@用户、图片评论。
   - 批次G 稍后再看+历史 ✅：getHistoryCursor(cursor 翻页)、getToView/addToView/delToView/delHistory(csrf)；历史长按删除+触底翻页；ToViewScreen 新页+路由+Mine 入口+播放器"稍后看"按钮。剩：历史搜索、暂停记录开关。
   - 累计待办：批次D 番剧、批次F 直播真实链路、批次H 关注/粉丝+消息、批次I 下载离线。
+- 2026-10-04 r4（批次F 完成，commit b3c26bc）：总体 **15%**。
+  - 批次F 直播 ✅：getRoomPlayInfo(qn=10000 协议/格式/编码全展开)、getInfoByRoom、roomEntryAction 进房上报；pickStream 流选择（HLS>FLV、avc 优先）；LiveRoomScreen 重写——独立 ExoPlayer 播 m3u8、真实标题/分区/人气/未开播态/重试。剩：直播弹幕 websocket、送礼/舰队、清晰度切换、直播列表页（second/getList）。
+  - 下一步：批次D 番剧、批次H 关注/粉丝+消息中心真实数据。

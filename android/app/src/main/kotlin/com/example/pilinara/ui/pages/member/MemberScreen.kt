@@ -40,6 +40,7 @@ class MemberViewModelFactory(private val mid: Long) : ViewModelProvider.Factory 
 fun MemberScreen(
     mid: Long,
     onOpenVideo: (String, Long) -> Unit = { _, _ -> },
+    onOpenFollowList: (Long, Boolean) -> Unit = { _, _ -> },
     onBack: () -> Unit = {},
     viewModel: MemberViewModel = viewModel(factory = MemberViewModelFactory(mid))
 ) {
@@ -118,8 +119,10 @@ fun MemberScreen(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    StatCell("粉丝", formatCount(state.stat?.follower ?: 0))
-                    StatCell("关注", formatCount(state.stat?.following ?: 0))
+                    StatCell("粉丝", formatCount(state.stat?.follower ?: 0),
+                        onClick = { onOpenFollowList(mid, true) })
+                    StatCell("关注", formatCount(state.stat?.following ?: 0),
+                        onClick = { onOpenFollowList(mid, false) })
                     StatCell("投稿", "${state.videos.size}")
                 }
             }
@@ -185,8 +188,11 @@ fun MemberScreen(
 }
 
 @Composable
-private fun StatCell(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatCell(label: String, value: String, onClick: () -> Unit = {}) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(label, style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)

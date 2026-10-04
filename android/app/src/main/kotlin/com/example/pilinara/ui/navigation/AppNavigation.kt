@@ -51,6 +51,10 @@ sealed class Screen(val route: String) {
         fun createRoute(mid: Long) = "member/$mid"
     }
     object ToView : Screen("toview")
+    object FollowList : Screen("followlist/{mid}?type={type}") {
+        fun createRoute(mid: Long, followers: Boolean) =
+            "followlist/$mid?type=${if (followers) "1" else "0"}"
+    }
 }
 
 @Composable
@@ -87,7 +91,15 @@ fun AppNavigation() {
             )
         }
         composable(Screen.Message.route) {
-            com.example.pilinara.ui.messages.MessageScreen()
+            com.example.pilinara.ui.messages.MessageScreen(
+                onGoLogin = { navController.navigate(Screen.Login.route) },
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                },
+                onOpenUser = { mid ->
+                    navController.navigate(Screen.Member.createRoute(mid))
+                }
+            )
         }
         composable(Screen.Profile.route) {
             MineScreen(
@@ -169,6 +181,9 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onOpenVideo = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                },
+                onOpenFollowList = { m, followers ->
+                    navController.navigate(Screen.FollowList.createRoute(m, followers))
                 }
             )
         }
@@ -178,6 +193,22 @@ fun AppNavigation() {
                 onOpenVideo = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
                 }
+            )
+        }
+        composable(
+            Screen.FollowList.route,
+            arguments = listOf(
+                navArgument("mid") { type = NavType.LongType },
+                navArgument("type") { type = NavType.IntType; defaultValue = 0 }
+            )
+        ) { backStackEntry ->
+            val mid = backStackEntry.arguments?.getLong("mid") ?: 0L
+            val followers = backStackEntry.arguments?.getInt("type") == 1
+            com.example.pilinara.ui.pages.member.FollowListScreen(
+                mid = mid,
+                followers = followers,
+                onBack = { navController.popBackStack() },
+                onOpenUser = { m -> navController.navigate(Screen.Member.createRoute(m)) }
             )
         }
     }

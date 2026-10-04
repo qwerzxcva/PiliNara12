@@ -437,6 +437,83 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    // ========== 关注/粉丝 + 消息（批次H） ==========
+
+    /** 关注列表（需登录） */
+    suspend fun getFollowings(mid: Long, page: Int = 1, pageSize: Int = 50): Result<FollowingsResponse> = runCatching {
+        client.get("$API_BASE/x/relation/followings") {
+            url {
+                parameters.append("vmid", mid.toString())
+                parameters.append("pn", page.toString())
+                parameters.append("ps", pageSize.toString())
+            }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body()
+    }
+
+    /** 粉丝列表（需登录） */
+    suspend fun getFollowers(mid: Long, page: Int = 1, pageSize: Int = 50): Result<FollowingsResponse> = runCatching {
+        client.get("$API_BASE/x/relation/followers") {
+            url {
+                parameters.append("vmid", mid.toString())
+                parameters.append("pn", page.toString())
+                parameters.append("ps", pageSize.toString())
+            }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body()
+    }
+
+    /** 未读消息数（需登录） */
+    suspend fun getMsgUnread(): Result<MsgUnreadResponse> = runCatching {
+        client.get("$API_BASE/x/msgfeed/unread") {
+            url {
+                parameters.append("platform", "web")
+                parameters.append("build", "0")
+                parameters.append("mobi_app", "web")
+            }
+            header("Referer", "https://message.bilibili.com")
+        }.body()
+    }
+
+    /** 回复我的（需登录） */
+    suspend fun getMsgReply(page: Int = 1): Result<MsgFeedResponse> = runCatching {
+        client.get("$API_BASE/x/msgfeed/reply") {
+            url {
+                parameters.append("platform", "web")
+                parameters.append("build", "0")
+                parameters.append("mobi_app", "web")
+                parameters.append("pn", page.toString())
+            }
+            header("Referer", "https://message.bilibili.com")
+        }.body()
+    }
+
+    /** @我的（需登录） */
+    suspend fun getMsgAt(page: Int = 1): Result<MsgFeedResponse> = runCatching {
+        client.get("$API_BASE/x/msgfeed/at") {
+            url {
+                parameters.append("platform", "web")
+                parameters.append("build", "0")
+                parameters.append("mobi_app", "web")
+                parameters.append("pn", page.toString())
+            }
+            header("Referer", "https://message.bilibili.com")
+        }.body()
+    }
+
+    /** 收到的赞（需登录） */
+    suspend fun getMsgLike(page: Int = 1): Result<MsgFeedResponse> = runCatching {
+        client.get("$API_BASE/x/msgfeed/like") {
+            url {
+                parameters.append("platform", "web")
+                parameters.append("build", "0")
+                parameters.append("mobi_app", "web")
+                parameters.append("pn", page.toString())
+            }
+            header("Referer", "https://message.bilibili.com")
+        }.body()
+    }
+
     // ========== 直播（批次F） ==========
 
     /** 直播间播放信息（含 HLS/FLV 流地址）。roomId 支持短号 */

@@ -1,180 +1,191 @@
 package com.example.pilinara.ui.messages
 
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.pilinara.data.model.MsgFeedItem
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private val timeFormat by lazy { SimpleDateFormat("MM-dd HH:mm", Locale.CHINA) }
 
 /**
- * Message Screen - Replaces Flutter message page
+ * Message Screen（批次H）——回复/@/赞 消息流 + 未读数（真实 API）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageScreen() {
-    var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("消息", "私信")
-    
+fun MessageScreen(
+    onGoLogin: () -> Unit = {},
+    onOpenVideo: (String, Long) -> Unit = { _, _ -> },
+    onOpenUser: (Long) -> Unit = {},
+    viewModel: MessageViewModel = viewModel()
+) {
+    val state by viewModel.state.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    val tabs = listOf("回复", "@我的", "收到的赞")
+
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbar.showSnackbar(it)
+            viewModel.consumeError()
+        }
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("消息") },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "更多")
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = { TopAppBar(title = { Text("消息中心") }) }
+    ) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (!state.isLogin) {
+                Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Lock, null, Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(12.dp))
+                        Text("登录后查看消息", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = onGoLogin) { Text("去登录") }
                     }
                 }
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            // Tabs
-            TabRow(selectedTabIndex = selectedTab) {
+                return@Column
+            }
+
+            // Tab + 未读角标
+            TabRow(selectedTabIndex = state.tab) {
+                val unread = listOf(state.unreadReply, state.unreadAt, state.unreadLike)
                 tabs.forEachIndexed { index, title ->
                     Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
+                        selected = state.tab == index,
+                        onClick = { viewModel.setTab(index) },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(title)
+                                if (unread[index] > 0) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Surface(
+                                        shape = MaterialTheme.shapes.small,
+                                        color = MaterialTheme.colorScheme.error
+                                    ) {
+                                        Text(
+                                            unread[index].toString(),
+                                            modifier = Modifier.padding(horizontal = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onError
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     )
                 }
             }
-            
-            // Content
-            when (selectedTab) {
-                0 -> SystemMessages()
-                1 -> PrivateMessages()
-            }
-        }
-    }
-}
 
-@Composable
-fun SystemMessages() {
-    val messages = listOf(
-        Triple("系统通知", "您的视频已通过审核", "10:30"),
-        Triple("活动通知", "新用户注册赠送大会员", "昨天"),
-        Triple("系统通知", "密码修改成功", "昨天"),
-        Triple("活动通知", "双十一活动即将开始", "3天前"),
-        Triple("系统通知", "实名认证已完成", "1周前")
-    )
-    
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(8.dp)
-    ) {
-        items(messages) { (title, content, time) ->
-            MessageItem(title = title, content = content, time = time)
-        }
-    }
-}
+            when {
+                state.isLoading && state.items.isEmpty() -> Box(
+                    Modifier.fillMaxSize(), Alignment.Center
+                ) { CircularProgressIndicator() }
 
-private data class ContactRow(val name: String, val lastMessage: String, val time: String, val unread: Int)
+                state.items.isEmpty() -> Box(
+                    Modifier.fillMaxSize(), Alignment.Center
+                ) { Text("暂无消息", color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
-@Composable
-fun PrivateMessages() {
-    val contacts = listOf(
-        ContactRow("用户A", "刚才在吗？", "10:30", 3),
-        ContactRow("用户B", "好的，明天见", "昨天", 0),
-        ContactRow("用户C", "视频收到了，谢谢！", "昨天", 0),
-        ContactRow("用户D", "直播什么时候开始？", "3天前", 1),
-        ContactRow("用户E", "评论已回复", "1周前", 0)
-    )
-    
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(8.dp)
-    ) {
-        items(contacts) { c ->
-            ContactItem(name = c.name, lastMessage = c.lastMessage, time = c.time, unread = c.unread)
-        }
-    }
-}
-
-@Composable
-fun MessageItem(title: String, content: String, time: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Notifications,
-                contentDescription = null,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
-                Text(content, style = MaterialTheme.typography.bodyMedium)
-            }
-            Text(time, style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
-
-@Composable
-fun ContactItem(name: String, lastMessage: String, time: String, unread: Int) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Avatar
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = CircleShape
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Row {
-                    Text(name, style = MaterialTheme.typography.titleSmall)
-                    if (unread > 0) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Badge(unread = unread)
+                else -> LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(state.items, key = { it.id }) { item ->
+                        MsgRow(item, onOpenVideo, onOpenUser)
+                    }
+                    if (state.hasMore) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(12.dp), Alignment.Center) {
+                                LaunchedEffect(state.items.size) { viewModel.loadMore() }
+                                CircularProgressIndicator(Modifier.size(22.dp))
+                            }
+                        }
                     }
                 }
-                Text(lastMessage, style = MaterialTheme.typography.bodyMedium)
             }
-            
-            Text(time, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 @Composable
-fun Badge(unread: Int) {
-    Surface(
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.error
+private fun MsgRow(
+    item: MsgFeedItem,
+    onOpenVideo: (String, Long) -> Unit,
+    onOpenUser: (Long) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .clickable {
+                val bvid = item.replyContent?.uriBvid.orEmpty()
+                if (bvid.isNotEmpty()) onOpenVideo(bvid, 0L)
+                else item.user?.mid?.let(onOpenUser)
+            }
+            .padding(12.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Text(
-            text = unread.toString(),
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onError
+        AsyncImage(
+            model = item.user?.face,
+            contentDescription = item.user?.uname,
+            modifier = Modifier.size(42.dp).clip(CircleShape),
+            contentScale = ContentScale.Crop
         )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    item.user?.uname ?: "",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    item.time.takeIf { it > 0 }?.let { timeFormat.format(Date(it * 1000)) } ?: "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                item.replyContent?.message ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3, overflow = TextOverflow.Ellipsis
+            )
+            item.replyContent?.sourceContent?.takeIf { it.isNotEmpty() }?.let { src ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "回复内容: $src",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (item.counts > 1) {
+            Text(
+                "x${item.counts}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

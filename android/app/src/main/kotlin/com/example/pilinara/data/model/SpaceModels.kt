@@ -177,3 +177,73 @@ data class LiveRoomInfoData(
     @kotlinx.serialization.SerialName("user_count") val userCount: Long = 0L,
     @kotlinx.serialization.SerialName("keyframe_url") val keyframeUrl: String = ""
 )
+
+// ===== 批次H：关注/粉丝 + 消息 =====
+
+/** /x/relation/followings —— 关注列表 */
+@kotlinx.serialization.Serializable
+data class FollowingsResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: List<FollowUser> = emptyList()
+)
+
+@kotlinx.serialization.Serializable
+data class FollowUser(
+    val mid: Long = 0L,
+    val uname: String = "",
+    val face: String = "",
+    val sign: String = "",
+    @kotlinx.serialization.SerialName("official_verify") val officialVerify: OfficialVerify? = null
+)
+
+/** /x/msgfeed/unread —— 未读消息数 */
+@kotlinx.serialization.Serializable
+data class MsgUnreadResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: MsgUnreadData? = null
+) {
+    @kotlinx.serialization.Serializable
+    data class MsgUnreadData(
+        val total: Long = 0L,
+        val reply: Long = 0L,
+        val at: Long = 0L,
+        val like: Long = 0L,
+        @kotlinx.serialization.SerialName("chat") val msg: Long = 0L
+    )
+}
+
+/** /x/msgfeed/reply —— 回复我的消息流 */
+@kotlinx.serialization.Serializable
+data class MsgFeedResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: MsgFeedData? = null
+)
+
+@kotlinx.serialization.Serializable
+data class MsgFeedData(
+    val items: List<MsgFeedItem> = emptyList(),
+    val last_msg_db_id: Long = 0L
+)
+
+@kotlinx.serialization.Serializable
+data class MsgFeedItem(
+    val id: Long = 0L,
+    val user: FollowUser? = null,
+    @kotlinx.serialization.SerialName("reply_content") val replyContent: MsgReplyContent? = null,
+    val counts: Long = 0L,
+    val is_multi: Boolean = false,
+    val time: Long = 0L
+)
+
+@kotlinx.serialization.Serializable
+data class MsgReplyContent(
+    val message: String = "",
+    @kotlinx.serialization.SerialName("epid") val epId: Long = 0L,
+    @kotlinx.serialization.SerialName("source_content") val sourceContent: String = "",
+    @kotlinx.serialization.SerialName("subject_content") val subjectContent: String = "",
+    @kotlinx.serialization.SerialName("uri_bvid") val uriBvid: String = "",
+    @kotlinx.serialization.SerialName("uri_aid") val uriAid: Long = 0L
+)
