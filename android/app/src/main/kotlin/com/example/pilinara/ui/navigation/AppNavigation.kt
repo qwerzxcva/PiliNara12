@@ -14,6 +14,7 @@ import com.example.pilinara.ui.main.SearchScreen
 import com.example.pilinara.ui.pages.dynamics.DynamicsScreen
 import com.example.pilinara.ui.pages.home.HomeScreen
 import com.example.pilinara.ui.pages.mine.MineScreen
+import com.example.pilinara.ui.settings.SettingsScreen
 import com.example.pilinara.playback.VideoPlayerScreen
 
 /**
@@ -26,17 +27,18 @@ sealed class Screen(val route: String) {
     object Dynamics : Screen("dynamics")
     object Message : Screen("message")
     object Profile : Screen("profile")
-    object Login : Screen("login")
-    object Favorites : Screen("favorites/{mid}") {
-        fun createRoute(mid: Long) = "favorites/$mid"
-    }
-    object FavMedia : Screen("favmedia/{mediaId}") {
-        fun createRoute(mediaId: Long) = "favmedia/$mediaId"
-    }
-    object History : Screen("history")
     object VideoPlayer : Screen("video/{bvid}") {
         fun createRoute(bvid: String) = "video/$bvid"
     }
+    object LiveRoom : Screen("live/{roomId}") {
+        fun createRoute(roomId: String) = "live/$roomId"
+    }
+    object Comment : Screen("comment/{bvid}") {
+        fun createRoute(bvid: String) = "comment/$bvid"
+    }
+    object Login : Screen("login")
+    object Settings : Screen("settings")
+}
     object LiveRoom : Screen("live/{roomId}") {
         fun createRoute(roomId: String) = "live/$roomId"
     }
@@ -67,7 +69,7 @@ fun AppNavigation() {
         }
         composable(Screen.Profile.route) {
             MineScreen(
-                onSettingsClick = { /* TODO: Open settings */ },
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
                 onLoginClick = { navController.navigate(Screen.Login.route) }
             )
         }
@@ -112,6 +114,15 @@ fun AppNavigation() {
         composable(Screen.Comment.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             CommentScreen(bvid = bvid)
+        }
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onBack = { navController.popBackStack() },
+                onLoggedIn = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }
