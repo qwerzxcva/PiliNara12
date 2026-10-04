@@ -60,6 +60,10 @@ sealed class Screen(val route: String) {
             "bangumi?seasonId=$seasonId&epId=$epId"
     }
     object LiveList : Screen("livelist")
+    object DanmakuBlock : Screen("danmakublock")
+    object Sessions : Screen("sessions")
+
+    fun chat(talkerId: Long) = "chat/$talkerId"
 }
 
 @Composable
@@ -103,7 +107,8 @@ fun AppNavigation() {
                 },
                 onOpenUser = { mid ->
                     navController.navigate(Screen.Member.createRoute(mid))
-                }
+                },
+                onOpenSessions = { navController.navigate(Screen.Sessions.route) }
             )
         }
         composable(Screen.Profile.route) {
@@ -120,7 +125,8 @@ fun AppNavigation() {
         }
         composable(Screen.Settings.route) {
             com.example.pilinara.ui.settings.SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onDanmakuBlockClick = { navController.navigate(Screen.DanmakuBlock.route) }
             )
         }
         composable(Screen.Login.route) {
@@ -239,6 +245,28 @@ fun AppNavigation() {
             com.example.pilinara.ui.pages.livelist.LiveListScreen(
                 onBack = { navController.popBackStack() },
                 onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId)) }
+            )
+        }
+        composable(Screen.DanmakuBlock.route) {
+            com.example.pilinara.ui.settings.DanmakuBlockScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Sessions.route) {
+            com.example.pilinara.ui.messages.SessionListScreen(
+                onBack = { navController.popBackStack() },
+                onGoLogin = { navController.navigate(Screen.Login.route) },
+                onOpenChat = { talkerId -> navController.navigate("chat/$talkerId") }
+            )
+        }
+        composable(
+            "chat/{talkerId}",
+            arguments = listOf(navArgument("talkerId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            com.example.pilinara.ui.messages.ChatScreen(
+                talkerId = backStackEntry.arguments?.getLong("talkerId") ?: 0L,
+                onBack = { navController.popBackStack() },
+                onGoLogin = { navController.navigate(Screen.Login.route) }
             )
         }
     }

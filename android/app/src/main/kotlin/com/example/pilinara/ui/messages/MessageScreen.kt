@@ -34,6 +34,7 @@ fun MessageScreen(
     onGoLogin: () -> Unit = {},
     onOpenVideo: (String, Long) -> Unit = { _, _ -> },
     onOpenUser: (Long) -> Unit = {},
+    onOpenSessions: () -> Unit = {},
     viewModel: MessageViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -49,7 +50,16 @@ fun MessageScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { TopAppBar(title = { Text("消息中心") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("消息中心") },
+                actions = {
+                    IconButton(onClick = onOpenSessions) {
+                        Icon(Icons.Default.ChatBubbleOutline, "私聊")
+                    }
+                }
+            )
+        }
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (!state.isLogin) {

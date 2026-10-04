@@ -20,6 +20,11 @@ class MainApplication : Application() {
         // 进程级 Application 上下文，供无 Context 层（LoginRepository 等）取 Room
         AppContext.init(this)
 
+        // 弹幕屏蔽规则启动 warmup（缓存到内存供渲染过滤）
+        com.example.pilinara.ui.settings.DanmakuBlockViewModel.warmup(
+            com.example.pilinara.database.PiliNaraDatabase.getDatabase(this)
+        )
+
         // 匿名启动即取 buvid3（风控接口强依赖），协程后台执行
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             AccountSession.ensureBuvid()

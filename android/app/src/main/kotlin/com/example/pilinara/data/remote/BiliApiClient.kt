@@ -656,6 +656,68 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
     
+    // ========== 私聊会话（批次：私聊） ==========
+
+    /** 私聊会话列表（Web API，需登录） */
+    suspend fun getMySessions(endTs: Long = 0L): Result<SessionListResponse> = runCatching {
+        client.get("$API_BASE/bili-api/v1/web/session/list") {
+            url {
+                parameters.append("session_type", "1")
+                parameters.append("group_id", "0")
+                parameters.append("build", "0")
+                parameters.append("mobi_app", "web")
+                if (endTs > 0) parameters.append("end_ts", endTs.toString())
+            }
+            header("Referer", "https://message.bilibili.com/")
+        }.body()
+    }
+
+    /** 私聊消息记录（talker = 对方 mid） */
+    suspend fun fetchSessionMsgs(talkerId: Long, sessionTs: Long = 0L): Result<SessionMsgsResponse> = runCatching {
+        client.get("$API_BASE/bili-api/v1/web/session/poll") {
+            url {
+                parameters.append("talker_id", talkerId.toString())
+                parameters.append("session_type", "1")
+                parameters.append("build", "0")
+                parameters.append("web_location", "0")
+                if (sessionTs > 0) parameters.append("session_ts", sessionTs.toString())
+            }
+            header("Referer", "https://message.bilibili.com/")
+        }.body()
+    }
+
+    /** 发送私聊消息（csrf）；sender_uid = 自己 mid */
+    suspend fun sendPrivateMsg(senderUid: Long, receiverId: Long, content: String): Result<Boolean> = runCatching {
+        val payload = org.json.JSONObject().put("content", content).toString()
+        val resp: String = BiliHttpClient.postAuthForm(
+            "https://api.vc.bilibili.com/web_im/v1/web_im/send_msg",
+            linkedMapOf(
+                "msg[sender_uid]" to senderUid.toString(),
+                "msg[receiver_id]" to receiverId.toString(),
+                "msg[receiver_type]" to "1",
+                "msg[msg_type]" to "1",
+                "msg[msg_status]" to "0",
+                "msg[content]" to payload,
+                "msg[timestamp]" to (System.currentTimeMillis() / 1000).toString(),
+                "msg[new_device_token]" to "",
+                "from_firework" to "0",
+                "build" to "0",
+                "mobi_app" to "web"
+            )
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
+    // ========== 表情包（批次：表情包） ==========
+
+    /** 大表情包详情 /x/emote/package（1=小黄脸，244=小黄脸动态） */
+    suspend fun getEmotePackage(id: Long): Result<EmotePackageResponse> = runCatching {
+        client.get("$API_BASE/x/emote/package") {
+            url { parameters.append("id", id.toString()) }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
     // ========== WBI Signature ==========
     
     suspend fun withWbi(url: String, params: Map<String, String>): String {

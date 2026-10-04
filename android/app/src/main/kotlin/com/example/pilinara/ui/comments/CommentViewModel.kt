@@ -134,6 +134,11 @@ class CommentViewModel(private val bvid: String) : ViewModel() {
         }
     }
 
+    /** 表情包（小黄脸包 id=1），供评论输入面板 */
+    suspend fun loadEmotes(): List<com.example.pilinara.data.model.EmoteItem> {
+        return api.getEmotePackage(1).getOrNull()?.data?.emotes.orEmpty()
+    }
+
     /** 发评论（rootRpid>0 = 回复楼中楼） */
     fun sendComment(message: String, rootRpid: Long = 0L) {
         if (message.isBlank()) return

@@ -289,7 +289,12 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     
     fun addDanmakuEvents(events: List<DanmakuEvent>) {
         _danmakuQueue.clear()
-        _danmakuQueue.addAll(events)
+        // 弹幕屏蔽规则过滤（关键词/正则/UID）
+        _danmakuQueue.addAll(
+            events.filterNot {
+                com.example.pilinara.ui.settings.DanmakuBlockViewModel.shouldBlock(it.content, 0L)
+            }
+        )
     }
     
     fun getDanmakuAtTime(currentTimeMs: Long): List<DanmakuEvent> {

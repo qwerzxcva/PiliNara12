@@ -3,6 +3,9 @@ package com.example.pilinara.ui.comments
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -52,7 +55,17 @@ fun CommentScreen(
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var inputText by remember { mutableStateOf("") }
+    var showEmotePanel by remember { mutableStateOf(false) }
+    var emotes by remember { mutableStateOf<List<com.example.pilinara.data.model.EmoteItem>>(emptyList()) }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+
+    // 表情包面板数据（首次展开加载小黄脸包 id=1）
+    LaunchedEffect(showEmotePanel) {
+        if (showEmotePanel && emotes.isEmpty()) {
+            emotes = viewModel.loadEmotes()
+        }
+    }
 
     LaunchedEffect(state.error) {
         state.error?.let {
@@ -77,6 +90,40 @@ fun CommentScreen(
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
+                // 表情面板
+                if (showEmotePanel) {
+                    if (emotes.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().height(140.dp), Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(24.dp))
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(8),
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            gridItems(emotes) { emote ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .clip(MaterialTheme.shapes.small)
+                                        .clickable {
+                                            inputText += emote.text
+                                        }
+                                        .padding(2.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = emote.url,
+                                        contentDescription = emote.text,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 Row(
                     Modifier.fillMaxWidth().padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -90,6 +137,18 @@ fun CommentScreen(
                         shape = MaterialTheme.shapes.large
                     )
                     Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            showEmotePanel = !showEmotePanel
+                            if (showEmotePanel) focusManager.clearFocus()
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.EmojiEmotions, "表情",
+                            tint = if (showEmotePanel) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(
                         onClick = {
                             if (inputText.isNotBlank() && !state.sending) {

@@ -20,7 +20,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onDanmakuBlockClick: () -> Unit = {}
+) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -110,6 +113,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                     valueRange = 0.5f..2.5f,
                     displayValue = String.format("%.1fx", state.danmakuSpeed),
                     onValueChange = { viewModel.setDanmakuSpeed(it) }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "弹幕屏蔽",
+                    subtitle = "关键词 / 正则 / 用户 UID 规则",
+                    icon = Icons.Default.Block,
+                    onClick = onDanmakuBlockClick
                 )
             }
 

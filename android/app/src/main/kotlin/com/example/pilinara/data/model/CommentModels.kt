@@ -1,6 +1,7 @@
 package com.example.pilinara.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 /**
  * Comment models for Bilibili API
@@ -107,4 +108,34 @@ data class ReplyPage(
     val num: Int = 1,
     val size: Int = 10,
     val count: Int = 0
+)
+
+// ==================== 表情包（/x/emote） ====================
+
+@Serializable
+data class EmotePackageResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: EmotePackage? = null
+)
+
+@Serializable
+data class EmotePackage(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("text") val text: String = "",
+    @SerialName("url") val url: String = "",
+    @SerialName("emote") val emotes: List<EmoteItem> = emptyList()
+)
+
+@Serializable
+data class EmoteItem(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("text") val text: String = "",
+    @SerialName("url") val url: String = "",
+    @SerialName("meta") val meta: EmoteMeta = EmoteMeta()
+)
+
+@Serializable
+data class EmoteMeta(
+    @SerialName("size") val size: Int = 1  // 1=小 2=大
 )
