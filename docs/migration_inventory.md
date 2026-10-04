@@ -116,3 +116,9 @@
   - 直播列表 ✅：getLiveList(second/getList 分页) + LiveListScreen 网格（人气/分区/主播）+ 路由。
   - 设置页扩展 ✅：StorageManager 补齐 setter；SettingsViewModel 七项状态机；SettingsScreen 重写（Switch/Slider/单选弹窗全真实持久化）；**播放器 ViewModel 读 DataStore**（默认清晰度 qn 映射 + 弹幕开关/透明度真实生效）。
   - 剩余：弹幕屏蔽规则、下载离线、表情包、私聊、播放器字幕/缩略图、直播弹幕ws。
+- 2026-10-04 r7（弹幕屏蔽+表情包+私聊+播放器ep_id 模式，commit 7313baa + 8a1a964）：总体 **25%**。
+  - 弹幕屏蔽 ✅：关键词/正则/UID 三类规则，Room（DanmakuFilterRuleEntity）持久化；DanmakuBlockScreen（三Tab+添加/删除+正则校验）；设置页入口；弹幕流渲染前 shouldBlock 过滤；MainApplication 启动 warmup 内存缓存。剩：云端同步规则（/x/dm/filter）。
+  - 表情包 ✅：/x/emote/package API（小黄脸 id=1）；评论输入框表情面板（8列网格，点选插入 [text]）。
+  - 私聊 ✅：api.vc.bilibili.com 会话列表/消息记录(poll)/发送(web_im/send_msg csrf)；SessionModels；SessionListScreen（头像/未读角标/最后消息）+ ChatScreen（气泡对话+发送+自动滚底）；消息中心顶栏私聊入口。剩：已读回执、图片/撤销消息。
+  - 播放器 ep_id 模式 ✅：loadVideo(…, epId) → loadPgcEpisode（pgc season 详情取 cid → 分集填充分P面板 → pgc playurl wbi+Rust 选流 → ExoPlayer + 番剧弹幕）；路由 video/ep{id} 自动识别；BangumiScreen 播放按钮走 ep 链路。
+  - 下一批：下载离线（缓存+离线播放）、播放器字幕（/x/player/v2 subtitle）、直播弹幕 websocket。
