@@ -3,7 +3,6 @@
 //! High-performance animated WebP encoder using the `image` crate
 
 use std::io::Cursor;
-use image::{ImageEncoder, Rgba, ExtendedColorType};
 
 /// Error type for WebP encoding operations
 #[derive(Debug)]
@@ -42,7 +41,7 @@ impl AnimatedWebpEncoder {
     }
     
     /// Add a frame to the animation
-    pub fn add_frame(&mut self, data: &[u8], duration_ms: u32, x: i32, y: i32) -> Result<(), WebpError> {
+    pub fn add_frame(&mut self, data: &[u8], duration_ms: u32, _x: i32, _y: i32) -> Result<(), WebpError> {
         // Validate dimensions
         if data.len() != (self.width as usize) * (self.height as usize) * 4 {
             return Err(WebpError::EncodingError(

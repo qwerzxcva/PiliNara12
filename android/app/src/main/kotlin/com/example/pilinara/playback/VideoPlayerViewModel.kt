@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.data.remote.BiliApiClient
+import com.example.pilinara.data.repository.VideoRepository
 
 class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.Listener {
     
@@ -54,23 +56,89 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L) {
         viewModelScope.launch {
             try {
-                val mediaItem = MediaItem.Builder()
-                    .setUri(Uri.parse(uri))
-                    .setMediaId("$bvid:$cid")
-                    .build()
-                _player?.setMediaItem(mediaItem)
-                _player?.prepare()
-                _player?.playWhenReady = false
-                _state.value = _state.value.copy(
-                    isPlaying = false, isBuffering = true,
-                    error = null, currentTime = 0L, duration = 0L
-                )
+                // 无 URI：走真实解析链路 —— 详情拿 cid → playurl → Rust 选流 → DASH
+                if (uri.isEmpty() && bvid.isNotEmpty()) {
+                    _state.value = _state.value.copy(isBuffering = true, error = null)
+                    resolveAndPlay(bvid, cid)
+                } else {
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(Uri.parse(uri))
+                        .setMediaId("$bvid:$cid")
+                        .build()
+                    _player?.setMediaItem(mediaItem)
+                    _player?.prepare()
+                    _player?.playWhenReady = false
+                    _state.value = _state.value.copy(
+                        isPlaying = false, isBuffering = true,
+                        error = null, currentTime = 0L, duration = 0L
+                    )
+                }
             } catch (e: Exception) {
                 setError("Failed to load video: ${e.message}")
             }
         }
     }
-    
+
+    /**
+     * 真实播放链路：
+     * 1) cid 缺失时拉 /x/web-interface/view 取 cid
+     * 2) /x/player/wbi/playurl 拿 DASH（Rust 侧 selectStreams 选最优流）
+     * 3) video/audio 双流喂给 ExoPlayer（MediaItem sideloaded manifests 不适合分开的 DASH，
+     *    这里用 DataSource 级拼接不可行，因此取 ExoPlayer 原生 DASH 需 manifest；
+     *    折中方案：优先用 Rust 选出的 video baseUrl 直接播（无声），并单独 track 音频 ——
+     *    Media3 支持多 MediaItem 拼接播放（ConcatenatingMediaSource2）
+     */
+    private suspend fun resolveAndPlay(bvid: String, cidIn: Long) {
+        val repo = VideoRepository(BiliApiClient())
+        // 1) 补 cid
+        val effectiveCid = cidIn.takeIf { it > 0L }
+            ?: repo.getVideoInfo(bvid).getOrNull()?.data?.cid
+            ?: run {
+                setError("无法获取视频 cid（详情接口失败）")
+                return
+            }
+
+        // 2) playurl + Rust 流选择
+        val (_, videoUrl, audioUrl) = repo.getPlayUrl(bvid, effectiveCid, qn = 80)
+            .getOrElse {
+                setError("playurl 获取失败: ${it.message}")
+                return
+            }
+        if (videoUrl.isNullOrEmpty()) {
+            setError("未解析到视频流地址（可能需要登录后观看）")
+            return
+        }
+
+        // 3) 拼接播放：Media3 的 MergingMediaSource 合并视频轨+音频轨
+        val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
+            .setAllowCrossProtocolRedirects(true)
+            .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
+
+        val videoItem = MediaItem.Builder().setUri(Uri.parse(videoUrl)).build()
+        val videoSource: androidx.media3.exoplayer.source.MediaSource =
+            androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(videoItem)
+
+        val merged = if (!audioUrl.isNullOrEmpty()) {
+            val audioItem = MediaItem.Builder().setUri(Uri.parse(audioUrl)).build()
+            val audioSource: androidx.media3.exoplayer.source.MediaSource =
+                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                    .createMediaSource(audioItem)
+            androidx.media3.exoplayer.source.MergingMediaSource(videoSource, audioSource)
+        } else {
+            videoSource
+        }
+
+        _player?.setMediaSource(merged)
+        _player?.prepare()
+        _player?.playWhenReady = true
+        _state.value = _state.value.copy(
+            isPlaying = true, isBuffering = true,
+            error = null, currentTime = 0L, duration = 0L
+        )
+    }
+
     fun play() {
         viewModelScope.launch {
             _player?.play()

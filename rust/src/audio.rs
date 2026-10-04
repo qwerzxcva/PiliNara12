@@ -52,7 +52,7 @@ impl AudioNormalizer {
             .collect()
     }
     
-    fn calculate_rms(&self, samples: &[i16], channels: usize) -> f32 {
+    fn calculate_rms(&self, samples: &[i16], _channels: usize) -> f32 {
         if samples.is_empty() {
             return 0.0;
         }

@@ -5,8 +5,8 @@
 //! - Pinyin-based filtering
 //! - Collision detection and avoidance
 
-use std::collections::{HashMap, HashSet};
-use std::time::{Duration, Instant};
+use std::collections::HashMap;
+use std::time::Instant;
 
 /// Represents a single danmaku comment
 #[derive(Debug, Clone)]
@@ -75,7 +75,7 @@ impl DanmakuMerger {
     }
     
     /// Load pinyin dictionary for filtering
-    pub fn load_pinyin_dict(&mut self, dict_data: &[u8]) -> Result<(), String> {
+    pub fn load_pinyin_dict(&mut self, _dict_data: &[u8]) -> Result<(), String> {
         // Parse packed pinyin dictionary
         // Simplified for now - in production would parse the .pakku file
         self.pinyin_dict = Some(HashMap::new());
