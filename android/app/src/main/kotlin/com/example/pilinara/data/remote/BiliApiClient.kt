@@ -437,6 +437,63 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    /** 直播列表（分页，按人气） */
+    suspend fun getLiveList(page: Int = 1, pageSize: Int = 30): Result<LiveListResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList") {
+            url {
+                parameters.append("platform", "web")
+                parameters.append("parent_area_id", "0")
+                parameters.append("area_id", "0")
+                parameters.append("sort_type", "")
+                parameters.append("page", page.toString())
+                parameters.append("page_size", pageSize.toString())
+            }
+            header("Referer", "https://live.bilibili.com")
+        }.body()
+    }
+
+    // ========== 番剧/影视（批次D） ==========
+
+    /** 番剧详情（season_id 或 ep_id）。注意：pgc 接口在 api.bilibili.com，返回字段直属 result */
+    suspend fun getPgcSeason(seasonId: Long = 0L, epId: Long = 0L): Result<PgcSeasonResponse> = runCatching {
+        client.get("$API_BASE/pgc/view/web/season") {
+            url {
+                if (seasonId > 0) parameters.append("season_id", seasonId.toString())
+                if (epId > 0) parameters.append("ep_id", epId.toString())
+            }
+            header("Referer", "https://www.bilibili.com/bangumi/")
+        }.body()
+    }
+
+    /** 番剧播放地址（pgc playurl，ep_id + cid） */
+    suspend fun getPgcPlayUrl(epId: Long, cid: Long, qn: Int = 80): Result<PgcPlayUrlResponse> = runCatching {
+        val signed = WbiSigner.sign(
+            mapOf(
+                "ep_id" to epId.toString(),
+                "cid" to cid.toString(),
+                "qn" to qn.toString(),
+                "fnval" to "4048",
+                "fnver" to "0",
+                "fourk" to "1"
+            )
+        )
+        client.get("$API_BASE/pgc/player/web/playurl") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
+            header("Referer", "https://www.bilibili.com/bangumi/")
+        }.body()
+    }
+
+    /** 追番/取消追番（csrf）。season_id 或 ep_id 二选一 */
+    suspend fun followBangumi(seasonId: Long = 0L, epId: Long = 0L, follow: Boolean): Result<Boolean> = runCatching {
+        val form = linkedMapOf(
+            "season_id" to seasonId.toString(),
+            "ep_id" to epId.toString()
+        )
+        val path = if (follow) "$API_BASE/pgc/app/follow/add" else "$API_BASE/pgc/app/follow/del"
+        val resp: String = BiliHttpClient.postAuthForm(path, form)
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     // ========== 关注/粉丝 + 消息（批次H） ==========
 
     /** 关注列表（需登录） */

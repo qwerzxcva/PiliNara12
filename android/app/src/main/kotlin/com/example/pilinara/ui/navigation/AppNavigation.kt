@@ -55,6 +55,11 @@ sealed class Screen(val route: String) {
         fun createRoute(mid: Long, followers: Boolean) =
             "followlist/$mid?type=${if (followers) "1" else "0"}"
     }
+    object Bangumi : Screen("bangumi?seasonId={seasonId}&epId={epId}") {
+        fun createRoute(seasonId: Long = 0L, epId: Long = 0L) =
+            "bangumi?seasonId=$seasonId&epId=$epId"
+    }
+    object LiveList : Screen("livelist")
 }
 
 @Composable
@@ -107,6 +112,7 @@ fun AppNavigation() {
                 onLoginClick = { navController.navigate(Screen.Login.route) },
                 onHistoryClick = { navController.navigate(Screen.History.route) },
                 onToViewClick = { navController.navigate(Screen.ToView.route) },
+                onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) },
                 onFavoritesClick = { mid ->
                     navController.navigate(Screen.Favorites.createRoute(mid))
                 }
@@ -209,6 +215,30 @@ fun AppNavigation() {
                 followers = followers,
                 onBack = { navController.popBackStack() },
                 onOpenUser = { m -> navController.navigate(Screen.Member.createRoute(m)) }
+            )
+        }
+        composable(
+            Screen.Bangumi.route,
+            arguments = listOf(
+                navArgument("seasonId") { type = NavType.LongType; defaultValue = 0L },
+                navArgument("epId") { type = NavType.LongType; defaultValue = 0L }
+            )
+        ) { backStackEntry ->
+            val sid = backStackEntry.arguments?.getLong("seasonId") ?: 0L
+            val epid = backStackEntry.arguments?.getLong("epId") ?: 0L
+            com.example.pilinara.ui.pages.bangumi.BangumiScreen(
+                seasonId = sid,
+                epId = epid,
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
+            )
+        }
+        composable(Screen.LiveList.route) {
+            com.example.pilinara.ui.pages.livelist.LiveListScreen(
+                onBack = { navController.popBackStack() },
+                onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId)) }
             )
         }
     }

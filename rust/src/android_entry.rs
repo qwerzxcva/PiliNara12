@@ -1,13 +1,13 @@
 //! Android FFI entry points for pilinara-native
-//! 
+//!
 //! JNI bindings for:
 //! - WebP encoding
 //! - Audio normalization
 //! - Danmaku merging
 
-use jni::JNIEnv;
-use jni::objects::{JClass, JByteArray, JString, JObject, JPrimitiveArray};
+use jni::objects::{JByteArray, JClass, JObject, JPrimitiveArray, JString};
 use jni::sys::jint;
+use jni::JNIEnv;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -77,33 +77,34 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
     input: JByteArray<'a>,
     channels: jint,
 ) -> JByteArray<'a> {
-    use crate::audio::{AudioNormalizer, AudioNormalizationConfig};
-    
+    use crate::audio::{AudioNormalizationConfig, AudioNormalizer};
+
     let len = match env.get_array_length(&input) {
         Ok(l) => l as usize,
         Err(_) => return env.new_byte_array(0).unwrap(),
     };
-    
+
     let mut buf = vec![0; len];
     env.get_byte_array_region(&input, 0, &mut buf).unwrap();
-    
+
     let input_samples: Vec<i16> = buf
         .chunks_exact(2)
         .map(|c| i16::from_le_bytes([c[0] as u8, c[1] as u8]))
         .collect();
-    
+
     let normalizer = AudioNormalizer::new(AudioNormalizationConfig::default());
     let output = normalizer.normalize_i16(&input_samples, channels as usize);
-    
+
     let mut output_bytes = vec![0; output.len() * 2];
     for (i, &s) in output.iter().enumerate() {
         let b = s.to_le_bytes();
         output_bytes[i * 2] = b[0] as i8;
         output_bytes[i * 2 + 1] = b[1] as i8;
     }
-    
+
     let jbytes = env.new_byte_array(output_bytes.len() as i32).unwrap();
-    env.set_byte_array_region(&jbytes, 0, &output_bytes).unwrap();
+    env.set_byte_array_region(&jbytes, 0, &output_bytes)
+        .unwrap();
     jbytes
 }
 
@@ -122,7 +123,7 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_create(
     use_pinyin: jboolean,
 ) -> i64 {
     use crate::danmaku::{DanmakuMergeConfig, DanmakuMerger};
-    
+
     let config = DanmakuMergeConfig {
         window_seconds,
         max_distance,
@@ -130,7 +131,7 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_create(
         use_pinyin: use_pinyin != 0,
         ..Default::default()
     };
-    
+
     let merger = DanmakuMerger::new(config);
     Box::into_raw(Box::new(merger)) as i64
 }
@@ -158,17 +159,17 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_loadPinyinDict<'a>(
     dict_data: JByteArray<'a>,
 ) -> jint {
     let merger = unsafe { &mut *(merger_ptr as *mut crate::danmaku::DanmakuMerger) };
-    
+
     let len = match env.get_array_length(&dict_data) {
         Ok(l) => l as usize,
         Err(_) => return -1,
     };
-    
+
     let mut buf = vec![0; len];
     if let Err(_) = env.get_byte_array_region(&dict_data, 0, &mut buf) {
         return -1;
     }
-    
+
     let u8_buf: Vec<u8> = buf.iter().map(|&b| b as u8).collect();
     match merger.load_pinyin_dict(&u8_buf) {
         Ok(_) => 0,

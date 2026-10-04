@@ -77,3 +77,30 @@ fun PlayUrlData.findBestAudio(): String? {
         ?.sortedByDescending { it.bandwidth }
         ?.firstOrNull()?.baseUrl
 }
+
+/** 番剧 playurl（/pgc/player/web/playurl，结构与普通 playurl 相同但字段名 snake_case） */
+@Serializable
+data class PgcPlayUrlResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val result: PgcPlayUrlResult? = null
+)
+
+@Serializable
+data class PgcPlayUrlResult(
+    val quality: Int = 0,
+    val format: String = "",
+    val timelength: Long = 0L,
+    @kotlinx.serialization.SerialName("accept_quality") val acceptQuality: List<Int> = emptyList(),
+    @kotlinx.serialization.SerialName("accept_description") val acceptDescription: List<String> = emptyList(),
+    val dash: PgcDash? = null,
+    val durl: List<DurlInfo> = emptyList()
+)
+
+@Serializable
+data class PgcDash(
+    val duration: Long = 0L,
+    @kotlinx.serialization.SerialName("min_buffer_time") val minBufferTime: Float = 0f,
+    val video: List<StreamInfo> = emptyList(),
+    val audio: List<StreamInfo> = emptyList()
+)

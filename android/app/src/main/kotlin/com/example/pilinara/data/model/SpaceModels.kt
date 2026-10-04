@@ -247,3 +247,80 @@ data class MsgReplyContent(
     @kotlinx.serialization.SerialName("uri_bvid") val uriBvid: String = "",
     @kotlinx.serialization.SerialName("uri_aid") val uriAid: Long = 0L
 )
+
+// ===== 批次D：番剧/影视（pgc） =====
+
+/** /pgc/view/web/season —— 番剧详情（season_id 或 ep_id） */
+@kotlinx.serialization.Serializable
+data class PgcSeasonResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val result: PgcSeason? = null
+)
+
+@kotlinx.serialization.Serializable
+data class PgcSeason(
+    @kotlinx.serialization.SerialName("season_id") val seasonId: Long = 0L,
+    val title: String = "",
+    val cover: String = "",
+    val evaluate: String = "",
+    val status: PgcSeasonStatus? = null,
+    val stat: PgcSeasonStat? = null,
+    @kotlinx.serialization.SerialName("total") val totalEp: Int = 0,
+    @kotlinx.serialization.SerialName("episodes") val episodes: List<PgcEpisode> = emptyList()
+) {
+    val isFinished: Boolean get() = status?.type == 2
+}
+
+@kotlinx.serialization.Serializable
+data class PgcSeasonStatus(
+    val type: Int = 0  // 1=连载中 2=完结
+)
+
+@kotlinx.serialization.Serializable
+data class PgcSeasonStat(
+    @kotlinx.serialization.SerialName("views") val views: Long = 0L,
+    val danmakus: Long = 0L,
+    val followers: Long = 0L,
+    val coins: Long = 0L,
+    val likes: Long = 0L
+)
+
+@kotlinx.serialization.Serializable
+data class PgcEpisode(
+    val id: Long = 0L,              // ep_id
+    val bvid: String = "",
+    val cid: Long = 0L,
+    val title: String = "",          // 第x话
+    @kotlinx.serialization.SerialName("long_title") val longTitle: String = "",
+    val cover: String = "",
+    val duration: Long = 0L,         // 秒
+    @kotlinx.serialization.SerialName("badge") val badgeText: String = "",
+    val status: Int = 0
+)
+
+/** /xlive/app-interface/v2/second/getList —— 直播列表 */
+@kotlinx.serialization.Serializable
+data class LiveListResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: LiveListData? = null
+)
+
+@kotlinx.serialization.Serializable
+data class LiveListData(
+    @kotlinx.serialization.SerialName("list") val rooms: List<LiveRoomCard> = emptyList(),
+    @kotlinx.serialization.SerialName("has_more") val hasMore: Boolean = false
+)
+
+@kotlinx.serialization.Serializable
+data class LiveRoomCard(
+    @kotlinx.serialization.SerialName("roomid") val roomId: Long = 0L,
+    val title: String = "",
+    @kotlinx.serialization.SerialName("uname") val anchorName: String = "",
+    @kotlinx.serialization.SerialName("user_cover") val cover: String = "",
+    @kotlinx.serialization.SerialName("face") val anchorFace: String = "",
+    @kotlinx.serialization.SerialName("online") val onlineCount: Long = 0L,
+    @kotlinx.serialization.SerialName("area_name") val areaName: String = "",
+    @kotlinx.serialization.SerialName("parent_area_name") val parentAreaName: String = ""
+)

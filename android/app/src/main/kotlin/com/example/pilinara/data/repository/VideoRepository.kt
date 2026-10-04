@@ -79,6 +79,33 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
         }
     }
 
+    /** 番剧播放地址（批次D）：wbi 签名 pgc playurl + Rust 选流（result.dash 同构，Rust 已兼容） */
+    suspend fun getPgcPlayUrl(
+        epId: Long,
+        cid: Long,
+        qn: Int = 80
+    ): Result<Triple<PgcPlayUrlResponse, String?, String?>> = withContext(Dispatchers.IO) {
+        apiClient.getPgcPlayUrl(epId, cid, qn).mapCatching { resp ->
+            // Rust select_streams 已兼容 result.dash 路径；把响应序列化为 JSON 喂给它
+            val bodyJson = kotlinx.serialization.json.Json.encodeToString(
+                PgcPlayUrlResponse.serializer(), resp
+            )
+            val selected = PlayUrlNativeLib.select(bodyJson, qn)
+            if (selected != null) {
+                val arr = JSONObject(selected)
+                val video = arr.optJSONObject("video")?.optString("baseUrl")
+                val audio = arr.optJSONObject("audio")?.optString("baseUrl")
+                Triple(resp, video, audio)
+            } else {
+                val video = resp.result?.dash?.video?.maxByOrNull { it.bandwidth }?.baseUrl
+                val audio = resp.result?.dash?.audio?.maxByOrNull { it.bandwidth }?.baseUrl
+                Triple(resp, video, audio)
+            }
+        }.onFailure {
+            _error.value = it.message ?: "获取番剧播放地址失败"
+        }
+    }
+
     /** 获取弹幕 */
     suspend fun getDanmaku(cid: Long, oid: Long = 0L): Result<List<ParsedDanmaku>> = withContext(Dispatchers.IO) {
         runCatching {

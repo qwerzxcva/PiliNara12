@@ -48,8 +48,13 @@ pub fn select_streams(body: &str, target_qn: i64) -> Result<String, String> {
     if v["code"].as_i64().unwrap_or(-1) != 0 {
         return Err(format!("api error code={}", v["code"]));
     }
-    let dash: Dash = serde_json::from_value(v["data"]["dash"].clone())
-        .map_err(|e| format!("no dash: {e}"))?;
+    // 普通视频: data.dash；番剧(pgc): result.dash —— 两者结构同构，兼容取用
+    let dash_node = if v["data"]["dash"].is_object() {
+        v["data"]["dash"].clone()
+    } else {
+        v["result"]["dash"].clone()
+    };
+    let dash: Dash = serde_json::from_value(dash_node).map_err(|e| format!("no dash: {e}"))?;
 
     // ---- video：qn 优先，其次编码偏好（avc > hevc > 其他），最后 bandwidth ----
     fn codec_rank(c: &str) -> i64 {

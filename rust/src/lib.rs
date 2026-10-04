@@ -1,12 +1,12 @@
 //! PiliNara native library
-//! 
+//!
 //! Provides Rust implementations for:
 //! - Animated WebP encoding (replacing Android Bitmap.compress)
 //! - Audio normalization (dynaudnorm-style)
 //! - Danmaku merging and filtering
 //!
 //! ## Architecture
-//! 
+//!
 //! Android builds use cargo-ndk or manual NDK toolchain configuration.
 //! The JNI interface is in `android_entry.rs` (only compiled for Android targets).
 
@@ -25,8 +25,8 @@ pub mod playurl;
 mod android_entry;
 
 #[cfg(not(target_os = "android"))]
+pub use audio::{AudioNormalizationConfig, AudioNormalizer};
+#[cfg(not(target_os = "android"))]
+pub use danmaku::{DanmakuEntry, DanmakuMergeConfig, DanmakuMerger, MergedDanmaku};
+#[cfg(not(target_os = "android"))]
 pub use webp::{AnimatedWebpEncoder, WebpError};
-#[cfg(not(target_os = "android"))]
-pub use audio::{AudioNormalizer, AudioNormalizationConfig};
-#[cfg(not(target_os = "android"))]
-pub use danmaku::{DanmakuMerger, DanmakuMergeConfig, DanmakuEntry, MergedDanmaku};
