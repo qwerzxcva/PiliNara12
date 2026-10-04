@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.pilinara.data.model.formatCount
+import com.example.pilinara.data.model.toParsed
 import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.data.remote.BiliApiClient
 import com.example.pilinara.data.repository.VideoRepository
@@ -92,9 +93,14 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
     
-    fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L) {
+    fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L) {
         viewModelScope.launch {
             try {
+                // 番剧模式：pgc playurl（Rust 已兼容 result.dash）
+                if (epId > 0L) {
+                    loadPgcEpisode(epId)
+                    return@launch
+                }
                 // 无 URI：走真实解析链路 —— 详情拿 cid → playurl → Rust 选流 → DASH
                 if (uri.isEmpty() && bvid.isNotEmpty()) {
                     _state.value = _state.value.copy(isBuffering = true, error = null)
@@ -114,6 +120,74 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                 }
             } catch (e: Exception) {
                 setError("Failed to load video: ${e.message}")
+            }
+        }
+    }
+
+    /** 番剧剧集播放链路（批次D 补全）：pgc season 详情取 cid + 标题/集数 → pgc playurl → Rust 选流 */
+    private suspend fun loadPgcEpisode(epId: Long) {
+        val repo = VideoRepository(BiliApiClient())
+        _state.value = _state.value.copy(isBuffering = true, error = null)
+
+        val api = BiliApiClient()
+        val season = api.getPgcSeason(epId = epId).getOrNull()?.result
+        val episode = season?.episodes?.firstOrNull { it.id == epId }
+            ?: season?.episodes?.firstOrNull()
+        val cid = episode?.cid ?: 0L
+        if (cid <= 0L) {
+            setError("无法获取剧集 cid（pgc 详情失败）")
+            return
+        }
+        aid = episode?.bvid?.let { repo.getVideoDetail(it).getOrNull()?.data?.aid } ?: 0L
+
+        // 同番剧全部分集作为“分P”面板
+        pages = season?.episodes.orEmpty().mapIndexed { idx, ep ->
+            PartInfo(cid = ep.cid, page = idx + 1,
+                part = listOfNotNull(ep.title.ifBlank { null }, ep.longTitle.ifBlank { null })
+                    .joinToString(" ").ifBlank { "第${idx + 1}集" },
+                durationSec = ep.duration)
+        }
+        currentPartIndex = season?.episodes?.indexOfFirst { it.id == epId }?.coerceAtLeast(0) ?: 0
+        _state.value = _state.value.copy(
+            partCount = pages.size,
+            currentPart = currentPartIndex + 1,
+            currentPartTitle = pages.getOrNull(currentPartIndex)?.part ?: ""
+        )
+
+        this.epId = epId
+        this.currentBvid = "ep$epId"
+        // 番剧弹幕需要 cid
+        loadDanmakuFor(cid)
+
+        val (resp, video, audio) = repo.getPgcPlayUrl(epId, cid, qn = currentQn)
+            .getOrElse { setError("番剧 playurl 失败: ${it.message}"); return }
+        if (video.isNullOrEmpty()) {
+            setError("未解析到番剧流地址（可能为大会员专享）")
+            return
+        }
+        cachedAudioUrl = audio
+        dashVideos = resp.result?.dash?.video.orEmpty()
+        currentQn = qnOf(resp)
+        startPlayback(video, audio)
+    }
+
+    private fun qnOf(resp: com.example.pilinara.data.model.PgcPlayUrlResponse): Int =
+        resp.result?.quality ?: currentQn
+
+    private suspend fun loadDanmakuFor(cid: Long) {
+        val api = BiliApiClient()
+        api.getDanmaku(cid).getOrNull()?.let { resp ->
+            resp.data?.let { list ->
+                addDanmakuEvents(list.map { d ->
+                    val p = d.toParsed()
+                    DanmakuEvent(
+                        id = "",
+                        timestamp = (p.timestamp * 1000).toLong(),
+                        content = p.content,
+                        color = p.color or 0xFF000000.toInt(),
+                        fontSize = p.fontSize
+                    )
+                })
             }
         }
     }
@@ -351,6 +425,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     // ========== 互动（点赞/投币/收藏/历史上报） ==========
 
     private var aid: Long = 0L
+    private var epId: Long = 0L
     private var effectiveCid: Long = 0L
     private var currentBvid: String = ""
     private var defaultFavFolderId: Long = 0L

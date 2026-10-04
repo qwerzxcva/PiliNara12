@@ -157,7 +157,7 @@ fun BangumiScreen(
                         val cur = state.currentEp
                         if (cur != null) {
                             Button(
-                                onClick = { onOpenVideo(cur.bvid, cur.cid) },
+                                onClick = { onOpenVideo("ep${cur.id}", cur.cid) },
                                 modifier = Modifier.fillMaxWidth().padding(16.dp)
                             ) {
                                 Icon(Icons.Default.PlayArrow, null)

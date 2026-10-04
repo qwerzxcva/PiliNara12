@@ -161,8 +161,7 @@ fun AppNavigation() {
                 }
             )
         }
-        composable(
-            Screen.VideoPlayer.route,
+        composable(Screen.VideoPlayer.route,
             arguments = listOf(
                 navArgument("bvid") { type = NavType.StringType },
                 navArgument("cid") { type = NavType.LongType; defaultValue = 0L }
@@ -170,10 +169,13 @@ fun AppNavigation() {
         ) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
             val cid = backStackEntry.arguments?.getLong("cid") ?: 0L
+            // ep 请求参数（番剧模式）：video/ep123 形式
+            val epId = if (bvid.startsWith("ep")) bvid.removePrefix("ep").toLongOrNull() ?: 0L else 0L
             VideoPlayerScreen(
                 videoUrl = "",
                 bvid = bvid,
                 cid = cid,
+                epId = epId,
                 onBack = { navController.popBackStack() },
                 onOpenComments = { bv -> navController.navigate(Screen.Comment.createRoute(bv)) }
             )

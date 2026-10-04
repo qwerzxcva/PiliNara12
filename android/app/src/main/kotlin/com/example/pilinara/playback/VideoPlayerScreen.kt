@@ -38,6 +38,7 @@ fun VideoPlayerScreen(
     videoUrl: String,
     bvid: String = "",
     cid: Long = 0L,
+    epId: Long = 0L,
     title: String = "",
     onBack: () -> Unit = {},
     onOpenComments: (bvid: String) -> Unit = {},
@@ -57,8 +58,8 @@ fun VideoPlayerScreen(
     
     val context = LocalContext.current
     
-    LaunchedEffect(videoUrl) {
-        viewModel.loadVideo(videoUrl, bvid, cid)
+    LaunchedEffect(videoUrl, epId) {
+        viewModel.loadVideo(videoUrl, bvid, cid, epId)
     }
 
     // 播放中每 15 秒上报一次历史进度（需登录）
