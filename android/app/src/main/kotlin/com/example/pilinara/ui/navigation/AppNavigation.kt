@@ -59,9 +59,8 @@ fun AppNavigation() {
     ) {
         composable(Screen.Home.route) {
             HomeScreen(
-                onOpenSearch = { navController.navigate(Screen.Search.route) },
-                onOpenVideo = { bvid, cid ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                onVideoClick = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid))
                 }
             )
         }
@@ -76,10 +75,8 @@ fun AppNavigation() {
         }
         composable(Screen.Profile.route) {
             MineScreen(
-                onOpenLogin = { navController.navigate(Screen.Login.route) },
-                onOpenFavorites = { mid -> navController.navigate(Screen.Favorites.createRoute(mid)) },
-                onOpenHistory = { navController.navigate(Screen.History.route) },
-                onOpenSettings = { navController.navigate(Screen.Settings.route) }
+                onLoginClick = { navController.navigate(Screen.Login.route) },
+                onSettingsClick = { navController.navigate(Screen.Settings.route) }
             )
         }
         composable(Screen.Settings.route) {

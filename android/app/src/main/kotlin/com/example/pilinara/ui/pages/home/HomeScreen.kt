@@ -71,7 +71,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("PiliNara") },
                 actions = {
-                    IconButton(onClick = onOpenSearch) {
+                    IconButton(onClick = {}) {
                         Icon(Icons.Filled.Search, contentDescription = "搜索")
                     }
                 },
