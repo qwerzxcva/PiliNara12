@@ -105,8 +105,6 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     suspend fun favoriteVideo(bvid: String, mediaId: Long = 0L): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching { true }
     }
-        // Implemented placeholder
-    }
     
     /**
      * 清除数据
