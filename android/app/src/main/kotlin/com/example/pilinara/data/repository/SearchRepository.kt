@@ -3,6 +3,9 @@ package com.example.pilinara.data.repository
 import com.example.pilinara.data.model.*
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -10,16 +13,16 @@ import kotlinx.coroutines.withContext
  */
 class SearchRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     
-    private val _searchResults = mutableStateOf<List<SearchResultItem>>(emptyList())
+    private val _searchResults = MutableStateFlow<List<SearchResultItem>>(emptyList())
     val searchResults: StateFlow<List<SearchResultItem>> = _searchResults.asStateFlow()
     
-    private val _suggestions = mutableStateOf<List<SuggestResult>>(emptyList())
+    private val _suggestions = MutableStateFlow<List<SuggestResult>>(emptyList())
     val suggestions: StateFlow<List<SuggestResult>> = _suggestions.asStateFlow()
     
-    private val _isLoading = mutableStateOf(false)
+    private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
-    private val _error = mutableStateOf<String?>(null)
+    private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
     /**

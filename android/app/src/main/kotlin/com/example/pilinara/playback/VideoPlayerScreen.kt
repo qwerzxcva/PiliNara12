@@ -190,7 +190,7 @@ fun VideoPlayerScreen(
                     )
                     EngagementButton(
                         icon = Icons.Default.Comment,
-                        label = "评论", onClick = { navController?.navigate("comment/$bvid") },
+                        label = "评论", onClick = { /* TODO: Navigate to comments */ },
                         tintColor = Color.White
                     )
                 }

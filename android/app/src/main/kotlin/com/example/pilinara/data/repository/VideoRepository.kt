@@ -3,6 +3,9 @@ package com.example.pilinara.data.repository
 import com.example.pilinara.data.model.*
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -10,16 +13,16 @@ import kotlinx.coroutines.withContext
  */
 class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     
-    private val _videoInfo = mutableStateOf<VideoItem?>(null)
+    private val _videoInfo = MutableStateFlow<VideoItem?>(null)
     val videoInfo: StateFlow<VideoItem?> = _videoInfo.asStateFlow()
     
-    private val _playUrl = mutableStateOf<String?>(null)
+    private val _playUrl = MutableStateFlow<String?>(null)
     val playUrl: StateFlow<String?> = _playUrl.asStateFlow()
     
-    private val _isLoading = mutableStateOf(false)
+    private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
-    private val _error = mutableStateOf<String?>(null)
+    private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
     /**

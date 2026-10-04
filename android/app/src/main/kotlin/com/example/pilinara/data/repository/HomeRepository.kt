@@ -3,6 +3,9 @@ package com.example.pilinara.data.repository
 import com.example.pilinara.data.model.*
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -11,13 +14,13 @@ import kotlinx.coroutines.withContext
 class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
     
     // 热门视频列表缓存
-    private val _videos = mutableStateOf<List<VideoItem>>(emptyList())
+    private val _videos = MutableStateFlow<List<VideoItem>>(emptyList())
     val videos: StateFlow<List<VideoItem>> = _videos.asStateFlow()
     
-    private val _isLoading = mutableStateOf(false)
+    private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
-    private val _error = mutableStateOf<String?>(null)
+    private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
     /**
@@ -43,7 +46,7 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                             authorFace = item.owner?.face ?: "",
                             cover = item.pic,
                             duration = item.duration?.toLong() ?: 0L,
-                            play = item.stat?.play ?: 0L,
+                            play = item.stat?.view ?: 0L,
                             danmaku = item.stat?.danmaku ?: 0L,
                             reply = item.stat?.reply ?: 0L,
                             favorite = item.stat?.favorite ?: 0L,
@@ -92,7 +95,7 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                         authorFace = item.owner?.face ?: "",
                         cover = item.pic,
                         duration = item.duration?.toLong() ?: 0L,
-                        play = item.stat?.play ?: 0L,
+                        play = item.stat?.view ?: 0L,
                         danmaku = item.stat?.danmaku ?: 0L,
                         reply = item.stat?.reply ?: 0L,
                         favorite = item.stat?.favorite ?: 0L,

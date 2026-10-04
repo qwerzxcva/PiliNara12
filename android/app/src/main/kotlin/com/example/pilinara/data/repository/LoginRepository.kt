@@ -3,6 +3,9 @@ package com.example.pilinara.data.repository
 import com.example.pilinara.data.model.*
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -16,7 +19,7 @@ class LoginRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
         val errorMessage: String? = null
     )
     
-    private val _loginState = mutableStateOf(LoginState())
+    private val _loginState = MutableStateFlow(LoginState())
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
     
     /**
