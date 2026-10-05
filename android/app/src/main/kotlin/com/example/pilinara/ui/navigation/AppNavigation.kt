@@ -1,6 +1,7 @@
 package com.example.pilinara.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -78,9 +79,19 @@ sealed class Screen(val route: String) {
 
     object Downloads : Screen("downloads")
     object Subscribe : Screen("subscribe")
-    object DirectPlay : Screen("directplay/{url}?title={title}&cover={cover}") {
+    /**
+     * 直链播放（订阅源 / 外部链接）
+     *
+     * 审核轮13：URL **不能放在路径分段**里。
+     * 即使 Uri.encode 后 "/" 变成 "%2F"，Navigation 在匹配 / 解码过程中仍可能
+     * 把它还原成分段分隔符，导致路由匹配失败（表现为「点了没跳转」）。
+     * 因此改为纯 query 参数：directplay?url=...&title=...&cover=...
+     */
+    object DirectPlay : Screen("directplay?url={url}&title={title}&cover={cover}") {
         fun createRoute(url: String, title: String = "", cover: String = "") =
-            "directplay/$url?title=$title&cover=$cover"
+            "directplay?url=${android.net.Uri.encode(url)}" +
+                "&title=${android.net.Uri.encode(title)}" +
+                "&cover=${android.net.Uri.encode(cover)}"
     }
 }
 
@@ -386,11 +397,7 @@ fun AppNavigation() {
                 onPlay = { url, title, cover ->
                     // 外部源直链：走专用路由，播放器直接吃 URL（Kazumi 式直链播放）
                     navController.navigate(
-                        Screen.DirectPlay.createRoute(
-                            android.net.Uri.encode(url),
-                            android.net.Uri.encode(title),
-                            android.net.Uri.encode(cover)
-                        )
+                        Screen.DirectPlay.createRoute(url, title, cover)
                     )
                 },
                 onSettingsClick = { navController.navigate(Screen.Settings.route) }
@@ -400,7 +407,7 @@ fun AppNavigation() {
         composable(
             Screen.DirectPlay.route,
             arguments = listOf(
-                navArgument("url") { type = NavType.StringType },
+                navArgument("url") { type = NavType.StringType; defaultValue = "" },
                 navArgument("title") { type = NavType.StringType; defaultValue = "" },
                 navArgument("cover") { type = NavType.StringType; defaultValue = "" }
             )
@@ -411,6 +418,11 @@ fun AppNavigation() {
             val title = backStackEntry.arguments?.getString("title")?.let {
                 android.net.Uri.decode(it)
             } ?: ""
+            // 审核轮13：URL 为空时不进入播放器（否则会打开一个永远加载失败的空播放器）
+            if (url.isBlank()) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+                return@composable
+            }
             VideoPlayerScreen(
                 videoUrl = url,
                 bvid = "",
