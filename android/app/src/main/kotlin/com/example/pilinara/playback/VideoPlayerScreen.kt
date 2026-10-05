@@ -64,6 +64,7 @@ fun VideoPlayerScreen(
     var showDanmakuSheet by remember { mutableStateOf(false) }
     var showRelatedSheet by remember { mutableStateOf(false) }
     var showIntroSheet by remember { mutableStateOf(false) }
+    var showCoinSheet by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     
@@ -324,7 +325,7 @@ fun VideoPlayerScreen(
                         icon = Icons.Default.MonetizationOn,
                         label = "投币",
                         count = formatCount(state.coinCountTotal),
-                        onClick = { viewModel.coinOnce() },
+                        onClick = { showCoinSheet = true },
                         tintColor = Color.White
                     )
                     EngagementButton(
@@ -544,6 +545,30 @@ fun VideoPlayerScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
+
+        // 投币面板（批次L19：1/2 枚选择）
+        if (showCoinSheet) {
+            ModalBottomSheet(onDismissRequest = { showCoinSheet = false }) {
+                Column(Modifier.padding(16.dp).fillMaxWidth()) {
+                    Text("为 UP 主投币", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        listOf(1, 2).forEach { n ->
+                            Button(
+                                onClick = {
+                                    viewModel.coinOnce(n)
+                                    showCoinSheet = false
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("投 $n 枚")
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }

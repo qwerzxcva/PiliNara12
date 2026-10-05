@@ -732,8 +732,8 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
 
-    /** 投币 1 枚（需登录） */
-    fun coinOnce() {
+    /** 投币（需登录，可指定枚数 1/2） */
+    fun coinOnce(multiply: Int = 1) {
         viewModelScope.launch {
             if (!AccountSession.isLogin) {
                 setError("请先登录后再投币")
@@ -741,11 +741,11 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             }
             ensureAid()
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
-            repo.coinVideo(aid, 1)
+            repo.coinVideo(aid, multiply)
                 .onSuccess { ok ->
                     if (ok) _state.value = _state.value.copy(
-                        coinCount = _state.value.coinCount + 1,
-                        coinCountTotal = _state.value.coinCountTotal + 1
+                        coinCount = _state.value.coinCount + multiply,
+                        coinCountTotal = _state.value.coinCountTotal + multiply
                     )
                     else setError("投币失败（余额不足或已投满）")
                 }
