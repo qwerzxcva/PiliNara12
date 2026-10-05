@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -461,6 +463,30 @@ fun VideoPlayerScreen(
                         onValueChange = { viewModel.setDanmakuScale(it) },
                         valueRange = 0.5f..2f
                     )
+                    // 字幕选择（批次L9）
+                    val tracks by viewModel.subtitleTracks.collectAsState()
+                    val selectedSubId by viewModel.selectedSubtitleId.collectAsState()
+                    if (tracks.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("字幕", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedSubId == -1L,
+                                onClick = { viewModel.selectSubtitle(-1L) },
+                                label = { Text("关闭") }
+                            )
+                            tracks.forEach { (id, name, _) ->
+                                FilterChip(
+                                    selected = selectedSubId == id,
+                                    onClick = { viewModel.selectSubtitle(id) },
+                                    label = { Text(name) }
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                 }
             }

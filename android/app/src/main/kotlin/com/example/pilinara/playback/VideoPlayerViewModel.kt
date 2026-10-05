@@ -207,19 +207,43 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     // ==================== 字幕（批次K） ====================
 
     private var subtitleCues: List<com.example.pilinara.data.model.SubtitleCue> = emptyList()
+    // 可选字幕列表（批次L9：字幕选择 UI）——(id, 语言名, url)
+    private val _subtitleTracks = MutableStateFlow<List<Triple<Long, String, String>>>(emptyList())
+    val subtitleTracks: StateFlow<List<Triple<Long, String, String>>> = _subtitleTracks.asStateFlow()
 
     private val _currentSubtitle = MutableStateFlow("")
     val currentSubtitle: StateFlow<String> = _currentSubtitle.asStateFlow()
 
-    /** resolveAndPlay 成功后调用：拉字幕列表并取第一条可用字幕内容 */
+    // 当前选中的字幕 id（批次L9）
+    private val _selectedSubtitleId = MutableStateFlow(-1L)
+    val selectedSubtitleId: StateFlow<Long> = _selectedSubtitleId.asStateFlow()
+
+    /** resolveAndPlay 成功后调用：拉字幕列表（保留全部可选字幕，默认取第一条） */
     private fun loadSubtitles(bvid: String, cid: Long) {
         if (bvid.isEmpty() || cid <= 0L || bvid.startsWith("ep")) return
         viewModelScope.launch {
             runCatching {
                 val api = BiliApiClient()
                 val subs = api.getPlayerV2(bvid, cid).getOrNull()?.data?.subtitle?.subtitles.orEmpty()
+                _subtitleTracks.value = subs.map { Triple(it.id, it.langDoc, it.subtitleUrl) }
                 val pick = subs.firstOrNull { !it.isLock } ?: return@launch
-                val body = api.fetchSubtitleBody(pick.subtitleUrl).getOrNull() ?: return@launch
+                selectSubtitle(pick.id)
+            }
+        }
+    }
+
+    /** 选择字幕轨（懒加载 body）；id=-1 关闭字幕 */
+    fun selectSubtitle(id: Long) {
+        _selectedSubtitleId.value = id
+        if (id < 0) {
+            subtitleCues = emptyList()
+            _currentSubtitle.value = ""
+            return
+        }
+        val url = _subtitleTracks.value.firstOrNull { it.first == id }?.third ?: return
+        viewModelScope.launch {
+            runCatching {
+                val body = BiliApiClient().fetchSubtitleBody(url).getOrNull() ?: return@launch
                 subtitleCues = body.body.sortedBy { it.from }
             }
         }
