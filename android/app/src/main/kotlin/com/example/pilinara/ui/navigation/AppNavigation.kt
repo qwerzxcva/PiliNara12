@@ -275,7 +275,7 @@ fun AppNavigation() {
         composable(Screen.Rank.route) {
             com.example.pilinara.ui.pages.rank.RankScreen(
                 onBack = { navController.popBackStack() },
-                onOpenVideo = { bvid -> navController.navigate("video/$bvid") }
+                onOpenVideo = { bvid -> navController.navigate(Screen.VideoPlayer.createRoute(bvid)) }
             )
         }
         composable(Screen.DanmakuBlock.route) {
