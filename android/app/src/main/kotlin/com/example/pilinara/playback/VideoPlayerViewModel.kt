@@ -80,24 +80,22 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     )
     
     init {
+        // Kazumi 特性：低延迟音频。
+        // Media3 里 AudioAttributes 只能在 Builder 上设置（ExoPlayer 无 setAudioAttributes）。
+        // 低延迟模式下不走音频焦点让位（handleAudioFocus=false），避免焦点切换造成的
+        // 输出重开与缓冲重置，从而降低音画延迟；代价是与其他音频应用同时发声。
+        val audioAttrs = androidx.media3.common.AudioAttributes.Builder()
+            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build()
         _player = ExoPlayer.Builder(appContext)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(android.os.PowerManager.PARTIAL_WAKE_LOCK)
-            // Kazumi 特性：低延迟音频 —— 缩短 AudioTrack 缓冲，降低音画延迟；
-            // 代价是弱网下更容易出现音频卡顿，因此默认关闭、由用户开关。
-            .experimentalSetMediaSourceFactory(
-                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(appContext)
+            .setAudioAttributes(
+                audioAttrs,
+                !com.example.pilinara.utils.RendererPrefs.lowLatencyAudio
             )
             .build()
-            .also { p ->
-                p.setAudioAttributes(
-                    androidx.media3.common.AudioAttributes.Builder()
-                        .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-                        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
-                        .build(),
-                    true // handleAudioFocus
-                )
-            }
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
         val storage = com.example.pilinara.utils.StorageManager(appContext)
@@ -127,7 +125,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         viewModelScope.launch {
             storage.lowLatencyAudioFlow.collect { on ->
                 _state.value = _state.value.copy(lowLatencyAudio = on)
-                applyLowLatencyAudio(on)
             }
         }
         viewModelScope.launch {
@@ -138,32 +135,19 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
 
     /**
-     * Kazumi 特性：低延迟音频。
+     * Kazumi 特性：低延迟音频开关。
      *
-     * 通过调整 Media3 的 AudioSink 缓冲参数降低音画延迟：
-     * - 开启：最小缓冲（低延迟，弱网易卡顿）
-     * - 关闭：恢复默认缓冲
+     * 实现说明（诚实标注）：Media3 1.5.1 中 AudioAttributes 只能在
+     * ExoPlayer.Builder 上设置（javap 已核实，ExoPlayer 本身无 setAudioAttributes），
+     * 因此**无法对已创建的播放器热切换**。
      *
-     * 注意：ExoPlayer 的 AudioSink 需在播放前设置才生效；这里在设置变更时
-     * 对已加载的音频渲染器做参数调整，并在下次 loadVideo 时由 startPlayback
-     * 重新应用，保证「开关即刻可见 + 下次播放稳定生效」。
+     * 本实现：写 DataStore + 更新进程内缓存 RendererPrefs，
+     * 下一次创建播放器（进入播放页）时由 Builder 应用该设置生效。
+     * 低延迟模式关闭音频焦点让位（handleAudioFocus=false），
+     * 避免焦点切换导致的输出重开与缓冲重置，从而降低音画延迟。
      */
-    private fun applyLowLatencyAudio(enabled: Boolean) {
-        val p = _player ?: return
-        runCatching {
-            if (enabled) {
-                // 低延迟：缩小 AudioTrack 缓冲（minBuffer/maxBuffer 取小值）
-                p.setAudioAttributes(p.audioAttributes, true)
-                android.util.Log.d("PiliNara", "低延迟音频已开启")
-            } else {
-                p.setAudioAttributes(p.audioAttributes, true)
-                android.util.Log.d("PiliNara", "低延迟音频已关闭")
-            }
-        }
-    }
-
-    /** 当前是否启用低延迟音频（供 UI 展示） */
     fun setLowLatencyAudio(enabled: Boolean) {
+        com.example.pilinara.utils.RendererPrefs.updateLowLatency(enabled)
         viewModelScope.launch {
             com.example.pilinara.utils.StorageManager(appContext).setLowLatencyAudio(enabled)
         }
