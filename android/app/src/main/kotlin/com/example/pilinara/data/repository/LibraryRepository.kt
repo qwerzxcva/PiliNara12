@@ -20,7 +20,7 @@ class LibraryRepository(private val api: BiliApiClient = BiliApiClient()) {
             }
         }
 
-    /** 某个收藏夹内的视频 */
+    /** 某个收藏夹内的视频（带 pn 分页） */
     suspend fun favResources(mediaId: Long, pn: Int = 1, ps: Int = 20): Result<FavResourceListResponse> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -29,6 +29,18 @@ class LibraryRepository(private val api: BiliApiClient = BiliApiClient()) {
                     append("pn", pn.toString())
                     append("ps", ps.toString())
                 }
+            }
+        }
+
+    /** 收藏夹内容无限分页（返回本页 items + 是否还有更多） */
+    suspend fun favResourcesPage(
+        mediaId: Long, pn: Int, ps: Int = 20
+    ): Result<Pair<List<com.example.pilinara.data.model.FavMedia>, Boolean>> =
+        withContext(Dispatchers.IO) {
+            favResources(mediaId, pn, ps).map { resp ->
+                val items = resp.data?.medias.orEmpty()
+                // has_more：本页满页即认为可能还有更多
+                Pair(items, items.size >= ps)
             }
         }
 

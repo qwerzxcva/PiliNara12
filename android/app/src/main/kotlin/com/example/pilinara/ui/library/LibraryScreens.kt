@@ -146,6 +146,29 @@ class LibraryViewModel(
             _loading.value = false
         }
     }
+
+    // 收藏夹内容无限分页（批次L8）
+    private var favPn = 1
+    private var favLoadingMore = false
+    private var favHasMore = true
+    private val _favHasMore = MutableStateFlow(true)
+    val favHasMoreFlow: StateFlow<Boolean> = _favHasMore.asStateFlow()
+
+    fun loadMoreMedias(mediaId: Long) {
+        if (favLoadingMore || !favHasMore) return
+        favLoadingMore = true
+        viewModelScope.launch {
+            repo.favResourcesPage(mediaId, ++favPn).onSuccess { (items, more) ->
+                val known = _medias.value.map { it.id }.toSet()
+                _medias.value = _medias.value + items.filterNot { it.id in known }
+                favHasMore = more
+                _favHasMore.value = more
+            }.onFailure { favPn-- }
+            favLoadingMore = false
+        }
+    }
+
+    fun resetFavPage() { favPn = 1; favHasMore = true; _favHasMore.value = true }
 }
 
 /** 收藏夹列表 */
@@ -229,7 +252,7 @@ fun FavMediaScreen(
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    LaunchedEffect(mediaId) { viewModel.loadMedias(mediaId) }
+    LaunchedEffect(mediaId) { viewModel.resetFavPage(); viewModel.loadMedias(mediaId) }
 
     Scaffold(
         topBar = {
@@ -270,6 +293,15 @@ fun FavMediaScreen(
                             subtitle = "${media.upper?.name.orEmpty()} · ${formatDur(media.duration)}",
                             onClick = { onOpenVideo(media.bvid, 0L) }
                         )
+                    }
+                    // 无限分页：滚到倒数第 3 个时加载下一页
+                    if (medias.size >= 20) {
+                        item {
+                            LaunchedEffect(medias.size) { viewModel.loadMoreMedias(mediaId) }
+                            Box(Modifier.fillMaxWidth().padding(12.dp), Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(22.dp))
+                            }
+                        }
                     }
                 }
             }
