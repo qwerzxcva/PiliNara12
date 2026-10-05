@@ -45,6 +45,13 @@ class HotMoreViewModel : ViewModel() {
     private val _weeklyIssues = MutableStateFlow<List<WeeklyItem>>(emptyList())
     val weeklyIssues: StateFlow<List<WeeklyItem>> = _weeklyIssues.asStateFlow()
 
+    // 批次L28：每周必看期数详情
+    private val _weeklyVideos = MutableStateFlow<List<VideoItem>>(emptyList())
+    val weeklyVideos: StateFlow<List<VideoItem>> = _weeklyVideos.asStateFlow()
+
+    private val _openWeekly = MutableStateFlow<WeeklyItem?>(null)
+    val openWeekly: StateFlow<WeeklyItem?> = _openWeekly.asStateFlow()
+
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
@@ -82,6 +89,27 @@ class HotMoreViewModel : ViewModel() {
             _loading.value = false
         }
     }
+
+    /** 批次L28：打开每周必看期数（加载该期视频） */
+    fun openWeekly(issue: WeeklyItem) {
+        _openWeekly.value = issue
+        _loading.value = true
+        _error.value = null
+        viewModelScope.launch {
+            api.getWeeklyDetail(issue.number)
+                .onSuccess { resp ->
+                    if (resp.code == 0) _weeklyVideos.value = resp.data?.list.orEmpty()
+                    else _error.value = resp.message
+                }
+                .onFailure { _error.value = it.message }
+            _loading.value = false
+        }
+    }
+
+    fun closeWeekly() {
+        _openWeekly.value = null
+        _weeklyVideos.value = emptyList()
+    }
 }
 
 /**
@@ -97,6 +125,8 @@ fun HotMoreScreen(
     val tab by viewModel.tab.collectAsState()
     val precious by viewModel.precious.collectAsState()
     val weeklyIssues by viewModel.weeklyIssues.collectAsState()
+    val weeklyVideos by viewModel.weeklyVideos.collectAsState()
+    val openWeekly by viewModel.openWeekly.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -132,28 +162,54 @@ fun HotMoreScreen(
                         PreciousRow(v) { onOpenVideo(v.bvid, v.cid) }
                     }
                 }
-                else -> LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(weeklyIssues, key = { it.number }) { w ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
+                else -> {
+                    // 打开某期：显示该期视频列表（批次L28）
+                    if (openWeekly != null) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(Modifier.padding(14.dp)) {
-                                Text(w.name, style = MaterialTheme.typography.titleSmall)
-                                if (w.subject.isNotBlank()) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        w.subject,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                            Text(
+                                openWeekly?.name ?: "",
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { viewModel.closeWeekly() }) { Text("返回") }
+                        }
+                        LazyColumn(
+                            Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(weeklyVideos, key = { it.bvid }) { v ->
+                                PreciousRow(v) { onOpenVideo(v.bvid, v.cid) }
+                            }
+                        }
+                    } else {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(weeklyIssues, key = { it.number }) { w ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { viewModel.openWeekly(w) },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Text(w.name, style = MaterialTheme.typography.titleSmall)
+                                    if (w.subject.isNotBlank()) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            w.subject,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
                     }
                 }
             }

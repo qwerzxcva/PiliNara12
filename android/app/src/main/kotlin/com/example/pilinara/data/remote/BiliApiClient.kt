@@ -540,6 +540,15 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L28：每周必看期数详情（需 buvid3 cookie 防 -352） */
+    suspend fun getWeeklyDetail(number: Int): Result<WeeklyDetailResponse> = runCatching {
+        AccountSession.ensureBuvid()
+        client.get("$API_BASE/x/web-interface/popular/series/one") {
+            url { parameters.append("number", number.toString()) }
+            header("Referer", "https://www.bilibili.com/v/popular/weekly")
+        }.body()
+    }
+
     /** 批次L27：UP 主合集/系列列表（polymer web-space，匿名可用） */
     suspend fun getSeasonsSeries(mid: Long, pageNum: Int = 1, pageSize: Int = 20): Result<SeasonsSeriesResponse> = runCatching {
         client.get("$API_BASE/x/polymer/web-space/seasons_series_list") {
