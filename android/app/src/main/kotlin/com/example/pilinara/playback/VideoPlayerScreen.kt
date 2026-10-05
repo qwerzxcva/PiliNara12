@@ -729,7 +729,7 @@ fun VideoPlayerScreen(
                     modifier = Modifier.padding(16.dp)
                 )
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-                    items(state.related) { r ->
+                    items(state.related, key = { it.bvid }) { r ->
                         Row(
                             Modifier.fillMaxWidth()
                                 .clickable {

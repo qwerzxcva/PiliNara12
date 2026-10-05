@@ -157,7 +157,7 @@ fun SearchScreen(
                         contentPadding = PaddingValues(vertical = 6.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(state.results) { item ->
+                        items(state.results, key = { it.bvid.ifEmpty { "u${it.mid}${it.name}" } }) { item ->
                             SearchResultRow(
                                 item = item,
                                 onVideoClick = onVideoClick,

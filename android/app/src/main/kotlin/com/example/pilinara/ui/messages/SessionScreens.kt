@@ -235,7 +235,7 @@ fun ChatScreen(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(state.messages) { m ->
+                items(state.messages, key = { "${it.senderUid}_${it.timestamp}" }) { m ->
                     val mine = m.senderUid == state.myMid
                     Row(
                         Modifier.fillMaxWidth(),
