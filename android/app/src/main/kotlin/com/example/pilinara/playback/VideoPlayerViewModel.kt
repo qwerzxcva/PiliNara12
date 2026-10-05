@@ -18,7 +18,9 @@ import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.data.remote.BiliApiClient
 import com.example.pilinara.data.repository.VideoRepository
 
-class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.Listener {
+class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
+    // 审核27：ViewModel 生命周期长于 Activity，持有 applicationContext 防内存泄漏
+    private val appContext: Context = context.applicationContext
     
     private var _player: ExoPlayer? = null
     val player: ExoPlayer? get() = _player
@@ -71,13 +73,13 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     )
     
     init {
-        _player = ExoPlayer.Builder(context)
+        _player = ExoPlayer.Builder(appContext)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(android.os.PowerManager.PARTIAL_WAKE_LOCK)
             .build()
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
-        val storage = com.example.pilinara.utils.StorageManager(context)
+        val storage = com.example.pilinara.utils.StorageManager(appContext)
         viewModelScope.launch {
             storage.videoQualityFlow.collect { q ->
                 currentQn = when (q) {
@@ -108,7 +110,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                 // 离线播放（批次I）：本地 video.m4s + audio.m4s 合流播放
                 if (local && bvid.isNotEmpty()) {
                     val playback = com.example.pilinara.data.repository.DownloadManager
-                        .getLocalPlayback(context, bvid)
+                        .getLocalPlayback(appContext, bvid)
                     if (playback != null) {
                         _state.value = _state.value.copy(isBuffering = true, error = null)
                         // 离线弹幕（批次L11）：有本地缓存则用缓存，否则尝试在线拉取
@@ -126,7 +128,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                         } else {
                             runCatching {
                                 val cid = com.example.pilinara.database.PiliNaraDatabase
-                                    .getDatabase(context).downloadItemDao().getByBvid(bvid)?.cid ?: 0L
+                                    .getDatabase(appContext).downloadItemDao().getByBvid(bvid)?.cid ?: 0L
                                 if (cid > 0L) loadDanmakuFor(cid)
                             }
                         }
@@ -430,7 +432,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val isLocal = !videoUrl.startsWith("http") && !videoUrl.startsWith("//")
         val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else Uri.parse(videoUrl)
         val videoItem = MediaItem.Builder().setUri(videoUri).build()
-        val localFactory = androidx.media3.datasource.DefaultDataSource.Factory(context)
+        val localFactory = androidx.media3.datasource.DefaultDataSource.Factory(appContext)
         val videoSource: androidx.media3.exoplayer.source.MediaSource =
             if (isLocal) {
                 androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(localFactory)
@@ -1000,7 +1002,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         _state.value = _state.value.copy(danmakuScale = scale.coerceIn(0.5f, 2f))
         viewModelScope.launch {
             runCatching {
-                com.example.pilinara.utils.StorageManager(context.applicationContext)
+                com.example.pilinara.utils.StorageManager(appContext)
                     .setDanmakuScale(scale.coerceIn(0.5f, 2f))
             }
         }

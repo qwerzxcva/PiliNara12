@@ -14,7 +14,8 @@ import kotlinx.coroutines.launch
  */
 class SettingsViewModel(context: Context) : ViewModel() {
 
-    private val storage = StorageManager(context)
+    // 审核27：同上，持有 applicationContext 防 Activity 泄漏
+    private val storage = StorageManager(context.applicationContext)
 
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
