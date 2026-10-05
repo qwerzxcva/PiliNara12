@@ -34,7 +34,19 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
             commonHeaders.forEach { (k, v) -> header(k, v) }
         }.body()
     }
-    
+
+    /** 批次L29：首页顶部大卡推荐（匿名可用） */
+    suspend fun getTopRcmd(): Result<TopRcmdResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/index/top/rcmd") {
+            url {
+                parameters.append("fresh_type", "3")
+                parameters.append("version", "1")
+                parameters.append("ps", "12")
+            }
+            commonHeaders.forEach { (k, v) -> header(k, v) }
+        }.body()
+    }
+
     // ========== Video Info ==========
     
     suspend fun getVideoInfo(bvid: String): Result<VideoInfoResponse> = runCatching {

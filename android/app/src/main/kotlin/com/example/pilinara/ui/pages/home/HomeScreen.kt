@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as rowItems
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -45,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -119,6 +124,7 @@ fun HomeScreen(
                     }
                 }
                 is HomeUiState.Success -> {
+                    val topRcmd by viewModel.topRcmd.collectAsState()
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         state = gridState,
@@ -126,6 +132,20 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                        // 顶部大卡轮播（批次L29）
+                        if (topRcmd.isNotEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                LazyRow(
+                                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems(topRcmd, key = { "top${it.bvid}" }) { t ->
+                                        TopRcmdCard(t) { onVideoClick(t.bvid, t.cid) }
+                                    }
+                                }
+                            }
+                        }
                         items(s.items, key = { it.bvid }) { card ->
                             VideoCardItem(card, onClick = { onVideoClick(card.bvid, card.cid) })
                         }
@@ -150,6 +170,39 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TopRcmdCard(item: com.example.pilinara.data.model.TopRcmdItem, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.width(260.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Box {
+            AsyncImage(
+                model = item.pic.ifBlank { item.cover },
+                contentDescription = item.title,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                contentScale = ContentScale.Crop,
+            )
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                        )
+                    )
+                    .padding(8.dp),
+            )
         }
     }
 }

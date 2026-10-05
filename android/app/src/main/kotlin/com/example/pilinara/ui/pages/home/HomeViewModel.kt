@@ -21,11 +21,23 @@ class HomeViewModel(
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
+    // 批次L29：首页顶部大卡轮播
+    private val _topRcmd = MutableStateFlow<List<com.example.pilinara.data.model.TopRcmdItem>>(emptyList())
+    val topRcmd: StateFlow<List<com.example.pilinara.data.model.TopRcmdItem>> = _topRcmd.asStateFlow()
+
     private var loadingMore = false
 
     fun refresh() {
         viewModelScope.launch {
             _state.value = HomeUiState.Loading
+            // 轮播并行拉取（失败静默不阻塞首页）
+            launch {
+                com.example.pilinara.data.remote.BiliApiClient().getTopRcmd()
+                    .onSuccess { resp ->
+                        if (resp.code == 0) _topRcmd.value =
+                            resp.data?.item.orEmpty().filter { it.goto == "av" && it.bvid.isNotEmpty() }
+                    }
+            }
             repo.refresh()
                 .onSuccess { _state.value = HomeUiState.Success(it) }
                 .onFailure { _state.value = HomeUiState.Error(it.message ?: "网络请求失败") }
