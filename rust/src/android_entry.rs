@@ -204,3 +204,41 @@ pub extern "C" fn Java_com_example_pilinara_PlayUrlNativeLib_selectStreams<'a>(
         Err(_) => JObject::null().into(),
     }
 }
+
+// ============================================================================
+// Danmaku merge (batch L15): JSON in / JSON out
+// 输入: [[{id,mode,fontsize,color,timestamp,pool,content,uid}...], ...] 多源弹幕
+// 输出: {entries:[...], filtered_count, merged_count, elapsed_ms}；失败返回 null
+// ============================================================================
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_merge<'a>(
+    mut env: JNIEnv<'a>,
+    _class: JClass<'a>,
+    merger_ptr: i64,
+    sources_json: JString<'a>,
+) -> JString<'a> {
+    let input: String = match env.get_string(&sources_json) {
+        Ok(s) => s.into(),
+        Err(_) => return JObject::null().into(),
+    };
+    if merger_ptr == 0 {
+        return JObject::null().into();
+    }
+    let merger = unsafe { &*(merger_ptr as *const crate::danmaku::DanmakuMerger) };
+    let parsed: Result<Vec<Vec<crate::danmaku::DanmakuEntry>>, _> = serde_json::from_str(&input);
+    let sources = match parsed {
+        Ok(v) => v,
+        Err(_) => return JObject::null().into(),
+    };
+    let merged = merger.merge(sources);
+    let result = serde_json::json!({
+        "entries": merged.entries,
+        "filtered_count": merged.filtered_count,
+        "merged_count": merged.merged_count,
+        "elapsed_ms": merged.elapsed_ms,
+    });
+    match env.new_string(result.to_string()) {
+        Ok(s) => s.into(),
+        Err(_) => JObject::null().into(),
+    }
+}

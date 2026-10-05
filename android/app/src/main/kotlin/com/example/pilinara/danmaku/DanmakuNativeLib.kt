@@ -36,6 +36,14 @@ class DanmakuNativeLib {
     fun loadPinyinDict(ptr: Long, dictData: ByteArray): Int {
         return nativeLoadPinyinDict(ptr, dictData)
     }
+
+    /** 批次L15：多源弹幕合并（JSON 进/出，失败返回 null） */
+    fun merge(ptr: Long, sourcesJson: String): String? {
+        if (ptr == 0L) return null
+        return runCatching { nativeMerge(ptr, sourcesJson) }.getOrNull()
+    }
+
+    private external fun nativeMerge(ptr: Long, sourcesJson: String): String?
     
     private external fun nativeCreate(
         windowSeconds: Double,

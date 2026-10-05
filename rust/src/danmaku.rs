@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 /// Represents a single danmaku comment
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DanmakuEntry {
     pub id: u64,
     pub mode: i32, // 1=scroll, 2=top, 3=bottom
@@ -53,11 +53,12 @@ impl Default for DanmakuMergeConfig {
 }
 
 /// Result of danmaku merging
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MergedDanmaku {
     pub entries: Vec<DanmakuEntry>,
     pub filtered_count: usize,
     pub merged_count: usize,
+    pub elapsed_ms: u64,
 }
 
 /// Danmaku merger processor
@@ -121,6 +122,7 @@ impl DanmakuMerger {
             entries: merged,
             filtered_count,
             merged_count,
+            elapsed_ms: elapsed.as_millis() as u64,
         }
     }
 
@@ -224,6 +226,6 @@ mod tests {
         ];
 
         let result = merger.merge(entries);
-        assert!(result.entries.len() > 0);
+        assert!(!result.entries.is_empty());
     }
 }

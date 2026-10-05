@@ -213,18 +213,48 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     private suspend fun loadDanmakuFor(cid: Long) {
         val api = BiliApiClient()
         api.getDanmaku(cid).getOrNull()?.let { resp ->
-            resp.data?.let { list ->
-                addDanmakuEvents(list.map { d ->
-                    val p = d.toParsed()
-                    DanmakuEvent(
-                        id = "",
-                        timestamp = (p.timestamp * 1000).toLong(),
-                        content = p.content,
-                        color = p.color or 0xFF000000.toInt(),
-                        fontSize = p.fontSize
-                    )
-                })
+            // 批次L15：Rust DanmakuMerger 去重合并（失败回退原始弹幕）
+            val raw = resp.data.orEmpty()
+            val mergedEvents = runCatching {
+                val lib = com.example.pilinara.danmaku.DanmakuNativeLib()
+                val ptr = lib.create(com.example.pilinara.danmaku.DanmakuNativeLib.DanmakuConfig())
+                try {
+                    val sources = listOf(raw.map { d ->
+                        val p = d.toParsed()
+                        mapOf(
+                            "id" to 0L, "mode" to p.mode, "fontsize" to p.fontSize,
+                            "color" to (p.color and 0xFFFFFF), "timestamp" to p.timestamp.toDouble(),
+                            "pool" to p.pool, "content" to p.content, "uid" to p.uid
+                        )
+                    })
+                    val srcJson = com.google.gson.Gson().toJson(sources)
+                    val out = lib.merge(ptr, srcJson) ?: return@runCatching null
+                    val obj = org.json.JSONObject(out)
+                    val arr = obj.getJSONArray("entries")
+                    (0 until arr.length()).map { i ->
+                        val e = arr.getJSONObject(i)
+                        Triple((e.optDouble("timestamp") * 1000).toLong(),
+                            e.optString("content"),
+                            (e.optInt("color") and 0xFFFFFF) or 0xFF000000.toInt())
+                    }
+                } finally {
+                    lib.destroy(ptr)
+                }
+            }.getOrNull()
+            val list = mergedEvents?.map { (ts, content, color) ->
+                DanmakuEvent(id = "", timestamp = ts, content = content,
+                    color = color, fontSize = 25)
+            } ?: raw.map { d ->
+                val p = d.toParsed()
+                DanmakuEvent(
+                    id = "",
+                    timestamp = (p.timestamp * 1000).toLong(),
+                    content = p.content,
+                    color = p.color or 0xFF000000.toInt(),
+                    fontSize = p.fontSize
+                )
             }
+            addDanmakuEvents(list)
         }
     }
 
