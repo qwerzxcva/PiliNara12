@@ -22,6 +22,7 @@ import com.example.pilinara.data.model.MsgFeedItem
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.pilinara.utils.toHttpsUrl
 
 private val timeFormat by lazy { SimpleDateFormat("MM-dd HH:mm", Locale.CHINA) }
 
@@ -154,7 +155,7 @@ private fun MsgRow(
         verticalAlignment = Alignment.Top
     ) {
         AsyncImage(
-            model = item.user?.face,
+            model = item.user?.face.toHttpsUrl(),
             contentDescription = item.user?.uname,
             modifier = Modifier.size(42.dp).clip(CircleShape),
             contentScale = ContentScale.Crop

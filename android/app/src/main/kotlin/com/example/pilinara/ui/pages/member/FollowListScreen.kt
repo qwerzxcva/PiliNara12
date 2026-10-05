@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 /** 关注/粉丝列表 ViewModel（批次H） */
 class FollowListViewModel(private val mid: Long, private val followers: Boolean) : ViewModel() {
@@ -120,7 +121,7 @@ fun FollowListScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AsyncImage(
-                            model = user.face,
+                            model = user.face.toHttpsUrl(),
                             contentDescription = user.uname,
                             modifier = Modifier.size(46.dp).clip(CircleShape),
                             contentScale = ContentScale.Crop

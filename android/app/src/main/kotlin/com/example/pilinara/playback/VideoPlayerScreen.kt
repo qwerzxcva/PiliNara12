@@ -38,6 +38,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.pilinara.danmaku.DanmakuView
 import com.example.pilinara.data.model.formatCount
+import com.example.pilinara.utils.toHttpsUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -254,7 +255,7 @@ fun VideoPlayerScreen(
                                     .size(width = 160.dp, height = 90.dp)
                             ) {
                                 coil.compose.AsyncImage(
-                                    model = frame.first,
+                                    model = frame.first.toHttpsUrl(),
                                     contentDescription = "预览",
                                     modifier = Modifier
                                         .size(
@@ -691,7 +692,7 @@ fun VideoPlayerScreen(
                                 .padding(12.dp)
                         ) {
                             coil.compose.AsyncImage(
-                                model = r.pic,
+                                model = r.pic.toHttpsUrl(),
                                 contentDescription = r.title,
                                 modifier = Modifier.width(120.dp).height(68.dp),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop

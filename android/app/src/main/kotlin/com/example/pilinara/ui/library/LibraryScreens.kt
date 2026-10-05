@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 class LibraryViewModel(
     private val repo: LibraryRepository = LibraryRepository()
@@ -437,7 +438,7 @@ private fun MediaRow(
     )) {
         Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
-                model = cover,
+                model = cover.toHttpsUrl(),
                 contentDescription = title,
                 modifier = Modifier
                     .width(120.dp)

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.SearchResultItem
+import com.example.pilinara.utils.toHttpsUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -238,7 +239,7 @@ private fun SearchResultRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = item.uimage ?: item.pic,
+                model = item.uimage ?: item.pic.toHttpsUrl(),
                 contentDescription = item.author,
                 modifier = Modifier.size(48.dp).clip(RoundedCornerShape(50)),
                 contentScale = ContentScale.Crop
@@ -256,7 +257,7 @@ private fun SearchResultRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = item.pic,
+                model = item.pic.toHttpsUrl(),
                 contentDescription = item.title,
                 modifier = Modifier.width(140.dp).height(88.dp).clip(RoundedCornerShape(6.dp)),
                 contentScale = ContentScale.Crop
@@ -278,7 +279,7 @@ private fun SearchResultRow(
                     .padding(12.dp)
             ) {
                 AsyncImage(
-                    model = item.pic,
+                    model = item.pic.toHttpsUrl(),
                     contentDescription = item.title,
                     modifier = Modifier.width(140.dp).height(88.dp).clip(RoundedCornerShape(6.dp)),
                     contentScale = ContentScale.Crop

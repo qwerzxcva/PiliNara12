@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.VideoItem
+import com.example.pilinara.utils.toHttpsUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,7 +183,7 @@ private fun TopRcmdCard(item: com.example.pilinara.data.model.TopRcmdItem, onCli
     ) {
         Box {
             AsyncImage(
-                model = item.pic.ifBlank { item.cover },
+                model = item.pic.ifBlank { item.cover }.toHttpsUrl(),
                 contentDescription = item.title,
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
                 contentScale = ContentScale.Crop,
@@ -214,7 +215,7 @@ private fun VideoCardItem(card: VideoItem, onClick: () -> Unit) {
     ) {
         Box {
             AsyncImage(
-                model = card.pic,
+                model = card.pic.toHttpsUrl(),
                 contentDescription = card.title,
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
                 contentScale = ContentScale.Crop,

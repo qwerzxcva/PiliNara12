@@ -27,6 +27,7 @@ import com.example.pilinara.data.model.CommentNode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.pilinara.utils.toHttpsUrl
 
 private val timeFormat by lazy { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA) }
 private fun formatTime(ts: Long): String =
@@ -117,7 +118,7 @@ fun CommentScreen(
                                         .padding(2.dp)
                                 ) {
                                     AsyncImage(
-                                        model = emote.url,
+                                        model = emote.url.toHttpsUrl(),
                                         contentDescription = emote.text,
                                         modifier = Modifier.size(32.dp)
                                     )
@@ -152,7 +153,7 @@ fun CommentScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     coil.compose.AsyncImage(
-                                        model = u.face, contentDescription = u.uname,
+                                        model = u.face.toHttpsUrl(), contentDescription = u.uname,
                                         modifier = Modifier.size(28.dp)
                                             .clip(CircleShape)
                                     )
@@ -317,7 +318,7 @@ private fun CommentRow(
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Top) {
             AsyncImage(
-                model = member?.face,
+                model = member?.face.toHttpsUrl(),
                 contentDescription = member?.uname,
                 modifier = Modifier.size(36.dp).clip(CircleShape),
                 contentScale = ContentScale.Crop
@@ -401,7 +402,7 @@ private fun SubReplyRow(reply: CommentNode) {
         verticalAlignment = Alignment.Top
     ) {
         AsyncImage(
-            model = reply.member?.face,
+            model = reply.member?.face.toHttpsUrl(),
             contentDescription = reply.member?.uname,
             modifier = Modifier.size(22.dp).clip(CircleShape),
             contentScale = ContentScale.Crop

@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 /** 直播列表 ViewModel（批次D/F 补全） */
 class LiveListViewModel : ViewModel() {
@@ -133,7 +134,7 @@ private fun LiveRoomCardItem(room: LiveRoomCard, onClick: () -> Unit) {
         Column {
             Box {
                 AsyncImage(
-                    model = room.cover,
+                    model = room.cover.toHttpsUrl(),
                     contentDescription = room.title,
                     modifier = Modifier.fillMaxWidth().height(110.dp),
                     contentScale = ContentScale.Crop
@@ -167,7 +168,7 @@ private fun LiveRoomCardItem(room: LiveRoomCard, onClick: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(
-                        model = room.anchorFace,
+                        model = room.anchorFace.toHttpsUrl(),
                         contentDescription = room.anchorName,
                         modifier = Modifier.size(16.dp).clip(RoundedCornerShape(50)),
                         contentScale = ContentScale.Crop

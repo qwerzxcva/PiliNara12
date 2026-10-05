@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.pilinara.database.DownloadItemEntity
 import com.example.pilinara.data.repository.DownloadManager
+import com.example.pilinara.utils.toHttpsUrl
 
 /**
  * 离线缓存页（批次I）——下载列表/进度/删除/离线播放
@@ -90,7 +91,7 @@ private fun DownloadRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = item.cover,
+            model = item.cover.toHttpsUrl(),
             contentDescription = null,
             modifier = Modifier.size(width = 120.dp, height = 68.dp)
                 .clip(MaterialTheme.shapes.small),

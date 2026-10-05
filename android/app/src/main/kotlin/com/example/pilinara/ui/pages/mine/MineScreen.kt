@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 /** 「我的」页状态：真实登录资料 */
 class MineViewModel(
@@ -198,7 +199,7 @@ fun UserCard(nav: NavData) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (nav.face.isNotEmpty()) {
                     AsyncImage(
-                        model = nav.face,
+                        model = nav.face.toHttpsUrl(),
                         contentDescription = "头像",
                         modifier = Modifier.size(56.dp)
                     )

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 /**
  * 批次L23：专栏文章阅读页 ViewModel
@@ -112,7 +113,7 @@ fun ArticleScreen(
                     if (a.bannerUrl.isNotBlank()) {
                         Spacer(Modifier.height(12.dp))
                         AsyncImage(
-                            model = a.bannerUrl,
+                            model = a.bannerUrl.toHttpsUrl(),
                             contentDescription = null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp)
                         )

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.pilinara.data.model.TimelineDay
 import com.example.pilinara.data.remote.BiliApiClient
+import com.example.pilinara.utils.toHttpsUrl
 
 class TimelineViewModel : ViewModel() {
     private val _days = MutableStateFlow<List<TimelineDay>>(emptyList())
@@ -101,7 +102,7 @@ fun TimelineScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     AsyncImage(
-                                        model = ep.cover,
+                                        model = ep.cover.toHttpsUrl(),
                                         contentDescription = ep.seasonTitle,
                                         modifier = Modifier
                                             .width(96.dp)

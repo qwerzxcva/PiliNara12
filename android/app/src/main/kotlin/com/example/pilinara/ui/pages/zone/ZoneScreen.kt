@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import com.example.pilinara.data.model.NewListArchive
 import com.example.pilinara.data.model.VIDEO_ZONES
 import com.example.pilinara.data.remote.BiliApiClient
+import com.example.pilinara.utils.toHttpsUrl
 
 class ZoneViewModel : ViewModel() {
     private val _items = MutableStateFlow<List<NewListArchive>>(emptyList())
@@ -178,7 +179,7 @@ private fun ZoneCard(v: NewListArchive, onOpenUser: (Long) -> Unit, onClick: () 
         Column {
             Box {
                 AsyncImage(
-                    model = v.pic,
+                    model = v.pic.toHttpsUrl(),
                     contentDescription = v.title,
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
                     contentScale = ContentScale.Crop

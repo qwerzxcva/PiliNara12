@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 /**
  * 批次L26：热门扩展 ViewModel —— 入站必刷 + 每周必看
@@ -227,7 +228,7 @@ private fun PreciousRow(v: VideoItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = v.pic,
+            model = v.pic.toHttpsUrl(),
             contentDescription = v.title,
             modifier = Modifier.width(140.dp).aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(8.dp)),

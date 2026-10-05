@@ -30,6 +30,7 @@ import com.example.pilinara.data.model.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.pilinara.utils.toHttpsUrl
 
 private val tsFmt = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA)
 
@@ -88,7 +89,7 @@ fun SessionListScreen(
                         },
                         leadingContent = {
                             AsyncImage(
-                                model = s.accountInfo?.face,
+                                model = s.accountInfo?.face.toHttpsUrl(),
                                 contentDescription = null,
                                 modifier = Modifier.size(44.dp).clip(CircleShape),
                                 contentScale = ContentScale.Crop
@@ -174,7 +175,7 @@ fun ChatScreen(
                             items(emotes.size) { i ->
                                 val e = emotes[i]
                                 coil.compose.AsyncImage(
-                                    model = e.url,
+                                    model = e.url.toHttpsUrl(),
                                     contentDescription = e.text,
                                     modifier = Modifier
                                         .size(40.dp)
@@ -254,7 +255,7 @@ fun ChatScreen(
                                 val img = m.msgImage()
                                 if (img != null) {
                                     coil.compose.AsyncImage(
-                                        model = img.url,
+                                        model = img.url.toHttpsUrl(),
                                         contentDescription = "图片消息",
                                         modifier = Modifier
                                             .padding(4.dp)

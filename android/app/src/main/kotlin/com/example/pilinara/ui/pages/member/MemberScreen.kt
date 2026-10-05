@@ -28,6 +28,7 @@ import com.example.pilinara.data.model.SpaceVideoItem
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.pilinara.utils.toHttpsUrl
 
 /** MemberViewModel 需要 mid 构造参数 → Factory */
 class MemberViewModelFactory(private val mid: Long) : ViewModelProvider.Factory {
@@ -81,7 +82,7 @@ fun MemberScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AsyncImage(
-                        model = state.info?.face,
+                        model = state.info?.face.toHttpsUrl(),
                         contentDescription = state.info?.name,
                         modifier = Modifier.size(64.dp).clip(CircleShape),
                         contentScale = ContentScale.Crop
@@ -253,7 +254,7 @@ fun MemberScreen(
                             ) {
                                 Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     AsyncImage(
-                                        model = v.pic,
+                                        model = v.pic.toHttpsUrl(),
                                         contentDescription = v.title,
                                         modifier = Modifier.width(120.dp).aspectRatio(16f / 9f)
                                             .clip(RoundedCornerShape(6.dp)),
@@ -279,7 +280,7 @@ fun MemberScreen(
                             ) {
                                 Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     AsyncImage(
-                                        model = meta?.cover,
+                                        model = meta?.cover.toHttpsUrl(),
                                         contentDescription = meta?.name,
                                         modifier = Modifier.width(110.dp).aspectRatio(16f / 9f)
                                             .clip(RoundedCornerShape(6.dp)),
@@ -379,7 +380,7 @@ private fun SpaceVideoRow(video: SpaceVideoItem, onClick: (String) -> Unit) {
     ) {
         Box {
             AsyncImage(
-                model = video.pic,
+                model = video.pic.toHttpsUrl(),
                 contentDescription = video.title,
                 modifier = Modifier.width(140.dp).height(88.dp).clip(RoundedCornerShape(6.dp)),
                 contentScale = ContentScale.Crop
