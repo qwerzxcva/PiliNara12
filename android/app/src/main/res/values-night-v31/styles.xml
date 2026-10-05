@@ -9,8 +9,5 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowSplashScreenBackground">#212121</item>
     </style>
-    <!-- Theme applied to the Android Window as soon as the process has started. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
-    </style>
+    <!-- 审核：NormalTheme 无任何引用（Flutter 遗留）已删除 -->
 </resources>

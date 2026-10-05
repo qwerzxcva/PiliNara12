@@ -17,6 +17,11 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
 
     private val api = BiliApiClient()
 
+    companion object {
+        /** 单例 Json（审核：复用，避免每次重建） */
+        private val lenientJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+    }
+
     private val _state = MutableStateFlow(LiveState())
     val state: StateFlow<LiveState> = _state.asStateFlow()
 
@@ -44,8 +49,8 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
             // 先拿主播 uid（room/v1/Room/room_info 匿名可用，uid 字段）
             val uid = runCatching {
                 val txt = api.getRawJson("https://api.live.bilibili.com/room/v1/Room/room_info?room_id=${_state.value.roomId}")
-                kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-                    .decodeFromString<com.example.pilinara.data.model.GuardAnchorResponse>(txt)
+                // 审核：复用单例 Json
+                lenientJson.decodeFromString<com.example.pilinara.data.model.GuardAnchorResponse>(txt)
                     .data?.uid ?: 0L
             }.getOrDefault(0L)
             if (uid <= 0L) return@launch

@@ -41,6 +41,23 @@ class MainApplication : Application() {
             AccountSession.ensureBuvid()
         }
 
+        // 批次审核61：Coil 全局 ImageLoader——全 App 共享内存/磁盘缓存，避免各页各建
+        val imageLoader = coil.ImageLoader.Builder(this)
+            .memoryCache(
+                coil.memory.MemoryCache.Builder(this)
+                    .maxSizePercent(0.20)
+                    .build()
+            )
+            .diskCache(
+                coil.disk.DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(128L * 1024 * 1024)
+                    .build()
+            )
+            .crossfade(true)
+            .build()
+        coil.Coil.setImageLoader(imageLoader)
+
         // Load native libraries
         try {
             System.loadLibrary("pilinara_native")

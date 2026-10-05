@@ -1,4 +1,5 @@
 package com.example.pilinara.ui.pages.bangumi
+import java.util.Locale
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -218,7 +219,7 @@ private fun EpisodeCard(ep: PgcEpisode, selected: Boolean, onClick: () -> Unit) 
 }
 
 private fun formatNum(n: Long): String = when {
-    n >= 100_000_000 -> String.format("%.1f亿", n / 100_000_000.0)
-    n >= 10_000 -> String.format("%.1f万", n / 10_000.0)
+    n >= 100_000_000 -> String.format(Locale.ROOT, "%.1f亿", n / 100_000_000.0)
+    n >= 10_000 -> String.format(Locale.ROOT, "%.1f万", n / 10_000.0)
     else -> n.toString()
 }

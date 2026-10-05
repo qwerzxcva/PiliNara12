@@ -12,6 +12,8 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
+// 审核：Media3 音频处理器属 UnstableApi，显式 OptIn 声明（消除 lint UnsafeOptInUsageError）
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal class AudioNormalizationProcessor : BaseAudioProcessor() {
     @Volatile
     private var configuration: AudioNormalizationConfiguration? = null
@@ -223,6 +225,8 @@ internal class AudioNormalizationProcessor : BaseAudioProcessor() {
                             .toShort(),
                     )
                     C.ENCODING_PCM_FLOAT -> outputBuffer.putFloat(processed.toFloat())
+                    // 审核：不支持的编码显式忽略并置静音（消除 lint SwitchIntDef，防未初始化输出）
+                    else -> outputBuffer.putShort(0)
                 }
             }
         }

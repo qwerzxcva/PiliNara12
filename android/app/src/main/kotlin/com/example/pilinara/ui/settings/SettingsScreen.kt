@@ -1,4 +1,5 @@
 package com.example.pilinara.ui.settings
+import java.util.Locale
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -119,7 +120,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Speed,
                     value = state.danmakuSpeed,
                     valueRange = 0.5f..2.5f,
-                    displayValue = String.format("%.1fx", state.danmakuSpeed),
+                    displayValue = String.format(Locale.ROOT, "%.1fx", state.danmakuSpeed),
                     onValueChange = { viewModel.setDanmakuSpeed(it) }
                 )
             }
@@ -374,7 +375,7 @@ private fun SettingSlider(
                     Text(title)
                     Spacer(Modifier.weight(1f))
                     Text(
-                        displayValue ?: String.format("%.0f%%", value * 100),
+                        displayValue ?: String.format(Locale.ROOT, "%.0f%%", value * 100),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )

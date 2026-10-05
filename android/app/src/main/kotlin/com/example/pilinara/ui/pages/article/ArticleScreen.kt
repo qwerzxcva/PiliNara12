@@ -129,9 +129,8 @@ fun ArticleScreen(
                             }
                         },
                         update = { tv ->
-                            tv.text = if (android.os.Build.VERSION.SDK_INT >= 24)
-                                Html.fromHtml(a.content, Html.FROM_HTML_MODE_COMPACT)
-                            else @Suppress("DEPRECATION") Html.fromHtml(a.content)
+                            // 审核：minSdk 24 >= N，直接用 FROM_HTML_MODE_COMPACT（lint ObsoleteSdkInt）
+                            tv.text = Html.fromHtml(a.content, Html.FROM_HTML_MODE_COMPACT)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )

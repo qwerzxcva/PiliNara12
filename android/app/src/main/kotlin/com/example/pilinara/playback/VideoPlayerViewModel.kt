@@ -418,6 +418,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun shotFrameAt(second: Long): Triple<String, Int, Int>? = _videoShot.value?.frameAt(second)
 
     /** 组装 MergingMediaSource 并启动播放（可带恢复进度） */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun startPlayback(
         videoUrl: String,
         audioUrl: String?,
@@ -609,6 +610,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 isBuffering = false, duration = _player?.duration ?: 0L
             )
             Player.STATE_ENDED -> _state.value = _state.value.copy(isPlaying = false)
+            // 审核：补全 Player.STATE_IDLE 分支（消除 lint SwitchIntDef）
+            Player.STATE_IDLE -> _state.value = _state.value.copy(isPlaying = false, isBuffering = false)
         }
     }
     

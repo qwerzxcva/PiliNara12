@@ -34,8 +34,8 @@ private fun formatTime(ts: Long): String =
     if (ts <= 0) "" else timeFormat.format(Date(ts * 1000))
 
 private fun formatCount(n: Long): String = when {
-    n >= 100_000_000 -> String.format("%.1f亿", n / 100_000_000.0)
-    n >= 10_000 -> String.format("%.1f万", n / 10_000.0)
+    n >= 100_000_000 -> String.format(Locale.ROOT, "%.1f亿", n / 100_000_000.0)
+    n >= 10_000 -> String.format(Locale.ROOT, "%.1f万", n / 10_000.0)
     else -> n.toString()
 }
 

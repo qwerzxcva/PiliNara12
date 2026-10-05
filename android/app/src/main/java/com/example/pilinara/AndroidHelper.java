@@ -48,7 +48,8 @@ public final class AndroidHelper {
     static {
         isFoldable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
                 android.view.WindowManager.class.getPackage().getName().equals("android");
-        isPipAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
+        // 审核：minSdk 24 = N，此条件恒真（lint ObsoleteSdkInt）
+        isPipAvailable = true;
     }
 
     @Keep

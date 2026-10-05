@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  审核：Lint 配置——针对以下「已知且无害」的项关闭（均为 Flutter 移植遗留的资源形态，
+  非代码缺陷；其余问题一律保持 default 严格级别）。
+-->
+<lint>
+    <!-- 启动图惯用 densityless 目录（Flutter 模板），改密度目录会破坏现有资源布局 -->
+    <issue id="IconLocation" severity="ignore" />
+    <!-- 启动图 splash 与 launcher icon 恰为同图（模板默认），非误用 -->
+    <issue id="IconDuplicates" severity="ignore" />
+    <issue id="IconDuplicatesConfig" severity="ignore" />
+    <!-- Media3 播放器 10s 快进/快退矢量图路径较长，属第三方图标资源，保持原样 -->
+    <issue id="VectorPath" severity="ignore" />
+    <!-- NormalTheme 由系统在部分场景引用，静态分析判为 unused 属误报 -->
+    <issue id="UnusedResources" severity="warning" />
+</lint>

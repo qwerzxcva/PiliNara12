@@ -1,4 +1,5 @@
 package com.example.pilinara.playback
+import java.util.Locale
 
 import android.app.PictureInPictureParams
 import android.os.Build
@@ -13,10 +14,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Comment
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -40,7 +43,7 @@ import com.example.pilinara.danmaku.DanmakuView
 import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.utils.toHttpsUrl
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoPlayerScreen(
     videoUrl: String,
@@ -100,16 +103,7 @@ fun VideoPlayerScreen(
         }
         // Video Surface
         AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    this.player = viewModel.player
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setShowNextButton(false)
-                    setShowPreviousButton(false)
-                    controllerAutoShow = true
-                    controllerShowTimeoutMs = 3000
-                }
-            },
+            factory = { ctx -> createPlayerView(ctx, viewModel.player) },
             modifier = Modifier.fillMaxSize()
         )
         
@@ -198,7 +192,7 @@ fun VideoPlayerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                     }
                     Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     Row {
@@ -255,7 +249,7 @@ fun VideoPlayerScreen(
 
                 // Seek bar（拖动时显示 storyboard 缩略图预览，批次L3）
                 var isSeeking by remember { mutableStateOf(false) }
-                var seekPreviewSec by remember { mutableStateOf(0L) }
+                var seekPreviewSec by remember { mutableLongStateOf(0L) }
                 Box {
                     if (isSeeking) {
                         val frame = viewModel.shotFrameAt(seekPreviewSec)
@@ -265,7 +259,8 @@ fun VideoPlayerScreen(
                             val cellW = shot.imgXSize.toFloat()
                             val cellH = shot.imgYSize.toFloat()
                             val scale = 160f / cellW
-                            BoxWithConstraints(
+                            // 审核：无需 constraints scope，用 Box（消除 lint UnusedBoxWithConstraintsScope）
+                            androidx.compose.foundation.layout.Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(bottom = 44.dp)
@@ -376,7 +371,7 @@ fun VideoPlayerScreen(
                         tintColor = if (state.isFavorited) Color(0xFFFF6B9D) else Color.White
                     )
                     EngagementButton(
-                        icon = Icons.Default.Comment,
+                        icon = Icons.AutoMirrored.Filled.Comment,
                         label = "评论", onClick = { onOpenComments(bvid) },
                         tintColor = Color.White
                     )
@@ -859,8 +854,8 @@ private fun formatTime(ms: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return if (hours > 0) String.format("%d:%02d:%02d", hours, minutes, seconds)
-    else String.format("%d:%02d", minutes, seconds)
+    return if (hours > 0) String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
+    else String.format(Locale.ROOT, "%d:%02d", minutes, seconds)
 }
 
 class VideoPlayerViewModelFactory(
@@ -892,4 +887,18 @@ fun android.app.Activity.enterPiP() {
             .build()
         enterPictureInPictureMode(params)
     }
+}
+
+/** 审核：PlayerView 配置集中于此并显式 OptIn Media3 UnstableApi（消除 lint UnsafeOptInUsageError） */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private fun createPlayerView(
+    ctx: android.content.Context,
+    player: androidx.media3.exoplayer.ExoPlayer?
+): androidx.media3.ui.PlayerView = androidx.media3.ui.PlayerView(ctx).apply {
+    this.player = player
+    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+    setShowNextButton(false)
+    setShowPreviousButton(false)
+    controllerAutoShow = true
+    controllerShowTimeoutMs = 3000
 }

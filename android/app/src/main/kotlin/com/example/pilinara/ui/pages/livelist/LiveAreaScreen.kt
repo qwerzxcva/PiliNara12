@@ -106,7 +106,7 @@ fun LiveAreaScreen(
     val rooms by viewModel.rooms.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
-    var selectedParent by remember { mutableStateOf(0L) }
+    var selectedParent by remember { mutableLongStateOf(0L) }
 
     Scaffold(
         topBar = {

@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,7 +46,7 @@ fun SearchScreen(
             TopAppBar(
                 title = { Text("搜索") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
                 }
             )
         }
@@ -69,7 +71,7 @@ fun SearchScreen(
                         }
                         IconButton(onClick = {
                             if (searchQuery.isNotEmpty()) viewModel.performSearch()
-                        }) { Icon(Icons.Default.Send, "搜索") }
+                        }) { Icon(Icons.AutoMirrored.Filled.Send, "搜索") }
                     }
                 },
                 singleLine = true,

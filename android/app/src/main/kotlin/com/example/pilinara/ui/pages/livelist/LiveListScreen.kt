@@ -1,4 +1,5 @@
 package com.example.pilinara.ui.pages.livelist
+import java.util.Locale
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -197,6 +198,6 @@ private fun LiveRoomCardItem(room: LiveRoomCard, onClick: () -> Unit) {
 }
 
 private fun formatNum(n: Long): String = when {
-    n >= 10_000 -> String.format("%.1f万", n / 10_000.0)
+    n >= 10_000 -> String.format(Locale.ROOT, "%.1f万", n / 10_000.0)
     else -> n.toString()
 }

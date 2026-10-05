@@ -40,7 +40,7 @@ class ZoneViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    var currentRid by mutableStateOf(1)
+    var currentRid by mutableIntStateOf(1)
         private set
     private var page = 1
     private var loadingMore = false

@@ -50,7 +50,7 @@ fun MemberScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
-    var tab by remember { mutableStateOf(0) }  // 0=投稿 1=专栏
+    var tab by remember { mutableIntStateOf(0) }  // 0=投稿 1=专栏
     // 批次L44：空间内搜索
     var searchKw by remember { mutableStateOf("") }
     var lastSearched by remember { mutableStateOf("") }
@@ -551,8 +551,8 @@ private fun SpaceVideoRow(video: SpaceVideoItem, onClick: (String) -> Unit) {
 }
 
 private fun formatCount(n: Long): String = when {
-    n >= 100_000_000 -> String.format("%.1f亿", n / 100_000_000.0)
-    n >= 10_000 -> String.format("%.1f万", n / 10_000.0)
+    n >= 100_000_000 -> String.format(Locale.ROOT, "%.1f亿", n / 100_000_000.0)
+    n >= 10_000 -> String.format(Locale.ROOT, "%.1f万", n / 10_000.0)
     else -> n.toString()
 }
 

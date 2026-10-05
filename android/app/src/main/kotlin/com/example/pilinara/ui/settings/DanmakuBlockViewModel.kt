@@ -16,9 +16,10 @@ import kotlinx.coroutines.launch
 /**
  * 弹幕屏蔽规则（批次：弹幕屏蔽）——关键词 / 正则 / 用户UID 三类，Room 持久化
  */
-class DanmakuBlockViewModel(private val context: android.content.Context) : ViewModel() {
+class DanmakuBlockViewModel(context: android.content.Context) : ViewModel() {
 
-    private val db = PiliNaraDatabase.getDatabase(context)
+    // 审核：不持有传入 Context（防泄漏 lint StaticFieldLeak）；warmup 走 applicationContext
+    private val db = PiliNaraDatabase.getDatabase(context.applicationContext)
     private val dao = db.danmakuFilterRuleDao()
 
     private val _state = MutableStateFlow(BlockState())
