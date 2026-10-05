@@ -5,10 +5,9 @@
 //! - Audio normalization
 //! - Danmaku merging
 
-use jni::objects::{JByteArray, JClass, JObject, JPrimitiveArray, JString};
-use jni::sys::jint;
+use jni::objects::{JByteArray, JClass, JObject, JString};
+use jni::sys::{jdouble, jint};
 use jni::JNIEnv;
-use std::collections::HashMap;
 
 // ============================================================================
 // WebP Native Library
@@ -178,6 +177,7 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_loadPinyinDict<'a>(
 }
 
 // Helper type for boolean in JNI
+#[allow(non_camel_case_types)]
 type jboolean = i32;
 
 // ============================================================================
