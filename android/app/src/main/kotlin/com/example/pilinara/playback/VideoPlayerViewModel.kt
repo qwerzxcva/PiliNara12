@@ -102,6 +102,25 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                         .getLocalPlayback(context, bvid)
                     if (playback != null) {
                         _state.value = _state.value.copy(isBuffering = true, error = null)
+                        // 离线弹幕（批次L11）：有本地缓存则用缓存，否则尝试在线拉取
+                        val dm = com.example.pilinara.data.repository.DownloadManager
+                            .localDanmaku(playback.videoPath)
+                        if (dm.isNotEmpty()) {
+                            addDanmakuEvents(dm.map { m ->
+                                DanmakuEvent(
+                                    id = "local", timestamp = (m["t"] as? Number)?.toLong() ?: 0L,
+                                    content = m["c"]?.toString() ?: "",
+                                    color = (m["col"] as? Number)?.toInt() ?: 0xFF000000.toInt(),
+                                    fontSize = (m["fs"] as? Number)?.toInt() ?: 25
+                                )
+                            })
+                        } else {
+                            runCatching {
+                                val cid = com.example.pilinara.database.PiliNaraDatabase
+                                    .getDatabase(context).downloadItemDao().getByBvid(bvid)?.cid ?: 0L
+                                if (cid > 0L) loadDanmakuFor(cid)
+                            }
+                        }
                         startPlayback(playback.videoPath, playback.audioPath.takeIf { it.isNotEmpty() })
                     } else {
                         setError("离线缓存不存在或未完成")

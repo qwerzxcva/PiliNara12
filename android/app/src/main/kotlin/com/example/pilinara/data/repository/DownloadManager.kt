@@ -3,6 +3,7 @@ package com.example.pilinara.data.repository
 import android.content.Context
 import com.example.pilinara.database.DownloadItemEntity
 import com.example.pilinara.data.remote.BiliApiClient
+import com.example.pilinara.data.model.toParsed
 import com.example.pilinara.database.PiliNaraDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -197,6 +198,21 @@ object DownloadManager {
                     videoSize = videoFile.length(), audioSize = audioSize,
                     state = DownloadItemEntity.STATE_DONE, progress = 1f, error = null
                 ))
+                // 弹幕离线（批次L11）：下载完成后抓取弹幕存为本地 JSON
+                runCatching {
+                    val cid0 = dao.getByBvid(key)?.cid ?: 0L
+                    if (cid0 > 0L) {
+                        val resp = BiliApiClient().getDanmaku(cid0).getOrNull()
+                        val list = resp?.data.orEmpty().map { d ->
+                            val pp = d.toParsed()
+                            mapOf("t" to (pp.timestamp * 1000).toLong(), "c" to pp.content,
+                                "col" to (pp.color or 0xFF000000.toInt()), "fs" to pp.fontSize)
+                        }
+                        File(dir, "danmaku.json").writeText(
+                            com.google.gson.Gson().toJson(list)
+                        )
+                    }
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 dao.upsert(current(dao, key).copy(state = DownloadItemEntity.STATE_PAUSED))
                 throw e
@@ -228,6 +244,22 @@ object DownloadManager {
         val item = dao(context).getByBvid(bvid) ?: return null
         if (item.state != DownloadItemEntity.STATE_DONE) return null
         return LocalPlayback(item.videoPath, item.audioPath)
+    }
+
+    /** 读取离线弹幕（批次L11：下载时缓存的 danmaku.json） */
+    fun localDanmaku(videoPath: String): List<Map<String, Any?>> {
+        val f = File(File(videoPath).parentFile, "danmaku.json")
+        if (!f.exists()) return emptyList()
+        return runCatching {
+            val type = com.google.gson.reflect.TypeToken.getParameterized(
+                java.util.List::class.java,
+                com.google.gson.reflect.TypeToken.getParameterized(
+                    java.util.Map::class.java, String::class.java, Any::class.java
+                ).type
+            ).type
+            @Suppress("UNCHECKED_CAST")
+            com.google.gson.Gson().fromJson<List<Map<String, Any?>>>(f.readText(), type)
+        }.getOrDefault(emptyList())
     }
 
     // ---------- 基础下载（带进度回调 0..1） ----------
