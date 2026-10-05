@@ -142,10 +142,14 @@ fun LiveRoomScreen(
                             else MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            when {
-                                state.liveStatus == 1 -> "直播中 · ${state.userCount} 人观看"
-                                state.liveStatus == 2 -> "轮播中"
-                                else -> "未开播"
+                            buildString {
+                                append(when {
+                                    state.liveStatus == 1 -> "直播中 · ${state.userCount} 人观看"
+                                    state.liveStatus == 2 -> "轮播中"
+                                    else -> "未开播"
+                                })
+                                if (state.watchedCount > 0) append(" · 看过 ${state.watchedCount}")
+                                if (state.likeTotal > 0) append(" · 👍 ${state.likeTotal}")
                             },
                             style = MaterialTheme.typography.labelMedium
                         )

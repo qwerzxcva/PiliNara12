@@ -25,6 +25,8 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
         val title: String = "",
         val liveStatus: Int = 0,        // 0未开播 1直播中
         val userCount: Long = 0L,
+        val likeTotal: Long = 0L,       // WS 点赞总数（批次L6）
+        val watchedCount: Long = 0L,    // WS 看过人数（批次L6）
         val areaName: String = "",
         val playUrl: String = "",       // m3u8 地址（HLS fmp4/ts 优先，ExoPlayer 原生支持）
         val isLoading: Boolean = true,
@@ -158,6 +160,28 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                 launch {
                     client.gift.collect { g ->
                         _gifts.value = (_gifts.value + g).takeLast(20)
+                    }
+                }
+                launch {
+                    client.likeTotal.collect { _state.value = _state.value.copy(likeTotal = it) }
+                }
+                launch {
+                    client.watched.collect { _state.value = _state.value.copy(watchedCount = it) }
+                }
+                launch {
+                    client.welcome.collect { name ->
+                        val msg = com.example.pilinara.data.model.LiveDanmakuMsg(
+                            uid = 0L, name = "系统", text = "欢迎 $name 进入直播间"
+                        )
+                        _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                    }
+                }
+                launch {
+                    client.likeMsg.collect { name ->
+                        val msg = com.example.pilinara.data.model.LiveDanmakuMsg(
+                            uid = 0L, name = "系统", text = "$name 点了个赞"
+                        )
+                        _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
                     }
                 }
                 client.connect()

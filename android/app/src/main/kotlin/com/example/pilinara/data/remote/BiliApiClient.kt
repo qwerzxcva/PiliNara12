@@ -657,6 +657,35 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    /** 发送视频弹幕 /x/v2/dm/post（oid=cid，需登录）+ csrf */
+    suspend fun sendVideoDanmaku(
+        cid: Long,
+        bvid: String,
+        msg: String,
+        progressMs: Long = 0L,
+        mode: Int = 1,
+        color: Int = 16777215,
+        fontSize: Int = 25
+    ): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "https://api.bilibili.com/x/v2/dm/post",
+            linkedMapOf(
+                "type" to "1",
+                "oid" to cid.toString(),
+                "msg" to msg,
+                "mode" to mode.toString(),
+                "bvid" to bvid,
+                "progress" to progressMs.toString(),
+                "color" to color.toString(),
+                "fontsize" to fontSize.toString(),
+                "pool" to "0",
+                "rnd" to (System.currentTimeMillis() * 1000000).toString(),
+                "plat" to "1"
+            )
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     // ========== 播放器字幕（批次K） ==========
 
     /** /x/player/v2 —— 字幕列表等播放器附加信息 */

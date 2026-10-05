@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -414,6 +415,31 @@ fun VideoPlayerScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("弹幕设置", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
+                    // 发送弹幕（批次L5）
+                    var dmInput by remember { mutableStateOf("") }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = dmInput,
+                            onValueChange = { dmInput = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("发个弹幕见证当下…") },
+                            maxLines = 2,
+                            shape = MaterialTheme.shapes.large
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        IconButton(
+                            onClick = {
+                                if (dmInput.isNotBlank()) {
+                                    viewModel.sendDanmaku(dmInput)
+                                    dmInput = ""
+                                }
+                            },
+                            enabled = dmInput.isNotBlank()
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, "发送弹幕")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("显示弹幕", modifier = Modifier.weight(1f))
                         Switch(

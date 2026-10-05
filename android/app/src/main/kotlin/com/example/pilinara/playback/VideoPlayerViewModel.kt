@@ -553,6 +553,34 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }
     }
 
+    /** 发送视频弹幕（批次L5：需登录，插入当前进度点） */
+    fun sendDanmaku(text: String, mode: Int = 1, color: Int = 16777215) {
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) { setError("请先登录后发弹幕"); return@launch }
+            val cid = effectiveCid
+            if (cid == 0L || currentBvid.isEmpty()) { setError("弹幕发送失败（视频未就绪）"); return@launch }
+            val progress = _player?.currentPosition ?: 0L
+            BiliApiClient().sendVideoDanmaku(cid, currentBvid, text.trim(), progress, mode, color)
+                .onSuccess { ok ->
+                    if (ok) {
+                        // 本地立即插入一条，反馈真实感
+                        val danmaku = DanmakuEvent(
+                            id = "local_${System.currentTimeMillis()}",
+                            timestamp = progress,
+                            content = text.trim(),
+                            color = color,
+                            fontSize = 25
+                        )
+                        _danmakuQueue.add(danmaku)
+                        _danmakuQueue.sortBy { it.timestamp }
+                        setError("弹幕发送成功")
+                    } else setError("弹幕发送失败（可能需要登录或被风控）")
+                }
+                .onFailure { setError("弹幕发送失败: ${it.message}") }
+        }
+    }
+
     /** 加入稍后再看（需登录） */
     fun addToWatchLater() {
         viewModelScope.launch {

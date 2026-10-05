@@ -83,6 +83,30 @@ class LiveDanmakuWsClient(
     )
     val gift: SharedFlow<LiveGift> = _gift.asSharedFlow()
 
+    /** 点赞总数（LIKE_INFO_V3_UPDATE data.total_like） */
+    private val _likeTotal = MutableSharedFlow<Long>(
+        replay = 0, extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val likeTotal: SharedFlow<Long> = _likeTotal.asSharedFlow()
+
+    /** 最近点赞用户名（LIKE_INFO_V3_CLICK） */
+    private val _likeMsg = MutableSharedFlow<String>(
+        replay = 0, extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val likeMsg: SharedFlow<String> = _likeMsg.asSharedFlow()
+
+    /** 看过人数（WATCHED_CHANGE data.num） */
+    private val _watched = MutableSharedFlow<Long>(
+        replay = 0, extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val watched: SharedFlow<Long> = _watched.asSharedFlow()
+
+    /** 进房欢迎用户名（INTERACT_WORD msg_type=1） */
+    private val _welcome = MutableSharedFlow<String>(
+        replay = 0, extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val welcome: SharedFlow<String> = _welcome.asSharedFlow()
+
     /** 人气值（心跳回复 body 前 4 字节 u32） */
     private val _popularity = MutableStateFlow(0L)
     val popularity: StateFlow<Long> = _popularity.asStateFlow()
@@ -255,7 +279,42 @@ class LiveDanmakuWsClient(
                     Log.w(TAG, "礼物解析失败: ${e.message}")
                 }
             }
-            // 其余 cmd（进房/点赞等）后续批次按需扩展
+            // 点赞（批次L6）：LIKE_INFO_V3_CLICK 单人 / LIKE_INFO_V3_UPDATE 累计
+            "LIKE_INFO_V3_CLICK", "LIKE_INFO_V3_UPDATE" -> {
+                try {
+                    val d = obj.optJSONObject("data") ?: return
+                    val total = d.optLong("total_like", 0L)
+                        .takeIf { it > 0 } ?: d.optLong("like_count", 0L)
+                    val name = d.optJSONObject("uname")?.optString("uname")
+                        ?: d.optString("uname")
+                    if (total > 0) _likeTotal.tryEmit(total)
+                    if (name.isNotBlank()) _likeMsg.tryEmit(name)
+                } catch (e: Exception) {
+                    Log.w(TAG, "点赞消息解析失败: ${e.message}")
+                }
+            }
+            // 观看人数变化（批次L6）：WATCHED_CHANGE data.num = 看过人数
+            "WATCHED_CHANGE" -> {
+                try {
+                    val n = obj.optJSONObject("data")?.optLong("num", 0L) ?: 0L
+                    if (n > 0) _watched.tryEmit(n)
+                } catch (e: Exception) {
+                    Log.w(TAG, "观看数解析失败: ${e.message}")
+                }
+            }
+            // 进房欢迎（批次L6）：INTERACT_WORD msg_type=1 进入
+            "INTERACT_WORD" -> {
+                try {
+                    val d = obj.optJSONObject("data") ?: return
+                    if (d.optInt("msg_type", 0) == 1) {
+                        val uname = d.optString("uname")
+                        if (uname.isNotBlank()) _welcome.tryEmit(uname)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "进房消息解析失败: ${e.message}")
+                }
+            }
+            // 其余 cmd（如 ONLINE_RANK 等）后续批次按需扩展
         }
     }
 
