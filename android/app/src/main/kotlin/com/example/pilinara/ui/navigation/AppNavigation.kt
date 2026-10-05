@@ -63,6 +63,7 @@ sealed class Screen(val route: String) {
     object LiveArea : Screen("livearea")
     object HotMore : Screen("hotmore")
     object PgcIndex : Screen("pgcindex")
+    object Timeline : Screen("timeline")
     object Rank : Screen("rank")
     object Article : Screen("article/{articleId}") {
         fun createRoute(id: Long) = "article/$id"
@@ -293,6 +294,15 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onOpenSeason = { sid ->
                     navController.navigate(Screen.Bangumi.createRoute(seasonId = sid))
+                },
+                onOpenTimeline = { navController.navigate(Screen.Timeline.route) }
+            )
+        }
+        composable(Screen.Timeline.route) {
+            com.example.pilinara.ui.pages.bangumi.TimelineScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeason = { sid ->
+                    navController.navigate(Screen.Bangumi.createRoute(seasonId = sid.toLong()))
                 }
             )
         }

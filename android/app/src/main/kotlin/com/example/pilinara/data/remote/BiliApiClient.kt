@@ -47,6 +47,19 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L30：番剧时间表（匿名可用） */
+    suspend fun getBangumiTimeline(): Result<TimelineResponse> = runCatching {
+        client.get("$API_BASE/pgc/web/timeline") {
+            url {
+                parameters.append("types", "1")
+                parameters.append("before", "6")
+                parameters.append("after", "6")
+            }
+            header("Referer", "https://www.bilibili.com/anime/timeline/")
+            commonHeaders.forEach { (k, v) -> header(k, v) }
+        }.body()
+    }
+
     // ========== Video Info ==========
     
     suspend fun getVideoInfo(bvid: String): Result<VideoInfoResponse> = runCatching {

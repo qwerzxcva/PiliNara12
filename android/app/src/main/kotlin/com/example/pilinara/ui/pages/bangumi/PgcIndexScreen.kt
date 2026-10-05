@@ -37,7 +37,8 @@ private val ORDERS = listOf("更新时间" to "update", "最高评分" to "score
 @Composable
 fun PgcIndexScreen(
     onBack: () -> Unit,
-    onOpenSeason: (seasonId: Long) -> Unit
+    onOpenSeason: (seasonId: Long) -> Unit,
+    onOpenTimeline: () -> Unit = {}
 ) {
     val viewModel: PgcIndexViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -53,6 +54,11 @@ fun PgcIndexScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenTimeline) {
+                        Text("时间表", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             )
