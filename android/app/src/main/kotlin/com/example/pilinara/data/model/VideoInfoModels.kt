@@ -1,6 +1,7 @@
 package com.example.pilinara.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 /**
  * Video information models for Bilibili API
@@ -11,6 +12,12 @@ data class VideoInfoResponse(
     val code: Int = 0,
     val message: String = "",
     val data: VideoInfoData? = null
+)
+
+@Serializable
+data class VideoInfoTag(
+    @SerialName("tag_id") val tagId: Long = 0L,
+    @SerialName("tag_name") val tagName: String = ""
 )
 
 @Serializable
@@ -28,7 +35,9 @@ data class VideoInfoData(
     val pages: List<PageInfo>? = null,
     val dynamic: String = "",
     val tag: String = "",
-    val copyright: Int = 0
+    val copyright: Int = 0,
+    // /x/web-interface/view 顶层 tags 在部分响应位于 data.tags（列表接口在 data.View.tags）
+    val tags: List<VideoInfoTag>? = null
 )
 
 @Serializable

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.viewinterop.AndroidView
@@ -61,6 +63,7 @@ fun VideoPlayerScreen(
     var showPartSheet by remember { mutableStateOf(false) }
     var showDanmakuSheet by remember { mutableStateOf(false) }
     var showRelatedSheet by remember { mutableStateOf(false) }
+    var showIntroSheet by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     
@@ -355,6 +358,12 @@ fun VideoPlayerScreen(
                         onClick = { viewModel.downloadCurrent(context.applicationContext) },
                         tintColor = Color.White
                     )
+                    EngagementButton(
+                        icon = Icons.Default.Info,
+                        label = "简介",
+                        onClick = { showIntroSheet = true },
+                        tintColor = Color.White
+                    )
                     // 分享（复制链接到剪贴板）
                     EngagementButton(
                         icon = Icons.Default.Share,
@@ -535,6 +544,50 @@ fun VideoPlayerScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
+
+        // 简介面板（批次L18）
+        if (showIntroSheet) {
+            ModalBottomSheet(onDismissRequest = { showIntroSheet = false }) {
+                Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                    Text(viewModel.videoTitle, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        buildString {
+                            append(viewModel.videoOwner)
+                            viewModel.videoPubdate.takeIf { it > 0 }?.let {
+                                append(" · ")
+                                append(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.CHINA)
+                                    .format(java.util.Date(it * 1000)))
+                            }
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (viewModel.videoTags.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            viewModel.videoTags.take(12).forEach { tag ->
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text(tag, fontSize = 12.sp) }
+                                )
+                            }
+                        }
+                    }
+                    if (viewModel.videoDesc.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            viewModel.videoDesc,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }

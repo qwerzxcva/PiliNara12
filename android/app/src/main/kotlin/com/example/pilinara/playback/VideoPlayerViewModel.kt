@@ -334,6 +334,11 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         videoTitle = detail?.title.orEmpty()
         videoCover = detail?.pic.orEmpty()
         videoOwner = detail?.owner?.name.orEmpty()
+        // 批次L18：简介/标签/日期（简介面板数据源）
+        videoDesc = detail?.desc.orEmpty()
+        videoTags = detail?.tags?.takeIf { it.isNotEmpty() }
+            ?.mapNotNull { it.tagName } ?: emptyList()
+        videoPubdate = detail?.pubdate ?: 0L
         // 分P 列表（单P视频 pages 只有 1 项）
         pages = (detail?.pages.orEmpty()).map {
             PartInfo(cid = it.cid, page = it.page, part = it.part, durationSec = it.duration)
@@ -586,6 +591,10 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     var videoCover: String = ""
         private set
     var videoOwner: String = ""
+    // 批次L18：简介/标签/发布时间
+    var videoDesc: String = ""
+    var videoTags: List<String> = emptyList()
+    var videoPubdate: Long = 0L
         private set
 
     /** 发起离线下载（下载按钮 → DownloadManager 队列） */
