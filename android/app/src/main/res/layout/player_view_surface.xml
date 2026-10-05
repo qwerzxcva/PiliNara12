@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Kazumi 特性：默认 SurfaceView 渲染器布局（性能最佳、功耗最低）。
-  与 player_view_texture.xml 成对，由代码按用户设置选择。
+
+  注意：Media3 1.5.1 的 PlayerView 未公开 setSurfaceType（javap 已核实），
+  surface_type 只能在 inflate 时通过 XML 属性生效，故提供两份布局按偏好选择。
+  controller_auto_show / controller_show_timeout_ms 是运行时属性（非 XML attr），
+  已在 createPlayerView 里用代码设置，此处不写。
 -->
 <androidx.media3.ui.PlayerView
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -12,6 +16,4 @@
     app:surface_type="surface_view"
     app:resize_mode="fit"
     app:show_next_button="false"
-    app:show_previous_button="false"
-    app:controller_auto_show="true"
-    app:controller_show_timeout_ms="3000" />
+    app:show_previous_button="false" />
