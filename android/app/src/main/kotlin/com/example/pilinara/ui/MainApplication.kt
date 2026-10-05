@@ -34,6 +34,9 @@ class MainApplication : Application() {
         // Kazumi 特性：预热渲染器偏好缓存（异步，不阻塞主线程）
         com.example.pilinara.utils.RendererPrefs.init(this)
 
+        // Animeko 特性：恢复 Bangumi 登录态（Bearer Token，与 B站 Cookie 独立）
+        com.example.pilinara.data.remote.BangumiSession.restore(this)
+
         // 弹幕屏蔽规则启动 warmup（缓存到内存供渲染过滤）
         com.example.pilinara.ui.settings.DanmakuBlockViewModel.warmup(
             com.example.pilinara.database.PiliNaraDatabase.getDatabase(this)
