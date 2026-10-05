@@ -32,7 +32,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val danmakuSpeed: Float = 1.0f,
         // 主题
         val themeMode: String = "system",     // system/light/dark
-        val accentColor: String = ""          // 十六进制，空=默认绿
+        val accentColor: String = "",         // 十六进制，空=默认绿
+        val amoled: Boolean = false           // AMOLED 纯黑（仅暗色生效）
     )
 
     init {
@@ -60,6 +61,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             storage.accentColorFlow.collect { _state.value = _state.value.copy(accentColor = it) }
         }
+        viewModelScope.launch {
+            storage.amoledFlow.collect { _state.value = _state.value.copy(amoled = it) }
+        }
     }
 
     fun setAutoPlay(v: Boolean) = viewModelScope.launch { storage.setAutoPlay(v) }
@@ -70,4 +74,5 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setDanmakuSpeed(v: Float) = viewModelScope.launch { storage.setDanmakuSpeed(v) }
     fun setThemeMode(m: String) = viewModelScope.launch { storage.setThemeMode(m) }
     fun setAccentColor(hex: String) = viewModelScope.launch { storage.setAccentColor(hex) }
+    fun setAmoled(v: Boolean) = viewModelScope.launch { storage.setAmoled(v) }
 }

@@ -79,25 +79,156 @@ private fun Color.compositeOver(background: Color): Color {
     )
 }
 
-/** 由强调色派生 Material3 scheme（Kototoro 风格：柔和 surface + 鲜明 primary） */
+// ==================== Kototoro 风格语义色 token ====================
+
+/**
+ * Kototoro 语义色 / 分层 surface 常量。
+ * 来源：上游 Kototoro-app/Kototoro colors.xml。
+ */
+object PiliSemantic {
+    // 语义色
+    val green = Color(0xFF388E3C)
+    val red = Color(0xFFD32F2F)
+    val yellow = Color(0xFFFBC02D)
+    val warning = Color(0xFFE65100)
+    val grey = Color(0xFF424242)
+
+    // 分级标记
+    val nsfw18 = Color(0xFFFF8A65)
+    val nsfw16 = Color(0xFFFFD54F)
+
+    // iOS 蓝（基线 primary）
+    val iosBlue = Color(0xFF007AFF)
+
+    // ---- AMOLED 纯黑分层 surface 容器 ----
+    object Amoled {
+        val background = Color(0xFF000000)
+        val surface = Color(0xFF000000)
+        val surfaceContainerLowest = Color(0xFF121212)
+        val surfaceContainerLow = Color(0xFF1A1A1A)
+        val surfaceContainer = Color(0xFF222222)
+        val surfaceContainerHigh = Color(0xFF2A2A2A)
+        val surfaceContainerHighest = Color(0xFF303030)
+        val surfaceVariant = Color(0xFF242424)
+        val surfaceBright = Color(0xFF303030)
+        val surfaceDim = Color(0xFF000000)
+    }
+
+    // ---- 普通暗色分层 surface 容器（MD3 柔和深色，表面约 #16121A）----
+    object Dark {
+        val background = Color(0xFF16121A)
+        val surface = Color(0xFF16121A)
+        val surfaceContainerLowest = Color(0xFF0F0D13)
+        val surfaceContainerLow = Color(0xFF1D1B20)
+        val surfaceContainer = Color(0xFF211F26)
+        val surfaceContainerHigh = Color(0xFF2B2930)
+        val surfaceContainerHighest = Color(0xFF36343B)
+        val surfaceVariant = Color(0xFF49454F)
+        val surfaceBright = Color(0xFF3B3841)
+        val surfaceDim = Color(0xFF16121A)
+    }
+
+    // ---- 亮色分层 surface 容器（MD3 基线）----
+    object Light {
+        val background = Color(0xFFFFFBFF)
+        val surface = Color(0xFFFFFBFF)
+        val surfaceContainerLowest = Color(0xFFFFFFFF)
+        val surfaceContainerLow = Color(0xFFF7F3FA)
+        val surfaceContainer = Color(0xFFF3EDF7)
+        val surfaceContainerHigh = Color(0xFFEDE7F1)
+        val surfaceContainerHighest = Color(0xFFE6E0E9)
+        val surfaceVariant = Color(0xFFE7E0EC)
+        val surfaceBright = Color(0xFFFFFBFF)
+        val surfaceDim = Color(0xFFDED8E1)
+    }
+}
+
+/** 由强调色派生 Material3 亮色 scheme（补全 MD3 全部分层 surface 容器字段） */
 private fun lightSchemeOf(accent: Color) = lightColorScheme(
     primary = accent,
     onPrimary = Color.White,
     primaryContainer = accent.copy(alpha = 0.16f).compositeOver(Color.White),
     onPrimaryContainer = accent.darken(),
     secondary = accent.darken(0.15f),
-    surface = Color(0xFFFFFBFF),
-    background = Color(0xFFFFFBFF),
+    onSecondary = Color.White,
+    secondaryContainer = accent.copy(alpha = 0.12f).compositeOver(Color.White),
+    onSecondaryContainer = accent.darken(),
+    tertiary = PiliSemantic.green,
+    onTertiary = Color.White,
+    tertiaryContainer = PiliSemantic.green.copy(alpha = 0.14f).compositeOver(Color.White),
+    onTertiaryContainer = PiliSemantic.green.darken(),
+    error = PiliSemantic.red,
+    onError = Color.White,
+    errorContainer = PiliSemantic.red.copy(alpha = 0.12f).compositeOver(Color.White),
+    onErrorContainer = PiliSemantic.red.darken(),
+    background = PiliSemantic.Light.background,
+    onBackground = Color(0xFF1D1B20),
+    surface = PiliSemantic.Light.surface,
+    onSurface = Color(0xFF1D1B20),
+    surfaceVariant = PiliSemantic.Light.surfaceVariant,
+    onSurfaceVariant = Color(0xFF49454F),
+    surfaceDim = PiliSemantic.Light.surfaceDim,
+    surfaceBright = PiliSemantic.Light.surfaceBright,
+    surfaceContainerLowest = PiliSemantic.Light.surfaceContainerLowest,
+    surfaceContainerLow = PiliSemantic.Light.surfaceContainerLow,
+    surfaceContainer = PiliSemantic.Light.surfaceContainer,
+    surfaceContainerHigh = PiliSemantic.Light.surfaceContainerHigh,
+    surfaceContainerHighest = PiliSemantic.Light.surfaceContainerHighest,
+    outline = Color(0xFF79767F),
+    outlineVariant = Color(0xFFCAC4D0),
+    scrim = Color(0xFF000000),
+    inverseSurface = Color(0xFF322F35),
+    inverseOnSurface = Color(0xFFF5EFF7),
+    inversePrimary = accent.lighten(0.35f),
+    surfaceTint = accent,
 )
 
-private fun darkSchemeOf(accent: Color) = darkColorScheme(
+/**
+ * 由强调色派生 Material3 暗色 scheme。
+ * @param amoled true = AMOLED 纯黑（surface/background #000000 + #121212~#303030 梯度容器）；
+ *               false = 普通 MD3 柔和暗色（表面约 #16121A）。
+ */
+private fun darkSchemeOf(accent: Color, amoled: Boolean = false) = darkColorScheme(
     primary = accent.lighten(),
-    onPrimary = Color(0xFF16121A),
-    primaryContainer = accent.copy(alpha = 0.32f).compositeOver(Color(0xFF121212)),
+    onPrimary = if (amoled) Color(0xFF000000) else Color(0xFF16121A),
+    primaryContainer = accent.copy(alpha = 0.32f)
+        .compositeOver(if (amoled) Color(0xFF121212) else Color(0xFF1D1B20)),
     onPrimaryContainer = accent.lighten(0.4f),
     secondary = accent.lighten(0.2f),
-    surface = Color(0xFF16121A),
-    background = Color(0xFF16121A),
+    onSecondary = if (amoled) Color(0xFF000000) else Color(0xFF16121A),
+    secondaryContainer = accent.copy(alpha = 0.24f)
+        .compositeOver(if (amoled) Color(0xFF1A1A1A) else Color(0xFF211F26)),
+    onSecondaryContainer = accent.lighten(0.35f),
+    tertiary = PiliSemantic.green.lighten(0.2f),
+    onTertiary = Color(0xFF000000),
+    tertiaryContainer = PiliSemantic.green.copy(alpha = 0.28f)
+        .compositeOver(if (amoled) Color(0xFF1A1A1A) else Color(0xFF211F26)),
+    onTertiaryContainer = PiliSemantic.green.lighten(0.45f),
+    error = PiliSemantic.red.lighten(0.15f),
+    onError = Color(0xFF000000),
+    errorContainer = PiliSemantic.red.copy(alpha = 0.30f)
+        .compositeOver(if (amoled) Color(0xFF1A1A1A) else Color(0xFF211F26)),
+    onErrorContainer = PiliSemantic.red.lighten(0.45f),
+    background = if (amoled) PiliSemantic.Amoled.background else PiliSemantic.Dark.background,
+    onBackground = if (amoled) Color(0xFFE6E1E5) else Color(0xFFE6E0E9),
+    surface = if (amoled) PiliSemantic.Amoled.surface else PiliSemantic.Dark.surface,
+    onSurface = if (amoled) Color(0xFFE6E1E5) else Color(0xFFE6E0E9),
+    surfaceVariant = if (amoled) PiliSemantic.Amoled.surfaceVariant else PiliSemantic.Dark.surfaceVariant,
+    onSurfaceVariant = if (amoled) Color(0xFFC8C4C9) else Color(0xFFCAC4D0),
+    surfaceDim = if (amoled) PiliSemantic.Amoled.surfaceDim else PiliSemantic.Dark.surfaceDim,
+    surfaceBright = if (amoled) PiliSemantic.Amoled.surfaceBright else PiliSemantic.Dark.surfaceBright,
+    surfaceContainerLowest = if (amoled) PiliSemantic.Amoled.surfaceContainerLowest else PiliSemantic.Dark.surfaceContainerLowest,
+    surfaceContainerLow = if (amoled) PiliSemantic.Amoled.surfaceContainerLow else PiliSemantic.Dark.surfaceContainerLow,
+    surfaceContainer = if (amoled) PiliSemantic.Amoled.surfaceContainer else PiliSemantic.Dark.surfaceContainer,
+    surfaceContainerHigh = if (amoled) PiliSemantic.Amoled.surfaceContainerHigh else PiliSemantic.Dark.surfaceContainerHigh,
+    surfaceContainerHighest = if (amoled) PiliSemantic.Amoled.surfaceContainerHighest else PiliSemantic.Dark.surfaceContainerHighest,
+    outline = if (amoled) Color(0xFF8A8A8A) else Color(0xFF938F99),
+    outlineVariant = if (amoled) Color(0xFF3A3A3A) else Color(0xFF49454F),
+    scrim = Color(0xFF000000),
+    inverseSurface = if (amoled) Color(0xFFE6E1E5) else Color(0xFFE6E0E9),
+    inverseOnSurface = if (amoled) Color(0xFF000000) else Color(0xFF322F35),
+    inversePrimary = accent.darken(0.1f),
+    surfaceTint = accent.lighten(),
 )
 
 /** Kototoro 风格形状 token：大圆角 */
@@ -135,6 +266,7 @@ fun PiliNaraTheme(
     val storage = remember(context) { StorageManager(context) }
     val themeMode by storage.themeModeFlow.collectAsState(initial = "system")
     val accentHex by storage.accentColorFlow.collectAsState(initial = "")
+    val amoled by storage.amoledFlow.collectAsState(initial = false)
 
     val isDark = when (themeMode) {
         "light" -> false
@@ -147,7 +279,7 @@ fun PiliNaraTheme(
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        isDark -> darkSchemeOf(accent)
+        isDark -> darkSchemeOf(accent, amoled = amoled)
         else -> lightSchemeOf(accent)
     }
 

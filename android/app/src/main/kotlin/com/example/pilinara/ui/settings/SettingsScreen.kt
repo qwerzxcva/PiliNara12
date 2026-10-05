@@ -151,6 +151,15 @@ fun SettingsScreen(
                     onClick = { showAccentDialog = true }
                 )
             }
+            item {
+                SettingSwitch(
+                    title = "AMOLED 纯黑",
+                    subtitle = "暗色下使用纯黑背景，省电",
+                    icon = Icons.Default.DarkMode,
+                    checked = state.amoled,
+                    onChange = { viewModel.setAmoled(it) }
+                )
+            }
 
             // ===== 关于 =====
             item { SectionTitle("关于") }

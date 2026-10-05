@@ -30,6 +30,7 @@ class StorageManager(private val context: Context) {
         private val UI_SCALE_KEY = floatPreferencesKey("uiScale")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val DARK_MODE_KEY = booleanPreferencesKey("darkMode")
+        private val AMOLED_KEY = booleanPreferencesKey("amoledBlack")
         private val NOTIFICATION_ENABLED_KEY = booleanPreferencesKey("notificationEnabled")
         
         // Video settings
@@ -61,6 +62,10 @@ class StorageManager(private val context: Context) {
     val accentColorFlow: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[ACCENT_COLOR_KEY] ?: "" }
     
+    /** AMOLED 纯黑主题（暗色下 surface/background = #000000），默认 false */
+    val amoledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[AMOLED_KEY] ?: false }
+
     val videoQualityFlow: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[VIDEO_QUALITY_KEY] ?: "auto" }
     
@@ -113,6 +118,12 @@ class StorageManager(private val context: Context) {
         }
     }
     
+    suspend fun setAmoled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AMOLED_KEY] = enabled
+        }
+    }
+
     suspend fun setVideoQuality(quality: String) {
         context.dataStore.edit { preferences ->
             preferences[VIDEO_QUALITY_KEY] = quality
