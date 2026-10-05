@@ -331,6 +331,21 @@ fun VideoPlayerScreen(
                         onClick = { viewModel.downloadCurrent(context.applicationContext) },
                         tintColor = Color.White
                     )
+                    // 分享（复制链接到剪贴板）
+                    EngagementButton(
+                        icon = Icons.Default.Share,
+                        label = "分享",
+                        onClick = {
+                            val link = if (bvid.startsWith("ep"))
+                                "https://www.bilibili.com/bangumi/play/$bvid"
+                            else "https://www.bilibili.com/video/$bvid"
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            cm.setPrimaryClip(android.content.ClipData.newPlainText("link", link))
+                            viewModel.notifyShared(link)
+                        },
+                        tintColor = Color.White
+                    )
                 }
             }
         }

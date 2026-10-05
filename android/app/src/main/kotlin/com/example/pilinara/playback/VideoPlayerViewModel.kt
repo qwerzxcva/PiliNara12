@@ -453,11 +453,14 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     }
     
     fun setError(error: String?) {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(error = error)
-        }
+        if (error != null) _state.value = _state.value.copy(error = error)
     }
-    
+
+    /** 分享反馈（复制链接成功提示） */
+    fun notifyShared(link: String) {
+        setError("链接已复制：$link")
+    }
+
     fun addDanmakuEvents(events: List<DanmakuEvent>) {
         _danmakuQueue.clear()
         // 弹幕屏蔽规则过滤（关键词/正则/UID）
@@ -693,6 +696,8 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
 
     private suspend fun ensureAid() {
         if (aid > 0L) return
+        // 番剧 ep 模式：bvid 是 "ep{id}" 虚拟值，直接用 pgc 详情里的真实 aid
+        if (currentBvid.startsWith("ep")) return
         aid = repo.getVideoDetail(currentBvid).getOrNull()?.data?.aid ?: 0L
     }
 
