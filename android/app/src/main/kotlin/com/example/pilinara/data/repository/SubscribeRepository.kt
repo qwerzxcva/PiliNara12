@@ -375,7 +375,8 @@ class SubscribeRepository(
     fun observeSources(): kotlinx.coroutines.flow.Flow<List<SubscribeSourceEntity>> = dao.observeAll()
 
     /** 观察全部条目（Flow，UI 自动刷新） */
-    fun observeItems(): kotlinx.coroutines.flow.Flow<List<SubscribeItemEntity>> = dao.observeAllItems()
+    fun observeItems(): kotlinx.coroutines.flow.Flow<List<SubscribeItemEntity>> =
+        itemDao.observeAll()
 
     suspend fun removeSource(id: Long) = withContext(Dispatchers.IO) {
         runCatching {
