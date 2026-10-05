@@ -925,6 +925,19 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L34：分区排行榜（ranking/region 匿名可用；rid=0 无效需传分区） */
+    suspend fun getRegionRanking(rid: Int): Result<RegionRankResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/ranking/region") {
+            url {
+                parameters.append("rid", rid.toString())
+                parameters.append("day", "3")
+            }
+            header("Referer", "https://www.bilibili.com/v/popular/rank/all")
+            header("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        }.body()
+    }
+
     /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */
     suspend fun getHistoryCursor(
         max: Long = 0L,

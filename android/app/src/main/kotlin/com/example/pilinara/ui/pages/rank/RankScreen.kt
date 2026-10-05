@@ -21,6 +21,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.RankItem
+import com.example.pilinara.data.model.RankOwner
+import com.example.pilinara.data.model.RankStat
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,9 +43,26 @@ class RankViewModel : ViewModel() {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            BiliApiClient().getRanking(rid)
-                .onSuccess { _items.value = it.data?.list.orEmpty() }
-                .onFailure { _error.value = it.message ?: "加载失败" }
+            if (rid == 0) {
+                // 全站榜：ranking/v2
+                BiliApiClient().getRanking(rid)
+                    .onSuccess { _items.value = it.data?.list.orEmpty() }
+                    .onFailure { _error.value = it.message ?: "加载失败" }
+            } else {
+                // 分区榜（批次L34）：ranking/region 匿名可用，11 条/分区
+                BiliApiClient().getRegionRanking(rid)
+                    .onSuccess { resp ->
+                        _items.value = resp.data.map { r ->
+                            RankItem(
+                                aid = r.aid, bvid = r.bvid, title = r.title,
+                                pic = r.pic, score = r.pts, duration = r.duration.toInt(),
+                                owner = RankOwner(mid = r.mid, name = r.author),
+                                stat = r.stats?.let { RankStat(view = it.view, danmaku = it.danmaku) }
+                            )
+                        }
+                    }
+                    .onFailure { _error.value = it.message ?: "加载失败" }
+            }
             _loading.value = false
         }
     }
