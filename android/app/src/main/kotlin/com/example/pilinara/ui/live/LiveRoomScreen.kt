@@ -159,8 +159,12 @@ fun LiveRoomScreen(
                             val (label, tint) = when (ws) {
                                 is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Authenticated ->
                                     "弹幕已连接" to MaterialTheme.colorScheme.primary
+                                is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Connected ->
+                                    "弹幕已连接" to MaterialTheme.colorScheme.primary
                                 is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Connecting ->
                                     "弹幕连接中…" to MaterialTheme.colorScheme.onSurfaceVariant
+                                is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Reconnecting ->
+                                    "弹幕重连中(第${ws.attempt}次)…" to MaterialTheme.colorScheme.tertiary
                                 is com.example.pilinara.data.remote.LiveDanmakuWsClient.State.Failed ->
                                     "弹幕断开" to MaterialTheme.colorScheme.error
                                 else -> "弹幕空闲" to MaterialTheme.colorScheme.onSurfaceVariant
