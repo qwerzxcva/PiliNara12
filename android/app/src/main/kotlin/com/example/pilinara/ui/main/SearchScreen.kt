@@ -24,13 +24,16 @@ import com.example.pilinara.utils.toHttpsUrl
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
+    initialQuery: String = "",
     onVideoClick: (String) -> Unit = {},
     onUserClick: (Long) -> Unit = {},
     onLiveClick: (Long) -> Unit = {},
+    onBack: () -> Unit = {},
     viewModel: SearchViewModel = viewModel()
 ) {
     val state by viewModel.searchState.collectAsState()
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf(initialQuery) }
+    LaunchedEffect(Unit) { if (initialQuery.isNotBlank()) { viewModel.setSearchKeyword(initialQuery); viewModel.performSearch() } }
     var dropdown by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
 
@@ -41,7 +44,7 @@ fun SearchScreen(
             TopAppBar(
                 title = { Text("搜索") },
                 navigationIcon = {
-                    IconButton(onClick = {}) { Icon(Icons.Default.ArrowBack, "返回") }
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "返回") }
                 }
             )
         }

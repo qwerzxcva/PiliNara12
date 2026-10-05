@@ -51,6 +51,7 @@ fun VideoPlayerScreen(
     title: String = "",
     onBack: () -> Unit = {},
     onOpenComments: (bvid: String) -> Unit = {},
+    onSearchTag: (String) -> Unit = {},
     viewModel: VideoPlayerViewModel = viewModel(
         factory = VideoPlayerViewModelFactory(LocalContext.current)
     )
@@ -634,7 +635,7 @@ fun VideoPlayerScreen(
                         ) {
                             viewModel.videoTags.take(12).forEach { tag ->
                                 SuggestionChip(
-                                    onClick = {},
+                                    onClick = { onSearchTag(tag) },
                                     label = { Text(tag, fontSize = 12.sp) }
                                 )
                             }

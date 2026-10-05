@@ -24,7 +24,9 @@ import com.example.pilinara.playback.VideoPlayerScreen
  */
 sealed class Screen(val route: String) {
     object Home : Screen("home")
-    object Search : Screen("search")
+    object Search : Screen("search?query={query}") {
+        fun createRoute(query: String = "") = if (query.isBlank()) "search" else "search?query=${android.net.Uri.encode(query)}"
+    }
     object Dynamics : Screen("dynamics")
     object Message : Screen("message")
     object Profile : Screen("profile")
@@ -103,8 +105,10 @@ fun AppNavigation() {
                 onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) }
             )
         }
-        composable(Screen.Search.route) {
+        composable(Screen.Search.route) { backStackEntry ->
+            val initialQuery = backStackEntry.arguments?.getString("query").orEmpty()
             SearchScreen(
+                initialQuery = initialQuery,
                 onVideoClick = { bvid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid))
                 },
@@ -113,7 +117,8 @@ fun AppNavigation() {
                 },
                 onLiveClick = { roomId ->
                     navController.navigate(Screen.LiveRoom.createRoute(roomId.toString()))
-                }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Dynamics.route) {
@@ -206,7 +211,8 @@ fun AppNavigation() {
                 epId = epId,
                 local = local,
                 onBack = { navController.popBackStack() },
-                onOpenComments = { bv -> navController.navigate(Screen.Comment.createRoute(bv)) }
+                onOpenComments = { bv -> navController.navigate(Screen.Comment.createRoute(bv)) },
+                onSearchTag = { tag -> navController.navigate(Screen.Search.createRoute(tag)) }
             )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->
