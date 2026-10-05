@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -336,6 +337,7 @@ fun FavMediaScreen(
 fun HistoryScreen(
     onBack: () -> Unit = {},
     onOpenVideo: (bvid: String, cid: Long) -> Unit = { _, _ -> },
+    onLogin: () -> Unit = {},
     viewModel: LibraryViewModel = viewModel()
 ) {
     val history by viewModel.history.collectAsState()
@@ -393,7 +395,12 @@ fun HistoryScreen(
                     CircularProgressIndicator()
                 }
                 error != null && history.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                    Text("${error}\n（历史记录需要登录后查看）")
+                    // 审核48：错误态给出明确的登录引导，而非仅文字
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${error}\n（历史记录需要登录后查看）", textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = onLogin) { Text("去登录") }
+                    }
                 }
                 history.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     Text("暂无观看记录")

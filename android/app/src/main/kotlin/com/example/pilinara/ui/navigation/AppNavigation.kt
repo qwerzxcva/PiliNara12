@@ -189,7 +189,8 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onOpenVideo = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
-                }
+                },
+                onLogin = { navController.navigate(Screen.Login.route) }
             )
         }
         composable(Screen.VideoPlayer.route,
