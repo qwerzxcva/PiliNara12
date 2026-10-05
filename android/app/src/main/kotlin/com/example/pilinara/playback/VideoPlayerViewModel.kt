@@ -543,6 +543,22 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
             title = videoTitle, cover = videoCover, ownerName = videoOwner
         )
     }
+
+    /** 批量下载：下载指定分P（分P面板逐项触发，批次L10） */
+    fun downloadPart(appContext: android.content.Context, partIndex: Int) {
+        val p = pages.getOrNull(partIndex) ?: return
+        val bv = currentBvid
+        if (bv.isEmpty() || bv.startsWith("ep")) return
+        com.example.pilinara.data.repository.DownloadManager.downloadPart(
+            appContext, bv, p.cid, p.page,
+            pageLabel = "P${p.page}",
+            durationSec = p.durationSec,
+            title = "${videoTitle} ${p.part}".trim(),
+            cover = videoCover, ownerName = videoOwner
+        )
+    }
+
+    fun pagesSnapshot(): List<PartInfo> = pages.toList()
     private var epId: Long = 0L
     private var effectiveCid: Long = 0L
     private var currentBvid: String = ""

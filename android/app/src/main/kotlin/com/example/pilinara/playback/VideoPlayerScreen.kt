@@ -411,9 +411,17 @@ fun VideoPlayerScreen(
                 )
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                     items((1..state.partCount).toList()) { p ->
+                        val partTitle = viewModel.pagesSnapshot().getOrNull(p - 1)?.part ?: "第 $p 集"
                         ListItem(
-                            headlineContent = { Text("P$p") },
-                            supportingContent = { Text("第 $p 集") },
+                            headlineContent = { Text("P$p · $partTitle", maxLines = 1) },
+                            trailingContent = {
+                                IconButton(onClick = {
+                                    viewModel.downloadPart(context.applicationContext, p - 1)
+                                }) {
+                                    Icon(Icons.Default.Download, "下载本P",
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
+                            },
                             modifier = Modifier.clickable {
                                 viewModel.playPart(p - 1); showPartSheet = false
                             },

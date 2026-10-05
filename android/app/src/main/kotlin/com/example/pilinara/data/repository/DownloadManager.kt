@@ -141,6 +141,75 @@ object DownloadManager {
         download(context, bvid) // download 内部检测半成品文件走 Range 续传
     }
 
+    /**
+     * 批量下载指定分P（批次L10）：调用方已持有 cid/标题（分P面板/番剧选集）。
+     * 存储键 bvid_pN；单P仍走 download()（键=bvid）。
+     */
+    fun downloadPart(
+        context: Context,
+        bvid: String,
+        cid: Long,
+        page: Int,
+        pageLabel: String,
+        durationSec: Long = 0L,
+        title: String = "",
+        cover: String = "",
+        ownerName: String = ""
+    ) {
+        val key = "${bvid}_p$page"
+        if (running.containsKey(key)) return
+        val appCtx = context.applicationContext
+        running[key] = scope.launch {
+            val dao = dao(appCtx)
+            try {
+                val prev = dao.getByBvid(key)
+                dao.upsert((prev ?: DownloadItemEntity(bvid = key)).copy(
+                    cid = cid, title = title, cover = cover, ownerName = ownerName,
+                    durationSec = durationSec, pageLabel = pageLabel,
+                    state = DownloadItemEntity.STATE_RUNNING, error = null
+                ))
+                val qn = com.example.pilinara.utils.StorageManager(appCtx).videoQualityFlow.first()
+                    .let { when (it) { "1080p" -> 80; "720p" -> 64; "480p" -> 32; else -> 64 } }
+                val play = VideoRepository(BiliApiClient()).getPlayUrl(bvid, cid, qn = qn).getOrNull()
+                    ?: throw IllegalStateException("playurl 获取失败")
+                val videoUrl = play.second
+                val audioUrl = play.third
+                if (videoUrl.isNullOrEmpty()) throw IllegalStateException("未取到视频流")
+
+                val dir = File(File(appCtx.getExternalFilesDir(null), "PiliNara/Downloads"), key)
+                if (!dir.exists()) dir.mkdirs()
+
+                val videoFile = File(dir, "video.m4s")
+                downloadTo(videoUrl, videoFile) { p ->
+                    launch { dao.upsert(current(dao, key).copy(progress = p * 0.8f)) }
+                }
+                val audioFile = File(dir, "audio.m4s")
+                var audioSize = 0L
+                if (!audioUrl.isNullOrEmpty()) {
+                    downloadTo(audioUrl, audioFile) { p ->
+                        launch { dao.upsert(current(dao, key).copy(progress = 0.8f + p * 0.2f)) }
+                    }
+                    audioSize = audioFile.length()
+                }
+                dao.upsert(current(dao, key).copy(
+                    videoPath = videoFile.absolutePath,
+                    audioPath = if (audioSize > 0) audioFile.absolutePath else "",
+                    videoSize = videoFile.length(), audioSize = audioSize,
+                    state = DownloadItemEntity.STATE_DONE, progress = 1f, error = null
+                ))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                dao.upsert(current(dao, key).copy(state = DownloadItemEntity.STATE_PAUSED))
+                throw e
+            } catch (e: Exception) {
+                dao.upsert(current(dao, key).copy(
+                    state = DownloadItemEntity.STATE_FAILED, error = e.message
+                ))
+            } finally {
+                running.remove(key)
+            }
+        }
+    }
+
     /** 删除离线项（记录 + 文件） */
     fun delete(context: Context, bvid: String) {
         cancel(context, bvid)

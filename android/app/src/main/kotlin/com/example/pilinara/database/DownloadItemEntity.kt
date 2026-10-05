@@ -28,6 +28,7 @@ data class DownloadItemEntity(
     val error: String? = null,
     val videoUrlCache: String = "", // 暂停时缓存的视频流 URL（续传用，有时效）
     val audioUrlCache: String = "",
+    val pageLabel: String = "",     // 多P/番剧分集标签（"P2" / "第3集"），空=单P
     val createdAt: Long = System.currentTimeMillis()
 ) {
     companion object {
