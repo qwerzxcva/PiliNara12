@@ -438,6 +438,13 @@ class SubscribeRepository(
         val uri = android.net.Uri.parse(withScheme)
         val host = uri.host
         require(!host.isNullOrBlank()) { "链接无效：缺少域名" }
+        // 审核轮6：显式 scheme 白名单。
+        // 只放行 http/https —— 避免 file://、content:// 等被当作订阅源请求
+        // （本地文件读取 / 跨应用内容泄露），也避免 Ktor 用非预期引擎处理。
+        val scheme = uri.scheme?.lowercase()
+        require(scheme == "http" || scheme == "https") {
+            "仅支持 http/https 链接（当前：${scheme ?: "无"}）"
+        }
         return withScheme
     }
 
