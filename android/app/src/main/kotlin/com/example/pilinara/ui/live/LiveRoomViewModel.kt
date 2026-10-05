@@ -33,6 +33,31 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
         val error: String? = null
     )
 
+    // 批次L31：大航海列表
+    private val _guards = MutableStateFlow<List<com.example.pilinara.data.model.GuardUser>>(emptyList())
+    val guards: StateFlow<List<com.example.pilinara.data.model.GuardUser>> = _guards.asStateFlow()
+    private val _guardNum = MutableStateFlow(0)
+    val guardNum: StateFlow<Int> = _guardNum.asStateFlow()
+
+    fun loadGuards() {
+        viewModelScope.launch {
+            // 先拿主播 uid（room/v1/Room/room_info 匿名可用，uid 字段）
+            val uid = runCatching {
+                val txt = api.getRawJson("https://api.live.bilibili.com/room/v1/Room/room_info?room_id=${_state.value.roomId}")
+                kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                    .decodeFromString<com.example.pilinara.data.model.GuardAnchorResponse>(txt)
+                    .data?.uid ?: 0L
+            }.getOrDefault(0L)
+            if (uid <= 0L) return@launch
+            api.getGuardTopList(_state.value.roomId, uid).onSuccess { resp ->
+                if (resp.code == 0) {
+                    _guards.value = resp.data?.topList.orEmpty()
+                    _guardNum.value = resp.data?.info?.num ?: 0
+                }
+            }
+        }
+    }
+
     init { load() }
 
     fun load() {
@@ -66,8 +91,9 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                         error = if (url.isEmpty() && (data?.liveStatus ?: 1) == 1)
                             "未取到流地址" else null
                     )
-                    // 进房上报（真实房间号）
+                    // 进房上报（真实房间号）+ 大航海列表（批次L31）
                     if (realRoomId > 0) {
+                        loadGuards()
                         api.liveRoomEntryAction(realRoomId)
                         connectDanmaku(realRoomId)   // 直播弹幕 WS（批次J）
                     }

@@ -60,6 +60,27 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L31：通用 GET（返回 JSON 文本） */
+    suspend fun getRawJson(url: String): String =
+        client.get(url) {
+            header("Referer", "https://live.bilibili.com/")
+            commonHeaders.forEach { (k, v) -> header(k, v) }
+        }.bodyAsText()
+
+    /** 批次L31：直播间大航海（舰长）列表，匿名可用 */
+    suspend fun getGuardTopList(roomId: Long, ruid: Long): Result<GuardTopListResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topList") {
+            url {
+                parameters.append("roomid", roomId.toString())
+                parameters.append("page", "1")
+                parameters.append("ruid", ruid.toString())
+                parameters.append("page_size", "29")
+            }
+            header("Referer", "https://live.bilibili.com/")
+            commonHeaders.forEach { (k, v) -> header(k, v) }
+        }.body()
+    }
+
     // ========== Video Info ==========
     
     suspend fun getVideoInfo(bvid: String): Result<VideoInfoResponse> = runCatching {

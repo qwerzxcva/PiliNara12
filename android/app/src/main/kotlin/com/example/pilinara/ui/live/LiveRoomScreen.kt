@@ -43,6 +43,8 @@ fun LiveRoomScreen(
     )
 ) {
     val state by viewModel.state.collectAsState()
+    val guardNum by viewModel.guardNum.collectAsState()
+    val guards by viewModel.guards.collectAsState()
     val wsState by viewModel.wsState.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -150,9 +152,21 @@ fun LiveRoomScreen(
                                 })
                                 if (state.watchedCount > 0) append(" · 看过 ${state.watchedCount}")
                                 if (state.likeTotal > 0) append(" · 👍 ${state.likeTotal}")
+                                if (guardNum > 0) append(" · ⛵ $guardNum")
                             },
                             style = MaterialTheme.typography.labelMedium
                         )
+                        // 舰长列表（批次L31，最多展示 10 个）
+                        if (guards.isNotEmpty()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "舰长: " + guards.take(10).joinToString("、") { it.username },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
                         val ws = wsState
                         if (ws != null) {
                             Spacer(Modifier.weight(1f))
