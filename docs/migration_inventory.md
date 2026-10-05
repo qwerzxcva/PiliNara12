@@ -340,3 +340,50 @@
 - Kotlin ~18,340 行 / Rust 1,263 行；构建全绿（最近 4 次构建 30-59s）；cargo test 16/16、clippy 0。
 - 审核总轮数：r15-r18 累计 **23+11+23 = 57 轮**，累计修复 **25 项真实缺陷**。
 - 剩余（90% 后）：追番订阅/关注分组（需登录隐私接口）、动态 feed（-412 硬风控）、登录态项真机验证、Vulkan/HDR/多引擎（roadmap 末位）。
+
+## 复盘 r19（2026-10-05，功能补全+10轮审核+CI全量清零，90%→95%）
+
+用户指令：加大进度完成全部功能移植 → 10 轮代码审核优化 → **逐条检查 CI 每个报错（含警告/信息，即使构建成功）**。
+
+### 一、功能补全（L43–L45）
+- **L43 UP主空间公告**：`x/space/notice` 匿名可用（实测），空间页公告卡。
+- **L44 UP主空间内搜索投稿**：复用 wbi `arc/search` 的 keyword（API 层早有、UI 未接），投稿 Tab 搜索框（空词/重入保护）。
+- **L45 UP主课程（cheese/pugv）**：`pugv/app/web/season/page` 匿名可用，空间页课程横滑卡 + 外部浏览器打开。
+
+### 二、10 轮审核（审核61–70）
+- **审核61**（性能，落地）：Coil 全局 ImageLoader（内存 20% + 磁盘 128MB + crossfade）——此前 57 处 AsyncImage 各建默认加载器。
+- **审核62**：空 catch 扫描——仅 WS close 的 2 处合理忽略，通过。
+- **审核63**：9 处 Dialog/BottomSheet 生命周期检查，通过。
+- **审核64**：硬编码 http:// 扫描——仅 UrlFix.kt 的正则，通过。
+- **审核65**：Rust panic 安全——android_entry.rs 的 env.unwrap() 均由 Kotlin runCatching 包裹，风险可控，通过。
+- **审核66**：协程作用域——6 处均有 SupervisorJob 或 ViewModel scope 管理，通过。
+- **审核67**：runBlocking 主线程阻塞——全库 0 处，通过。
+- **审核68**：URL 参数拼接——均经参数化，无注入，通过。
+- **审核69**：图片 URL 空值防护——toHttpsUrl 全覆盖，通过。
+- **审核70**：见下（CI 全量）。
+
+### 三、CI 全量检查（错误+警告+信息，逐条修复）
+**Kotlin 编译警告 12 → 0**：JSON 单例复用（BiliApiClient/LiveRoomViewModel，避免每次请求重建）；MainActivity onPictureInPictureModeChanged 新版签名；8 处弃用图标 → AutoMirrored（ArrowBack/Comment/Send/VolumeOff/VolumeUp）。
+
+**Android Lint：56 errors + 45 warnings + 4 information → 0 + 0 + 0（"No issues found."）**
+- `MissingClass`：manifest 引用了不存在的 UCropActivity（Flutter 遗留，无代码使用）→ 移除。
+- `NewApi`(6)：styles.xml 中 defaultFocusHighlightEnabled(API26)/forceDarkAllowed(API29)/cutoutMode(API27) → tools:targetApi 声明。
+- `UnsafeOptInUsageError`(26)：Media3 PlayerView/音频处理器属 UnstableApi → @OptIn 声明（PlayerView 配置抽取为 createPlayerView 辅助函数）。
+- `DefaultLocale`(11)：String.format 全部补 Locale.ROOT。
+- `ObsoleteSdkInt`(4)：minSdk 24 恒真分支简化；v21 资源目录合并。
+- `ManifestOrder`：uses-permission 移到 application 之前。
+- `DataExtractionRules`：新增 res/xml/data_extraction_rules.xml（禁云备份/传输）。
+- `SelectedPhotoAccess`(2)：READ_MEDIA_* 权限无代码使用（Flutter 遗留）→ 删除权限。
+- `StaticFieldLeak`：DanmakuBlockViewModel 改用 applicationContext。
+- `SwitchIntDef`(2)：补 Player.STATE_IDLE / 音频编码 else 分支。
+- `UnusedResources`/`IconDuplicates`/`IconLocation`/`VectorPath`：清理未用布局/字符串/快捷方式资源、合并重复 night 图、lint.xml 记录良性项忽略原因。
+- `UnusedBoxWithConstraintsScope`：BoxWithConstraints → Box。
+- `AutoboxingStateCreation`(4 Information)：mutableStateOf → mutableIntStateOf/mutableLongStateOf。
+
+**Rust**：cargo test 16/16，clippy 0 warning。
+**完整构建**：`./gradlew :app:packageDebug` BUILD SUCCESSFUL，0 warning 0 error。
+
+### 规模与状态
+- Kotlin ~18,700 行 / Rust 1,263 行；lint 报告 "No issues found."。
+- 审核总轮数累计 **67 轮**（r15–r19），累计修复 **40+ 项真实缺陷**。
+- 剩余：需登录隐私接口（追番订阅/关注分组/收藏夹搜索/投币记录/黑名单）、动态 -412 硬风控、真机验证、Vulkan/HDR（roadmap 末位）。
