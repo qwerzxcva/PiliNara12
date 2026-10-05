@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
  * 订阅页 ViewModel（Animeko「订阅」移植）
@@ -24,6 +26,11 @@ import kotlinx.coroutines.launch
 class SubscribeViewModel(
     private val repository: SubscribeRepository
 ) : ViewModel() {
+
+    companion object {
+        /** 审核轮15：同时拉取的订阅源上限（防风控限流 + 内存峰值） */
+        private const val MAX_CONCURRENT_SYNC = 4
+    }
 
     data class UiState(
         val sources: List<SubscribeSourceEntity> = emptyList(),
@@ -88,10 +95,19 @@ class SubscribeViewModel(
                 return@launch
             }
             val errors = mutableListOf<String>()
+            // 审核轮15：限制并发（最多 4 个源同时拉）。
+            // 源很多时全并发会瞬间打出大量请求：既容易触发对端风控/限流，
+            // 也会同时持有多个响应体造成内存峰值。这里用 Semaphore 限流，
+            // 仍保持并发（不至于串行太慢）。
+            val semaphore = kotlinx.coroutines.sync.Semaphore(MAX_CONCURRENT_SYNC)
             val jobs = sources.map { s ->
                 launch {
-                    repository.syncSource(s).onFailure { e ->
-                        errors.add("${s.name}: ${e.message ?: "同步失败"}")
+                    semaphore.withPermit {
+                        repository.syncSource(s).onFailure { e ->
+                            synchronized(errors) {
+                                errors.add("${s.name}: ${e.message ?: "同步失败"}")
+                            }
+                        }
                     }
                 }
             }
