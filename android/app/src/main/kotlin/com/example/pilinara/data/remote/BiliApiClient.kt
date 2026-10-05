@@ -939,6 +939,18 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L45：UP主付费课程列表（cheese/pugv，匿名可用，无课程返回空） */
+    suspend fun getMemberCheese(mid: Long): Result<CheesePageResponse> = runCatching {
+        client.get("$API_BASE/pugv/app/web/season/page") {
+            url {
+                parameters.append("mid", mid.toString())
+                parameters.append("pn", "1")
+                parameters.append("ps", "10")
+            }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body()
+    }
+
     /** 批次L43：UP主空间公告（匿名可用，可能为空字符串） */
     suspend fun getSpaceNotice(mid: Long): Result<String> = runCatching {
         val resp: SpaceNoticeResponse = client.get("$API_BASE/x/space/notice") {

@@ -31,6 +31,8 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         val masterpieces: List<com.example.pilinara.data.model.MasterpieceArc> = emptyList(),
         // 批次L43：空间公告
         val notice: String = "",
+        // 批次L45：UP主课程
+        val cheeses: List<com.example.pilinara.data.model.CheeseItem> = emptyList(),
         val videos: List<SpaceVideoItem> = emptyList(),
         val page: Int = 1,
         val hasMore: Boolean = false,
@@ -60,6 +62,15 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         loadVideos(1)
         loadMasterpieces()
         loadNotice()
+        loadCheese()
+    }
+
+    /** 批次L45：UP主课程（匿名，失败静默） */
+    fun loadCheese() {
+        viewModelScope.launch {
+            val list = api.getMemberCheese(mid).getOrNull()?.data?.items.orEmpty()
+            if (list.isNotEmpty()) _state.value = _state.value.copy(cheeses = list)
+        }
     }
 
     /** 批次L43：空间公告（匿名，失败静默） */

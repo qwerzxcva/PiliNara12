@@ -45,6 +45,7 @@ fun MemberScreen(
     onOpenFollowList: (Long, Boolean) -> Unit = { _, _ -> },
     onOpenArticle: (Long) -> Unit = {},
     onBack: () -> Unit = {},
+    onOpenWeb: (String) -> Unit = {},
     viewModel: MemberViewModel = viewModel(factory = MemberViewModelFactory(mid))
 ) {
     val state by viewModel.state.collectAsState()
@@ -146,6 +147,50 @@ fun MemberScreen(
                         Spacer(Modifier.height(4.dp))
                         Text(state.notice, style = MaterialTheme.typography.bodySmall, maxLines = 4,
                             overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+
+            // ===== 批次L45：UP主课程横滑（有才显示）=====
+            if (state.cheeses.isNotEmpty()) item {
+                Column(Modifier.padding(top = 12.dp)) {
+                    Text(
+                        "课程",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(state.cheeses, key = { it.season_id }) { c ->
+                            Card(
+                                modifier = Modifier.width(200.dp),
+                                onClick = {
+                                    // 课程 H5 页跳转（pugv 无原生详情播放链路）
+                                    onOpenWeb("https://www.bilibili.com/cheese/play/ss${c.season_id}")
+                                }
+                            ) {
+                                Column {
+                                    AsyncImage(
+                                        model = c.cover.toHttpsUrl(),
+                                        contentDescription = c.title,
+                                        modifier = Modifier.fillMaxWidth().height(112.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Column(Modifier.padding(8.dp)) {
+                                        Text(c.title, style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text("${c.ep_count} 集 · ${c.play} 播放",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

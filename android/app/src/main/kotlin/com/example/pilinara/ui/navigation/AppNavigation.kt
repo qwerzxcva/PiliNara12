@@ -82,6 +82,7 @@ sealed class Screen(val route: String) {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     
     NavHost(
         navController = navController,
@@ -237,6 +238,10 @@ fun AppNavigation() {
                 },
                 onOpenArticle = { articleId ->
                     navController.navigate(Screen.Article.createRoute(articleId))
+                },
+                onOpenWeb = { url ->
+                    // 批次L45：课程等无原生链路页面用外部浏览器打开
+                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
                 }
             )
         }
