@@ -5,8 +5,14 @@ package com.example.pilinara
  * Replaces the Kotlin AudioNormalizationProcessor with a Rust dynaudnorm-style implementation.
  */
 internal object AudioNativeLib {
+
+    /** 审核实测：.so 缺失时不崩溃 */
+    val loaded: Boolean = runCatching {
+        System.loadLibrary("pilinara_native"); true
+    }.getOrDefault(false)
+
     init {
-        System.loadLibrary("pilinara_native")
+        if (!loaded) android.util.Log.w("PiliNative", "pilinara_native.so 不可用，音频归一化跳过")
     }
 
     private external fun normalize(input: ByteArray, channels: Int): ByteArray

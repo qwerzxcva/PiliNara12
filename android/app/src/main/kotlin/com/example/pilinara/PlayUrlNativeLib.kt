@@ -5,8 +5,14 @@ package com.example.pilinara
  * 输入 playurl 响应 JSON，返回选中的 {video, audio, duration} JSON；失败返回 null。
  */
 internal object PlayUrlNativeLib {
+
+    /** 审核实测：.so 缺失时不崩溃，select() 返回 null 走 Kotlin 回退 */
+    val loaded: Boolean = runCatching {
+        System.loadLibrary("pilinara_native"); true
+    }.getOrDefault(false)
+
     init {
-        System.loadLibrary("pilinara_native")
+        if (!loaded) android.util.Log.w("PiliNative", "pilinara_native.so 不可用，DASH 流选择回退 Kotlin")
     }
 
     private external fun selectStreams(body: String, targetQn: Int): String?

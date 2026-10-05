@@ -43,7 +43,7 @@ data class VideoItem(
         }
 
     val viewCountText: String
-        get() = formatCount(stat.view)
+        get() = formatCount(stat.displayView)
 
     val danmakuCountText: String
         get() = formatCount(stat.danmaku.toLong())
@@ -58,14 +58,20 @@ data class Owner(
 
 @Serializable
 data class Stat(
+    // 审核实测（Android 16 模拟器）：popular/ranking 的 stat 字段名是 view（不是 play），
+    // 旧文档的 play 字段保留兼容（部分老接口仍用 play）
     val view: Long = 0,
+    val play: Long = 0,
     val danmaku: Long = 0,
     val reply: Long = 0,
     val favorite: Long = 0,
     val coin: Long = 0,
     val share: Long = 0,
     val like: Long = 0,
-)
+) {
+    /** 实际播放数：优先 view，回退 play */
+    val displayView: Long get() = if (view > 0) view else play
+}
 
 fun formatCount(n: Long): String = when {
     n >= 100_000_000 -> "%.1f亿".format(n / 100_000_000.0)

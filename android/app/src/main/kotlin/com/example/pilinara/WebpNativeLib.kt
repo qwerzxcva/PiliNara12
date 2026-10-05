@@ -6,8 +6,14 @@ package com.example.pilinara
  * Replaces the Kotlin AnimatedWebpMuxer with a cross-platform Rust implementation.
  */
 internal object WebpNativeLib {
+
+    /** 审核实测：.so 缺失时不崩溃 */
+    val loaded: Boolean = runCatching {
+        System.loadLibrary("pilinara_native"); true
+    }.getOrDefault(false)
+
     init {
-        System.loadLibrary("pilinara_native")
+        if (!loaded) android.util.Log.w("PiliNative", "pilinara_native.so 不可用，WebP 编码跳过")
     }
 
     private external fun create(width: Int, height: Int): Long

@@ -22,6 +22,12 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     companion object {
         // 审核77：Gson 线程安全，全 VM 复用单实例
         private val GSON = com.google.gson.Gson()
+
+        /**
+         * 审核实测（Android 16 模拟器）：B站 DASH CDN 按 UA 白名单放行，
+         * 自定义 UA 会被 403。API 请求与媒体流请求统一使用完整浏览器 UA。
+         */
+        const val BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     }
     // 审核27：ViewModel 生命周期长于 Activity，持有 applicationContext 防内存泄漏
     private val appContext: Context = context.applicationContext
@@ -483,8 +489,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         resumePositionMs: Long = 0L,
         playWhenReady: Boolean = true
     ) {
+        // 审核实测（Android 16 模拟器）：B站 DASH CDN 对非标准 UA 返回 403（PiliNara UA → 403，
+        // 真实浏览器 UA → 206）。必须用完整浏览器 UA。
         val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
+            .setUserAgent(BROWSER_UA)
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
 

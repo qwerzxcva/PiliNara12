@@ -4,10 +4,16 @@ package com.example.pilinara.danmaku
  * Kotlin FFI bindings for Danmaku Native Library
  */
 class DanmakuNativeLib {
-    
+
+    /** 审核实测：.so 缺失（x86_64 模拟器/老设备）时不崩溃，所有方法降级返回 null/0 */
+    val loaded: Boolean = runCatching {
+        System.loadLibrary("pilinara_native"); true
+    }.getOrDefault(false)
+
     init {
-        System.loadLibrary("pilinara_native")
+        if (!loaded) android.util.Log.w("PiliNative", "pilinara_native.so 不可用，弹幕合并/屏蔽/热力图回退 Kotlin 实现")
     }
+    
     
     private var mergerPtr: Long = 0
     

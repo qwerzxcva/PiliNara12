@@ -35,21 +35,8 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             
             response.onSuccess { resp ->
                 if (resp.code == 0 && resp.data != null) {
-                    _videos.value = resp.data.list.map { item ->
-                        VideoItem(
-                            bvid = item.bvid,
-                            aid = item.aid,
-                            cid = item.cid ?: 0L,
-                            title = item.title,
-                            author = item.owner?.name ?: "未知UP主",
-                            authorMid = item.owner?.mid ?: 0L,
-                            authorFace = item.owner?.face ?: "",
-                            pic = item.pic,
-                            duration = item.duration?.toInt() ?: 0,
-                            desc = item.desc,
-                            pubdate = item.pubdate
-                        )
-                    }
+                    // 审核实测（Android 16 模拟器）：直接透传响应 item，手动重建会丢 stat（播放量恒 0）
+                    _videos.value = resp.data.list
                 } else {
                     _error.value = resp.message ?: "获取数据失败"
                 }
@@ -78,21 +65,8 @@ class HomeRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
         
         return response.onSuccess { resp ->
             if (resp.code == 0 && resp.data != null) {
-                val newVideos = resp.data.list.map { item ->
-                    VideoItem(
-                        bvid = item.bvid,
-                        aid = item.aid,
-                        cid = item.cid ?: 0L,
-                        title = item.title,
-                        author = item.owner?.name ?: "未知UP主",
-                        authorMid = item.owner?.mid ?: 0L,
-                        authorFace = item.owner?.face ?: "",
-                        pic = item.pic,
-                        duration = item.duration?.toInt() ?: 0,
-                        desc = item.desc,
-                        pubdate = item.pubdate
-                    )
-                }
+                // 审核实测：同上，直接透传（勿手动重建丢 stat）
+                val newVideos = resp.data.list
                 currentVideos.addAll(newVideos)
                 _videos.value = currentVideos
             }
