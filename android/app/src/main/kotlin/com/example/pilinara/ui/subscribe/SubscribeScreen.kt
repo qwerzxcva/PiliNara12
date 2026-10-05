@@ -150,7 +150,16 @@ fun SubscribeScreen(
                     ) {
                         items(state.items, key = { it.id }) { item ->
                             SubscribeItemCard(item = item) {
-                                onPlay(item.link, item.title, item.cover)
+                                // 审核轮8：不是所有条目都有可播放直链。
+                                // RSS 的 <link> 常是网页而非媒体；只有 enclosure/直链
+                                // 才能直接交给 ExoPlayer。这里先判定可否播放，
+                                // 不能播放时给出明确提示，而不是把网页 URL 丢给播放器
+                                // 导致「点了没反应/一直转圈」。
+                                if (isLikelyPlayable(item.link)) {
+                                    onPlay(item.link, item.title, item.cover)
+                                } else {
+                                    viewModel.reportNotPlayable(item.title)
+                                }
                             }
                         }
                     }
@@ -177,6 +186,34 @@ fun SubscribeScreen(
             onDelete = { id -> viewModel.removeSource(id) }
         )
     }
+}
+
+/**
+ * 审核轮8：判断链接是否「可能可直接播放」
+ *
+ * ExoPlayer 能吃：直链媒体（mp4/m4a/webm/...）、HLS(m3u8)、DASH(mpd)。
+ * 吃不了：普通网页（.html / 无扩展名的详情页）。
+ *
+ * 注意：这是启发式判断（看 URL 后缀与路径），不发起网络请求。
+ * 判定为可播放不代表一定能播（可能 403/风控），但能避免把明显是网页的
+ * URL 丢进播放器导致「点了没反应」。
+ */
+private fun isLikelyPlayable(url: String): Boolean {
+    if (url.isBlank()) return false
+    val lower = url.lowercase()
+    // HLS / DASH 清单
+    if (lower.contains(".m3u8") || lower.contains(".mpd")) return true
+    // 常见媒体直链后缀
+    val mediaExt = listOf(
+        ".mp4", ".m4v", ".webm", ".mkv", ".flv",
+        ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".wav", ".ts"
+    )
+    val path = runCatching { android.net.Uri.parse(url).path ?: "" }.getOrDefault("")
+    if (mediaExt.any { path.lowercase().endsWith(it) }) return true
+    // 明显是网页
+    if (lower.endsWith(".html") || lower.endsWith(".htm") || lower.endsWith(".php")) return false
+    // 无扩展名：视为详情页，不可直接播放
+    return false
 }
 
 @Composable
