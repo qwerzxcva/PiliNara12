@@ -291,3 +291,25 @@
 **规模**：Kotlin 12x 文件 / 18,187 行；Rust 11 文件 / 1263 行。**进度：80% → 85%**。
 
 **剩余**：追番订阅（匿名 53013 隐私）、动态 feed（-412 风控）、音乐（接口废弃）、登录态项真机验证（@评论搜索/番剧 ep 字幕/投币记录/关注分组/黑名单）、Vulkan/HDR（最后）。
+
+## 复盘 r17（2026-10-05，10+ 轮审核优化专项，85%）
+
+用户要求：完成 85%+ 后审核优化整个项目 10 轮。实际执行 **11 轮**（审核27–37）：
+
+- **审核27**（4d08942，真实缺陷）：VideoPlayerViewModel / SettingsViewModel 持有 Activity Context → 配置变更泄漏 Activity；改持 applicationContext（6 处调用点 + 2 类构造）
+- **审核28**：竞态/线程安全核查——ExoPlayer 操作均在 Main 协程（player 构造于主线程）；LiveDanmakuWsClient closed flag + onCleared close()；WS 生命周期正确 → 通过
+- **审核29**：写操作表单字段核对（like/coin/favorite/report/dm post/comment）与官方 API 一致 → 通过
+- **审核30**：Compose 性能——长列表（搜索/私信/相关视频）补 LazyColumn key 提升复用（29b43b7）
+- **审核31**（093f0af，真实缺陷）：HttpClient **无任何超时/重试配置**——弱网请求挂死；补 HttpTimeout(30s/15s/20s) + HttpRequestRetry(指数退避 2 次)
+- **审核32**：JNI 边界——unsafe 指针均由 Kotlin create/destroy 配对 + try/finally 管理 → 通过
+- **审核33**：AndroidManifest 权限最小化（legacy storage 带 maxSdkVersion）→ 通过
+- **审核34**：Room 迁移（fallbackToDestructiveMigration）+ 无 allowMainThreadQueries → 通过
+- **审核35**：StateFlow 封装——无公开暴露的 MutableStateFlow，全部 asStateFlow → 通过
+- **审核36**（a334b8b）：热力曲线时长兜底——弹幕早于播放器就绪时 duration=0，Rust 侧用弹幕最大时间兜底
+- **审核37**：空态/错误态/重试一致性——13 页含重试、21 页含加载指示、11 页含空态文本；列表页均处理 loading+error → 可接受
+
+**累计 16 项真实缺陷修复（跨 r15-r17 审核专项）**：parseUrlCookies 格式、图片/播放流 http→https、搜索直播断链、下载竞态、弹幕队列并发、弹幕屏蔽未接线、UID 规则失效、设置菜单断链、评论排序未传参、直播列表风控、搜索返回键断链、Context 泄漏、网络超时缺失。
+
+**规模**：Kotlin 12x 文件 / 18,187 行；Rust 11 文件 / 1263 行（dmfilter 4 单测 + dmheat 4 单测，cargo test 16/16、clippy 0 warning）。
+
+**注**：另一 AI 协作期间未见并行分支提交；本地/远端经 fetch 核对一致（如发现冲突按「保留更完整实现」原则处理）。
