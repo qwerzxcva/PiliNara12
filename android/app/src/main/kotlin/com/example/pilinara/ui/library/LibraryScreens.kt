@@ -9,6 +9,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -40,6 +43,23 @@ class LibraryViewModel(
 
     private val _history = MutableStateFlow<List<HistoryItem>>(emptyList())
     val history: StateFlow<List<HistoryItem>> = _history.asStateFlow()
+
+    // 批次L21：历史搜索
+    private val _historySearching = MutableStateFlow(false)
+    val historySearching: StateFlow<Boolean> = _historySearching.asStateFlow()
+
+    /** 搜索历史（keyword 空 = 恢复普通历史列表） */
+    fun searchHistory(keyword: String) {
+        if (keyword.isBlank()) { loadHistory(force = true); return }
+        viewModelScope.launch {
+            _historySearching.value = true
+            _error.value = null
+            repo.searchHistory(keyword)
+                .onSuccess { resp -> _history.value = resp.data?.list.orEmpty() }
+                .onFailure { _error.value = it.message ?: "搜索历史失败" }
+            _historySearching.value = false
+        }
+    }
 
     private val _folders = MutableStateFlow<List<FavFolder>>(emptyList())
     val folders: StateFlow<List<FavFolder>> = _folders.asStateFlow()
@@ -319,7 +339,9 @@ fun HistoryScreen(
 ) {
     val history by viewModel.history.collectAsState()
     val loading by viewModel.loading.collectAsState()
+    val historySearching by viewModel.historySearching.collectAsState()
     val error by viewModel.error.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { viewModel.loadHistory() }
 
@@ -335,11 +357,36 @@ fun HistoryScreen(
             )
         }
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = loading,
-            onRefresh = { viewModel.loadHistory() },
-            modifier = Modifier.padding(padding).fillMaxSize()
-        ) {
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            // 历史搜索框（批次L21）
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                placeholder = { Text("搜索观看历史") },
+                singleLine = true,
+                trailingIcon = {
+                    Row {
+                        IconButton(onClick = { viewModel.searchHistory(searchQuery) }) {
+                            Icon(Icons.Default.Search, contentDescription = "搜索")
+                        }
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = {
+                                searchQuery = ""
+                                viewModel.searchHistory("")
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "清除")
+                            }
+                        }
+                    }
+                }
+            )
+            Box(Modifier.weight(1f)) {
+                PullToRefreshBox(
+                    isRefreshing = loading || historySearching,
+                    onRefresh = { viewModel.loadHistory() },
+                    modifier = Modifier.fillMaxSize()
+                ) {
             when {
                 loading && history.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     CircularProgressIndicator()
@@ -370,6 +417,8 @@ fun HistoryScreen(
                             LaunchedEffect(history.size) { viewModel.loadMoreHistory() }
                         }
                     }
+                }
+            }
                 }
             }
         }

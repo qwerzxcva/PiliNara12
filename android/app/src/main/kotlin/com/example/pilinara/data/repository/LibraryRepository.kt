@@ -53,4 +53,17 @@ class LibraryRepository(private val api: BiliApiClient = BiliApiClient()) {
                 }
             }
         }
+
+    /** 批次L21：搜索观看历史（需登录 cookie） */
+    suspend fun searchHistory(keyword: String, ps: Int = 20): Result<HistoryResponse> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                api.getFavoritesRaw("x/web-interface/history/search") {
+                    append("business", "archive")
+                    append("keyword", keyword)
+                    append("pn", "1")
+                    append("ps", ps.toString())
+                }
+            }
+        }
 }
