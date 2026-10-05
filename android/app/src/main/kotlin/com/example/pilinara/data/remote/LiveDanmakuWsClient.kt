@@ -204,7 +204,10 @@ class LiveDanmakuWsClient(
         try {
             val obj = org.json.JSONObject(String(body, Charsets.UTF_8))
             dispatchCmd(obj)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            // 审核12：损坏包只记日志不上抛，不打断弹幕流
+            android.util.Log.w(TAG, "弹幕 JSON 解析失败: ${e.message}")
+        }
     }
 
     /** 业务消息分发（DANMU_MSG 等；结构对齐 Flutter controller._danmakuListener） */

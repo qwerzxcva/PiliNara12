@@ -27,7 +27,8 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
     
-    private val _danmakuQueue = mutableListOf<DanmakuEvent>()
+    // 审核13：弹幕队列被 WS 线程/主线程/渲染帧并发读写 → 线程安全容器
+    private val _danmakuQueue = java.util.concurrent.CopyOnWriteArrayList<DanmakuEvent>()
     
     data class PlayerState(
         val isPlaying: Boolean = false,
