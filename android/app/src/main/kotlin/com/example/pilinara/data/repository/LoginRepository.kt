@@ -9,7 +9,6 @@ import com.example.pilinara.data.model.QrPollResponse
 import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.data.remote.BiliHttpClient
 import com.example.pilinara.data.remote.LoginApiClient
-import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

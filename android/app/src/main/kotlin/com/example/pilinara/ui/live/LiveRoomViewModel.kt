@@ -2,7 +2,6 @@ package com.example.pilinara.ui.live
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pilinara.data.model.LiveRoomInfoData
 import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

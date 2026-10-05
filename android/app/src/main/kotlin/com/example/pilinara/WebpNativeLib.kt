@@ -1,6 +1,5 @@
 package com.example.pilinara
 
-import java.io.RandomAccessFile
 
 /**
  * Native WebP encoder backed by Rust implementation.

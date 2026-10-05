@@ -1,6 +1,5 @@
 package com.example.pilinara.ui.pages.article
 
-import android.os.Bundle
 import android.text.Html
 import android.widget.TextView
 import androidx.compose.foundation.layout.*
