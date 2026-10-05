@@ -141,7 +141,7 @@ class PlaybackStatsService(private val context: Context) {
             val json = Json.encodeToString(stats.values.toList())
             saveFile.writeText(json)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.w("PlaybackStats", "统计保存失败", e)
         }
     }
     
@@ -156,7 +156,7 @@ class PlaybackStatsService(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.w("PlaybackStats", "统计保存失败", e)
         }
     }
     
