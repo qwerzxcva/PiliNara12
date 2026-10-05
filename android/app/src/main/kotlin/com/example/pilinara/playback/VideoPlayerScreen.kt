@@ -92,11 +92,35 @@ fun VideoPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
         
-        // Danmaku Overlay
+        // Danmaku Overlay（批次L14 真实渲染接线）
+        var dmViewRef by remember { mutableStateOf<com.example.pilinara.danmaku.DanmakuView?>(null) }
         AndroidView(
-            factory = { ctx -> DanmakuView(ctx) },
+            factory = { ctx ->
+                com.example.pilinara.danmaku.DanmakuView(ctx).also { dmViewRef = it }
+            },
+            update = { v ->
+                v.alphaFactor = state.danmakuAlpha
+                v.scaleFactor = state.danmakuScale
+                v.setRunning(state.isPlaying)
+            },
             modifier = Modifier.fillMaxSize()
         )
+        // 已发送到渲染层的弹幕 id（避免重复 add）
+        val dispatchedIds = remember { mutableSetOf<String>() }
+        LaunchedEffect(state.isPlaying, state.currentTime, state.danmakuOn) {
+            val v = dmViewRef ?: return@LaunchedEffect
+            if (!state.danmakuOn) { v.clearAll(); return@LaunchedEffect }
+            // 窗口内未分发的弹幕 → add
+            for (e in viewModel.getDanmakuAtTime(state.currentTime)) {
+                if (dispatchedIds.add(e.id.ifEmpty { "${e.timestamp}_${e.content}" })) {
+                    v.add(e.content, e.color, e.fontSize)
+                }
+            }
+        }
+        // seek/切P 时重置去重集合并清屏
+        LaunchedEffect(state.currentTime) {
+            if (state.currentTime < 3000L) dispatchedIds.clear()
+        }
 
         // 字幕层（批次K）
         val subtitle by viewModel.currentSubtitle.collectAsState()
