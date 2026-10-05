@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kazumi 特性：默认 SurfaceView 渲染器布局（性能最佳、功耗最低）。
+  与 player_view_texture.xml 成对，由代码按用户设置选择。
+-->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/player_view_surface"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="surface_view"
+    app:resize_mode="fit"
+    app:show_next_button="false"
+    app:show_previous_button="false"
+    app:controller_auto_show="true"
+    app:controller_show_timeout_ms="3000" />
