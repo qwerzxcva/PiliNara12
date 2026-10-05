@@ -152,3 +152,19 @@
 **规模**：Kotlin 104 文件 / 14,295 行。**进度：31% → 34%**。
 
 **剩余**：Kototoro 页面级打磨、@用户评论搜索（需登录态实测）、下载选清晰度/断点续传、直播进房/点赞消息、Vulkan/HDR/多引擎（最后）。
+
+## 复盘 r11（2026-10-05，批次L5-L9：弹幕发送/@评论/直播点赞观看/断点续传/字幕选择）
+
+**本轮新增（5 commit，全部经 :app:packageDebug 构建验证）**：
+- **批次L5 视频弹幕发送**（184c575）：/x/v2/dm/post（oid=cid/type=1/bvid/progress/mode/csrf）+ VideoPlayerViewModel.sendDanmaku（登录校验+当前进度+本地立即插入 _danmakuQueue 反馈）+ 弹幕设置面板发送输入行
+- **批次L6 直播点赞/观看数/进房欢迎**（184c575）：WS 解析 LIKE_INFO_V3_CLICK/UPDATE（total_like+点赞人名）、WATCHED_CHANGE（data.num 看过人数）、INTERACT_WORD（msg_type=1 进房欢迎）→ VM 收集 likeTotal/watchedCount/welcome/likeMsg → 直播间头部"看过 N · 👍 N"实时展示 + 系统"欢迎 xx 进入直播间"/"xx 点了个赞"消息
+- **批次L7 @用户评论**（0765e26）：/x/v2/reply/at wbi 签名搜索候选 + CommentScreen @按钮 + 输入实时搜索（lastIndexOf('@') 后缀）+ 候选下拉（头像/UP标）选中补全 + addComment 增 at_uid/at_name（at_name_to_mid 表单字段）真实发送
+- **批次L8 下载暂停/断点续传**（5df661c）：STATE_PAUSED(4) + pause/resume + downloadTo HTTP Range 206 追加续传（服务器不支持则重下）+ **修复既有 bug：download() 重试时重建 Entity 丢 cid/进度/标题 → 改保留原记录** + DownloadScreen 暂停/继续/重试按钮
+- **收藏夹内容无限分页**（c31811b）：x/v3/fav/resource/list pn 分页 + 去重合并 + 滚动加载
+- **批次L9 播放器字幕选择 UI**（d83ccc1）：subtitleTracks 多轨列表(id/langDoc/url) + selectSubtitle 懒加载 body + 关闭字幕(id=-1) + 弹幕面板 FilterChip 轨道选择
+
+**审查结论（第三轮）**：假实现/TODO 无；60 API 方法绑定核查（脚本误报已人工逐一确认，repo 层 likeVideo/coinVideo/favoriteVideo 实际经 toggleLike/coinOnce/toggleFavorite 触发）；点赞/投币/收藏/历史上报/直播进房上报链路全通；发现并修复 download 重试丢数据 bug。
+
+**规模**：Kotlin 104 文件 / 14,822 行。**进度：34% → 40%**。
+
+**剩余**：番剧 ep 字幕、Kototoro 页面级打磨、下载弹幕/字幕离线、批量下载、重连退避增强、Vulkan/HDR/多引擎（最后）。
