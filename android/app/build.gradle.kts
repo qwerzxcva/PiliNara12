@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.0.21"
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
     id("com.google.devtools.ksp") version "2.0.21-1.0.28"
+    id("androidx.room") version "2.6.1"
     kotlin("plugin.serialization") version "2.0.21"
 }
 
@@ -123,4 +124,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+}
+
+// Room schema 导出：启用迁移校验，消除 "Schema export directory was not provided" 警告
+room {
+    schemaDirectory("$projectDir/schemas")
 }

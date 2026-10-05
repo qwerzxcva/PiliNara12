@@ -16,7 +16,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 object BiliHttpClient {
-    private val json = Json {
+    // 共享单例：避免每次解析都新建 Json 实例（性能 + 统一容错策略）
+    val json: Json = Json {
         ignoreUnknownKeys = true
         isLenient = true
         encodeDefaults = true
