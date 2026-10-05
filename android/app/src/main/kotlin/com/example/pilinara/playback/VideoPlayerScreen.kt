@@ -903,4 +903,14 @@ private fun createPlayerView(
     setShowPreviousButton(false)
     controllerAutoShow = true
     controllerShowTimeoutMs = 3000
+    // Kazumi 特性：渲染器可切换（默认 SurfaceView）
+    //  - SurfaceView(0)：性能最好、功耗低（默认）
+    //  - TextureView(1)：支持变换/圆角裁剪、可与 Compose 动画合成，但略耗性能
+    // 注意：DataStore 是异步的，这里读由 ViewModel 收集 setting 后缓存的同步值，
+    // 避免在 view 工厂里阻塞主线程（runBlocking 在 UI 线程会卡帧）。
+    if (com.example.pilinara.utils.RendererPrefs.useTextureView) {
+        setSurfaceType(androidx.media3.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
+    } else {
+        setSurfaceType(androidx.media3.ui.PlayerView.SURFACE_TYPE_SURFACE_VIEW)
+    }
 }
