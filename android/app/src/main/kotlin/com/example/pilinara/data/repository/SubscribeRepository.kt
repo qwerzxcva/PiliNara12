@@ -4,6 +4,7 @@ import com.example.pilinara.data.remote.BiliHttpClient
 import com.example.pilinara.database.SubscribeItemEntity
 import com.example.pilinara.database.SubscribeSourceDao
 import com.example.pilinara.database.SubscribeSourceEntity
+import androidx.room.withTransaction
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,15 @@ import java.io.StringReader
  * 4. 单源解析失败不影响其它源：ViewModel 层逐源 try，聚合成功的部分。
  */
 object SubscribeParser {
+
+    /**
+     * 单个订阅源最多保留的条目数（审核轮2）
+     *
+     * 理由：野生订阅源可能有上万条历史条目，全量解析 + 全量 Upsert 会
+     * 造成解析耗时、DB 膨胀、以及订阅页一次性渲染巨量卡片导致卡顿/ANR。
+     * 订阅页本质是「最近更新」视图，截断到最近 500 条不影响可用性。
+     */
+    private const val MAX_ITEMS_PER_SOURCE = 500
 
     /** 解析出的条目（未落库） */
     data class ParsedItem(
@@ -207,7 +217,10 @@ object SubscribeParser {
         return ParsedSource(
             name = sourceTitle.trim(),
             cover = sourceCover.trim(),
-            items = items
+            // 审核轮2：截断，避免超大源导致解析/落库/渲染卡顿
+            items = if (items.size > MAX_ITEMS_PER_SOURCE) {
+                items.sortedByDescending { it.pubAt }.take(MAX_ITEMS_PER_SOURCE)
+            } else items
         )
     }
 
@@ -251,7 +264,11 @@ object SubscribeParser {
                 episode = o["episode"]?.jsonPrimitive?.content ?: guessEpisode(title)
             )
         }
-        return ParsedSource(name, cover, items)
+        return ParsedSource(
+            name,
+            cover,
+            if (items.size > MAX_ITEMS_PER_SOURCE) items.take(MAX_ITEMS_PER_SOURCE) else items
+        )
     }
 
     private fun readText(parser: XmlPullParser): String {
@@ -303,6 +320,11 @@ class SubscribeRepository(
     private val dao: SubscribeSourceDao,
     private val itemDao: com.example.pilinara.database.SubscribeItemDao
 ) {
+    /** 事务宿主：保证「删旧 + 写新」原子提交（审核轮3） */
+    private val db by lazy {
+        com.example.pilinara.database.PiliNaraDatabase
+            .getDatabase(com.example.pilinara.AppContext.get())
+    }
 
     /**
      * 添加一个订阅源。
@@ -349,9 +371,14 @@ class SubscribeRepository(
                         updatedAt = now
                     )
                 }
-                // 先清旧条目再写新条目：避免源内删除的条目长期残留
-                itemDao.deleteBySource(source.id)
-                itemDao.upsertAll(entities)
+                // 先清旧条目再写新条目：避免源内删除的条目长期残留。
+                // 审核轮3：必须放在同一事务里 —— 否则「删完还没写完」时进程被杀
+                // 或写入失败，用户会看到订阅页被清空（数据丢失）。
+                // withTransaction 保证删+写原子提交，任一步失败则整体回滚。
+                db.withTransaction {
+                    itemDao.deleteBySource(source.id)
+                    itemDao.upsertAll(entities)
+                }
 
                 dao.updateSyncResult(
                     id = source.id,
