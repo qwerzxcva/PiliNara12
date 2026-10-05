@@ -31,6 +31,10 @@ class StorageManager(private val context: Context) {
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val DARK_MODE_KEY = booleanPreferencesKey("darkMode")
         private val AMOLED_KEY = booleanPreferencesKey("amoledBlack")
+        // Kazumi 特性：视频渲染器（0=SurfaceView默认 1=TextureView）
+        private val RENDERER_KEY = intPreferencesKey("videoRenderer")
+        // Kazumi 特性：低延迟音频（缩短 AudioTrack 缓冲，代价是弱网易卡顿）
+        private val LOW_LATENCY_AUDIO_KEY = booleanPreferencesKey("lowLatencyAudio")
         private val NOTIFICATION_ENABLED_KEY = booleanPreferencesKey("notificationEnabled")
         
         // Video settings
@@ -68,6 +72,14 @@ class StorageManager(private val context: Context) {
 
     val videoQualityFlow: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[VIDEO_QUALITY_KEY] ?: "auto" }
+
+    /** Kazumi：视频渲染器（0=SurfaceView 1=TextureView） */
+    val rendererFlow: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[RENDERER_KEY] ?: 0 }
+
+    /** Kazumi：低延迟音频（AudioTrack 缓冲最小化） */
+    val lowLatencyAudioFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[LOW_LATENCY_AUDIO_KEY] ?: false }
     
     val autoPlayFlow: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[AUTO_PLAY_KEY] ?: false }
@@ -121,6 +133,20 @@ class StorageManager(private val context: Context) {
     suspend fun setAmoled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AMOLED_KEY] = enabled
+        }
+    }
+
+    /** Kazumi：设置视频渲染器（0=SurfaceView 1=TextureView） */
+    suspend fun setRenderer(v: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[RENDERER_KEY] = v
+        }
+    }
+
+    /** Kazumi：设置低延迟音频 */
+    suspend fun setLowLatencyAudio(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[LOW_LATENCY_AUDIO_KEY] = enabled
         }
     }
 
