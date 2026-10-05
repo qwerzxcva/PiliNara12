@@ -52,8 +52,10 @@ class LiveDanmakuWsClient(
     sealed interface State {
         data object Idle : State
         data object Connecting : State
+        data object Connected : State
         data object Authenticated : State
         data object Closed : State
+        data class Reconnecting(val attempt: Int) : State
         data class Failed(val reason: String) : State
     }
 
@@ -325,28 +327,37 @@ class LiveDanmakuWsClient(
         _state.value = State.Connecting
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope?.launch {
-            try {
-                val (host, port) = hosts.first()
-                val s = wsHttpClient.webSocketSession(
-                    urlString = "wss://$host:$port/sub"
-                ) {
-                    headers.append("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
-                    headers.append("Origin", "https://live.bilibili.com")
-                }
-                session = s
-                // 认证包
-                s.send(Frame.Binary(true, pack(OP_AUTH, authBody(), protoVer = 1)))
-                startHeartbeat(s)
-                for (frame in s.incoming) {
-                    if (frame is Frame.Binary) parsePackets(frame.data)
-                }
-                _state.value = State.Closed
-            } catch (e: Exception) {
-                if (!closed) {
-                    Log.w(TAG, "WS 失败: ${e.message}")
-                    _state.value = State.Failed(e.message ?: "连接失败")
+            var attempt = 0
+            while (!closed && attempt < 6) {
+                try {
+                    val (host, port) = hosts[attempt % hosts.size]  // 失败轮换 host
+                    val s = wsHttpClient.webSocketSession(
+                        urlString = "wss://$host:$port/sub"
+                    ) {
+                        headers.append("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
+                        headers.append("Origin", "https://live.bilibili.com")
+                    }
+                    session = s
+                    // 认证包
+                    s.send(Frame.Binary(true, pack(OP_AUTH, authBody(), protoVer = 1)))
+                    startHeartbeat(s)
+                    _state.value = State.Connected
+                    attempt = 0  // 成功后重置退避
+                    for (frame in s.incoming) {
+                        if (frame is Frame.Binary) parsePackets(frame.data)
+                    }
+                    if (!closed) _state.value = State.Closed
+                    break
+                } catch (e: Exception) {
+                    if (closed) break
+                    attempt++
+                    val backoff = (2000L shl (attempt - 1).coerceAtMost(5)) // 2s,4s,8s,16s,32s,64s
+                    Log.w(TAG, "WS 失败(第${attempt}次): ${e.message}，${backoff}ms 后重连")
+                    _state.value = State.Reconnecting(attempt)
+                    delay(backoff)
                 }
             }
+            if (!closed && attempt >= 6) _state.value = State.Failed("重连失败（已重试6次）")
         }
     }
 
