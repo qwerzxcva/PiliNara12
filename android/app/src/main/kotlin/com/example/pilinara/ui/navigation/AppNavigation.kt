@@ -215,6 +215,9 @@ fun AppNavigation() {
                 },
                 onOpenFollowList = { m, followers ->
                     navController.navigate(Screen.FollowList.createRoute(m, followers))
+                },
+                onOpenArticle = { articleId ->
+                    navController.navigate(Screen.Article.createRoute(articleId))
                 }
             )
         }

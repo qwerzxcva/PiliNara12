@@ -41,11 +41,13 @@ fun MemberScreen(
     mid: Long,
     onOpenVideo: (String, Long) -> Unit = { _, _ -> },
     onOpenFollowList: (Long, Boolean) -> Unit = { _, _ -> },
+    onOpenArticle: (Long) -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: MemberViewModel = viewModel(factory = MemberViewModelFactory(mid))
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    var tab by remember { mutableStateOf(0) }  // 0=投稿 1=专栏
 
     LaunchedEffect(state.error) {
         state.error?.let {
@@ -127,8 +129,23 @@ fun MemberScreen(
                 }
             }
 
-            // ===== 排序切换 =====
+            // ===== Tab：投稿 / 专栏（批次L24）=====
             item {
+                TabRow(selectedTabIndex = tab) {
+                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("投稿") })
+                    Tab(
+                        selected = tab == 1,
+                        onClick = {
+                            tab = 1
+                            if (state.articles.isEmpty()) viewModel.loadArticles(1)
+                        },
+                        text = { Text("专栏") }
+                    )
+                }
+            }
+
+            // ===== 排序切换（仅投稿页显示）=====
+            if (tab == 0) item {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -146,7 +163,7 @@ fun MemberScreen(
                 }
             }
 
-            when {
+            if (tab == 0) when {
                 state.isLoading -> item {
                     Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
                         CircularProgressIndicator()
@@ -178,6 +195,55 @@ fun MemberScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ===== 专栏列表（批次L24）=====
+            if (tab == 1) {
+                if (state.articles.isEmpty() && state.articlesLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (state.articles.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                            Text("该 UP 主暂无专栏", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    items(state.articles, key = { it.id }) { art ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                                .clickable { onOpenArticle(art.id) }
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(art.title, style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                                if (art.summary.isNotBlank()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        art.summary, style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "${art.stats?.view ?: 0} 阅读 · ${art.stats?.reply ?: 0} 评论",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    if (state.articleHasMore) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {
+                                LaunchedEffect(state.articles.size) { viewModel.loadArticles(state.articlePage + 1) }
+                                CircularProgressIndicator(Modifier.size(22.dp))
                             }
                         }
                     }

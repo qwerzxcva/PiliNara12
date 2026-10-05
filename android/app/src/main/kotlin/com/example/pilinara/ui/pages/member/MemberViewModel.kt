@@ -34,7 +34,12 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         val isFollowing: Boolean = false,
         val isLoading: Boolean = false,
         val isLoadingMore: Boolean = false,
-        val error: String? = null
+        val error: String? = null,
+        // 批次L24：专栏
+        val articles: List<com.example.pilinara.data.model.SpaceArticleItem> = emptyList(),
+        val articlePage: Int = 1,
+        val articleHasMore: Boolean = false,
+        val articlesLoading: Boolean = false
     )
 
     init {
@@ -94,6 +99,27 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         val s = _state.value
         if (s.isLoading || s.isLoadingMore || !s.hasMore) return
         loadVideos(s.page + 1)
+    }
+
+    /** 批次L24：加载专栏列表（分页） */
+    fun loadArticles(page: Int = 1) {
+        if (_state.value.articlesLoading) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(articlesLoading = true)
+            api.getSpaceArticles(mid, page)
+                .onSuccess { resp ->
+                    if (resp.code == 0) {
+                        val list = resp.data?.articles.orEmpty()
+                        val merged = if (page == 1) list else _state.value.articles + list
+                        _state.value = _state.value.copy(
+                            articles = merged, articlePage = page,
+                            articleHasMore = merged.size < (resp.data?.count ?: 0),
+                            articlesLoading = false
+                        )
+                    } else _state.value = _state.value.copy(articlesLoading = false)
+                }
+                .onFailure { _state.value = _state.value.copy(articlesLoading = false) }
+        }
     }
 
     fun setOrder(order: String) {

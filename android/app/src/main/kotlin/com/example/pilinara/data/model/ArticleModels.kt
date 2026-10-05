@@ -43,3 +43,27 @@ data class ArticleStats(
     val share: Long = 0L,
     val coin: Long = 0L
 )
+
+/** 批次L24：UP 主专栏列表（/x/space/article） */
+@Serializable
+data class SpaceArticleResponse(
+    val code: Int = 0,
+    val message: String? = null,
+    val data: SpaceArticleData? = null
+)
+
+@Serializable
+data class SpaceArticleData(
+    val count: Int = 0,
+    val articles: List<SpaceArticleItem> = emptyList()
+)
+
+@Serializable
+data class SpaceArticleItem(
+    val id: Long = 0L,
+    val title: String = "",
+    val summary: String = "",
+    @SerialName("banner_url") val bannerUrl: String = "",
+    @SerialName("publish_time") val publishTime: Long = 0L,
+    val stats: ArticleStats? = null
+)

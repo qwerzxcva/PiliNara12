@@ -127,6 +127,19 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L24：UP 主专栏列表（匿名可用） */
+    suspend fun getSpaceArticles(mid: Long, pn: Int = 1, ps: Int = 20): Result<SpaceArticleResponse> = runCatching {
+        client.get("$API_BASE/x/space/article") {
+            url {
+                parameters.append("mid", mid.toString())
+                parameters.append("pn", pn.toString())
+                parameters.append("ps", ps.toString())
+                parameters.append("sort", "publish_time")
+            }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
     /** 批次L22：视频 AI 总结（wbi 签名，需登录，匿名 -403） */
     suspend fun getAiConclusion(bvid: String, cid: Long, upMid: Long = 0L): Result<AiConclusionResponse> = runCatching {
         val signed = WbiSigner.sign(
