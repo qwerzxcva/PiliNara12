@@ -131,6 +131,22 @@ fun MemberScreen(
                 }
             }
 
+            // ===== 批次L43：空间公告（UP 置顶公告，有才显示）=====
+            if (state.notice.isNotBlank()) item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("公告", style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(state.notice, style = MaterialTheme.typography.bodySmall, maxLines = 4,
+                            overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+
             // ===== 批次L38：代表作横滑（UP 精选置顶，最多 3 条）=====
             if (state.masterpieces.isNotEmpty()) item {
                 Column {

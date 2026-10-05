@@ -939,6 +939,15 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L43：UP主空间公告（匿名可用，可能为空字符串） */
+    suspend fun getSpaceNotice(mid: Long): Result<String> = runCatching {
+        val resp: SpaceNoticeResponse = client.get("$API_BASE/x/space/notice") {
+            url { parameters.append("mid", mid.toString()) }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body()
+        if (resp.code == 0) resp.data.orEmpty() else error(resp.message.ifEmpty { "公告获取失败" })
+    }
+
     /** 批次L40：播放页实时在线人数（匿名可用） */
     suspend fun getOnlineTotal(bvid: String, cid: Long): Result<Long> = runCatching {
         val resp: OnlineTotalResponse = client.get("$API_BASE/x/player/online/total") {
