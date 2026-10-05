@@ -939,6 +939,19 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L40：播放页实时在线人数（匿名可用） */
+    suspend fun getOnlineTotal(bvid: String, cid: Long): Result<Long> = runCatching {
+        val resp: OnlineTotalResponse = client.get("$API_BASE/x/player/online/total") {
+            url {
+                parameters.append("bvid", bvid)
+                parameters.append("cid", cid.toString())
+            }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+        if (resp.code == 0) (resp.data?.total ?: resp.data?.count ?: "0").toLongOrNull() ?: 0L
+        else error(resp.message.ifEmpty { "在线人数获取失败" })
+    }
+
     /** 批次L38：UP主代表作（匿名可用，精选置顶，最多3条） */
     suspend fun getMasterpiece(mid: Long): Result<List<MasterpieceArc>> = runCatching {
         val resp: MasterpieceResponse = client.get("$API_BASE/x/space/masterpiece") {

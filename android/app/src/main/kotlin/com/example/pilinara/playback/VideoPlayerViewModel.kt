@@ -56,7 +56,9 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val gestureSeekDeltaMs: Long = 0L,
         val qualities: List<QualityOption> = emptyList(),
         val currentQn: Int = 80,
-        val related: List<RelatedItem> = emptyList()
+        val related: List<RelatedItem> = emptyList(),
+        // 批次L40：实时在线人数
+        val onlineCount: Long = 0L
     )
     
     data class DanmakuEvent(
@@ -369,6 +371,7 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         this.effectiveCid = effectiveCid
         this.currentBvid = bvid
         cachedAudioUrl = audioUrl2
+        loadOnlineCount(bvid, effectiveCid)   // 批次L40：实时在线人数
         if (videoUrl2.isNullOrEmpty()) {
             setError("未解析到视频流地址（可能需要登录后观看）")
             return
@@ -526,6 +529,14 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     /** 分享反馈（复制链接成功提示） */
     fun notifyShared(link: String) {
         setError("链接已复制：$link")
+    }
+
+    /** 批次L40：实时在线人数（匿名，失败静默） */
+    private fun loadOnlineCount(bvid: String, cid: Long) {
+        viewModelScope.launch {
+            val n = BiliApiClient().getOnlineTotal(bvid, cid).getOrNull() ?: 0L
+            if (n > 0L) _state.value = _state.value.copy(onlineCount = n)
+        }
     }
 
     fun addDanmakuEvents(events: List<DanmakuEvent>) {

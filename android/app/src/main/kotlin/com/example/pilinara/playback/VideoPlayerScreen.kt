@@ -627,6 +627,15 @@ fun VideoPlayerScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // 批次L40：实时在线人数
+                    if (state.onlineCount > 0L) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "👁 ${state.onlineCount} 人正在看",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     if (viewModel.videoTags.isNotEmpty()) {
                         Spacer(Modifier.height(10.dp))
                         Row(
