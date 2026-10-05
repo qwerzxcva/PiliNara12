@@ -50,6 +50,12 @@ class DanmakuNativeLib {
         runCatching { nativeFilterBlock(entriesJson, rulesJson) }.getOrNull()
 
     private external fun nativeFilterBlock(entriesJson: String, rulesJson: String): String?
+
+    /** 批次L42：弹幕密度热力曲线（返回归一化 buckets JSON；失败返回 null → Kotlin 回退空曲线） */
+    fun heatMap(pointsJson: String, durationMs: Double, bucketCount: Int): String? =
+        runCatching { nativeHeatMap(pointsJson, durationMs, bucketCount) }.getOrNull()
+
+    private external fun nativeHeatMap(pointsJson: String, durationMs: Double, bucketCount: Int): String?
     
     private external fun nativeCreate(
         windowSeconds: Double,

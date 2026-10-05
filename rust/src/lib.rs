@@ -20,6 +20,8 @@ pub mod audio;
 pub mod danmaku;
 
 pub mod dmfilter;
+
+pub mod dmheat;
 // Playurl DASH stream selection (stage 5)
 pub mod playurl;
 

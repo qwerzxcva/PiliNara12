@@ -206,6 +206,39 @@ pub extern "C" fn Java_com_example_pilinara_PlayUrlNativeLib_selectStreams<'a>(
 }
 
 // ============================================================================
+// Danmaku heat-map / 高能进度条 (batch L42): JSON in / JSON out
+// 输入: points=[{t:ms,w:weight}...], duration_ms, bucket_count
+// 输出: {buckets:[0..1...], peak_index, peak_value, total}
+// ============================================================================
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeHeatMap<'a>(
+    mut env: JNIEnv<'a>,
+    _class: JClass<'a>,
+    points_json: JString<'a>,
+    duration_ms: jdouble,
+    bucket_count: jint,
+) -> JString<'a> {
+    let points_s: String = match env.get_string(&points_json) {
+        Ok(s) => s.into(),
+        Err(_) => return JObject::null().into(),
+    };
+    let points: Vec<crate::dmheat::HeatPoint> = match serde_json::from_str(&points_s) {
+        Ok(v) => v,
+        Err(_) => return JObject::null().into(),
+    };
+    let count = if bucket_count <= 0 {
+        0usize
+    } else {
+        bucket_count as usize
+    };
+    let hm = crate::dmheat::compute_heat(&points, duration_ms, count);
+    match env.new_string(serde_json::to_string(&hm).unwrap_or_default()) {
+        Ok(s) => s.into(),
+        Err(_) => JObject::null().into(),
+    }
+}
+
+// ============================================================================
 // Danmaku block-rule filtering (batch L39): JSON in / JSON out
 // 输入: entries=[{content,uid}...], rules={keywords:[],regexes:[],uids:[]}
 // 输出: {kept_indices:[...], blocked_total, blocked_by_uid, blocked_by_keyword, blocked_by_regex}

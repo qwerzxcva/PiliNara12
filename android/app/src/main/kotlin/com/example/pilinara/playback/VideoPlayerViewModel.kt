@@ -277,6 +277,9 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     // 批次L41：视频章节
     private val _viewPoints = MutableStateFlow<List<com.example.pilinara.data.model.ViewPoint>>(emptyList())
     val viewPoints: StateFlow<List<com.example.pilinara.data.model.ViewPoint>> = _viewPoints.asStateFlow()
+    // 批次L42：弹幕密度热力曲线（Rust 计算，归一化 0..1）
+    private val _heatCurve = MutableStateFlow<List<Float>>(emptyList())
+    val heatCurve: StateFlow<List<Float>> = _heatCurve.asStateFlow()
 
     private val _currentSubtitle = MutableStateFlow("")
     val currentSubtitle: StateFlow<String> = _currentSubtitle.asStateFlow()
@@ -564,6 +567,21 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         }.getOrNull()
             ?: events.filterNot { com.example.pilinara.ui.settings.DanmakuBlockViewModel.shouldBlock(it.content, it.uid) }
         _danmakuQueue.addAll(filtered)
+        // 批次L42：计算弹幕密度热力曲线（下沉 Rust，失败保留旧曲线）
+        computeHeatCurve(filtered)
+    }
+
+    /** 批次L42：调用 Rust 计算高能进度条曲线 */
+    private fun computeHeatCurve(events: List<DanmakuEvent>) {
+        if (events.isEmpty()) { _heatCurve.value = emptyList(); return }
+        runCatching {
+            val lib = com.example.pilinara.danmaku.DanmakuNativeLib()
+            val pts = events.map { mapOf("t" to it.timestamp.toDouble(), "w" to 1.0) }
+            val dur = duration().toDouble()
+            val out = lib.heatMap(com.google.gson.Gson().toJson(pts), dur, 120) ?: return@runCatching
+            val arr = org.json.JSONObject(out).getJSONArray("buckets")
+            _heatCurve.value = (0 until arr.length()).map { arr.getDouble(it).toFloat() }
+        }
     }
     
     fun getDanmakuAtTime(currentTimeMs: Long): List<DanmakuEvent> {

@@ -274,6 +274,24 @@ fun VideoPlayerScreen(
                             }
                         }
                     }
+                    // 批次L42：弹幕密度热力曲线（高能进度条），画在进度条上方
+                    val heatCurve by viewModel.heatCurve.collectAsState()
+                    if (heatCurve.isNotEmpty()) {
+                        androidx.compose.foundation.Canvas(
+                            Modifier.fillMaxWidth().height(28.dp)
+                        ) {
+                            val n = heatCurve.size
+                            val bw = size.width / n
+                            heatCurve.forEachIndexed { i, v ->
+                                val h = (v.coerceIn(0f, 1f)) * size.height
+                                drawRect(
+                                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f + 0.4f * v),
+                                    topLeft = androidx.compose.ui.geometry.Offset(i * bw, size.height - h),
+                                    size = androidx.compose.ui.geometry.Size(bw * 0.9f, h)
+                                )
+                            }
+                        }
+                    }
                     Slider(
                         value = if (state.duration > 0) state.currentTime.toFloat() / state.duration else 0f,
                         onValueChange = { fraction ->
