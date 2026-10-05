@@ -79,6 +79,11 @@ object DownloadManager {
                 val dir = File(File(appCtx.getExternalFilesDir(null), "PiliNara/Downloads"), bvid)
                 if (!dir.exists()) dir.mkdirs()
 
+                // 审核56：下载前检查存储空间（不足则中止，避免损坏文件）
+                val stat = android.os.StatFs(dir.absolutePath)
+                val freeMb = stat.availableBytes / (1024 * 1024)
+                if (freeMb < 200) throw IllegalStateException("存储空间不足（剩余 ${freeMb}MB，需至少 200MB）")
+
                 // 4) 双流下载（video 必需，audio 可选）
                 val videoFile = File(dir, "video.m4s")
                 downloadTo(videoUrl, videoFile) { p ->
@@ -180,6 +185,11 @@ object DownloadManager {
                 val dir = File(File(appCtx.getExternalFilesDir(null), "PiliNara/Downloads"), key)
                 if (!dir.exists()) dir.mkdirs()
 
+                // 审核56：下载前检查存储空间（不足则中止）
+                val stat = android.os.StatFs(dir.absolutePath)
+                val freeMb = stat.availableBytes / (1024 * 1024)
+                if (freeMb < 200) throw IllegalStateException("存储空间不足（剩余 ${freeMb}MB，需至少 200MB）")
+
                 val videoFile = File(dir, "video.m4s")
                 downloadTo(videoUrl, videoFile) { p ->
                     dao.upsert(current(dao, key).copy(progress = p * 0.8f))
@@ -263,6 +273,11 @@ object DownloadManager {
 
                 val dir = File(File(appCtx.getExternalFilesDir(null), "PiliNara/Downloads"), key)
                 if (!dir.exists()) dir.mkdirs()
+
+                // 审核56：下载前检查存储空间（不足则中止）
+                val stat = android.os.StatFs(dir.absolutePath)
+                val freeMb = stat.availableBytes / (1024 * 1024)
+                if (freeMb < 200) throw IllegalStateException("存储空间不足（剩余 ${freeMb}MB，需至少 200MB）")
 
                 val videoFile = File(dir, "video.m4s")
                 downloadTo(videoUrl, videoFile) { p ->
