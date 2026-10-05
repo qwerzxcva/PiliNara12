@@ -2,9 +2,13 @@ package com.example.pilinara.data.remote
 
 import android.content.Context
 import androidx.core.content.edit
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
 import com.example.pilinara.data.repository.SubscribeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import io.ktor.client.request.HttpRequestBuilder
 
 /**
  * Bangumi(bgm.tv) 登录态 —— Animeko「Bangumi 登录」移植
