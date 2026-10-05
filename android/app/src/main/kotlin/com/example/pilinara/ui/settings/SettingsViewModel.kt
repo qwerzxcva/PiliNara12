@@ -23,6 +23,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
     data class SettingsState(
         // 播放
         val autoPlay: Boolean = false,
+        val lowLatencyAudio: Boolean = false,  // Kazumi：低延迟音频
+        val renderer: Int = 0,                 // Kazumi：渲染器 0=SurfaceView 1=TextureView
         val videoQuality: String = "auto",   // auto/1080p/720p/480p
         val playbackSpeed: Float = 1.0f,
         // 弹幕
@@ -39,6 +41,12 @@ class SettingsViewModel(context: Context) : ViewModel() {
     init {
         viewModelScope.launch {
             storage.autoPlayFlow.collect { _state.value = _state.value.copy(autoPlay = it) }
+        }
+        viewModelScope.launch {
+            storage.lowLatencyAudioFlow.collect { _state.value = _state.value.copy(lowLatencyAudio = it) }
+        }
+        viewModelScope.launch {
+            storage.rendererFlow.collect { _state.value = _state.value.copy(renderer = it) }
         }
         viewModelScope.launch {
             storage.videoQualityFlow.collect { _state.value = _state.value.copy(videoQuality = it) }
@@ -67,6 +75,11 @@ class SettingsViewModel(context: Context) : ViewModel() {
     }
 
     fun setAutoPlay(v: Boolean) = viewModelScope.launch { storage.setAutoPlay(v) }
+    fun setLowLatencyAudio(v: Boolean) = viewModelScope.launch { storage.setLowLatencyAudio(v) }
+    fun setRenderer(v: Int) = viewModelScope.launch {
+        com.example.pilinara.utils.RendererPrefs.update(v)
+        storage.setRenderer(v)
+    }
     fun setVideoQuality(q: String) = viewModelScope.launch { storage.setVideoQuality(q) }
     fun setDanmakuEnabled(v: Boolean) = viewModelScope.launch { storage.setDanmakuEnabled(v) }
     fun setDanmakuOpacity(v: Float) = viewModelScope.launch { storage.setDanmakuOpacity(v) }
