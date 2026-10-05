@@ -271,13 +271,23 @@ object SubscribeParser {
         )
     }
 
+    /**
+     * 读取当前标签的文本内容。
+     *
+     * 审核轮21：原实现直接 `parser.nextTag()`，遇到非 tag 节点（如 CDATA 后的
+     * 空白、注释、或畸形 XML）会抛 XmlPullParserException，
+     * 导致整个订阅源解析失败 —— 一个坏标签毁掉整个源。
+     * 这里改为：吞掉解析异常，返回已读到的文本，让解析继续。
+     */
     private fun readText(parser: XmlPullParser): String {
-        var text = ""
-        if (parser.next() == XmlPullParser.TEXT) {
-            text = parser.text ?: ""
-            parser.nextTag()
-        }
-        return text
+        return runCatching {
+            var text = ""
+            if (parser.next() == XmlPullParser.TEXT) {
+                text = parser.text ?: ""
+                parser.nextTag()
+            }
+            text
+        }.getOrDefault("")
     }
 
     /** RSS/Atom 常见日期 → 毫秒；失败返回 0（不抛异常，避免坏源整体失败） */
@@ -358,8 +368,15 @@ class SubscribeRepository(
                 val parsed = SubscribeParser.fetch(source.url, source.type).getOrThrow()
 
                 val now = System.currentTimeMillis()
+                // 审核轮22：Upsert 以主键为准。若每次新建 id=0 的实体，
+                // 会在 (sourceId, link) 唯一索引上冲突 —— 表现为重复刷新后
+                // 要么插入失败，要么 REPLACE 掉旧行导致主键漂移。
+                // 这里先按 (sourceId, link) 查出既有主键，复用它做真正更新。
+                val existingByLink = itemDao.getBySourceOnce(source.id)
+                    .associateBy { it.link }
                 val entities = parsed.items.map { p ->
                     SubscribeItemEntity(
+                        id = existingByLink[p.link]?.id ?: 0L,
                         sourceId = source.id,
                         title = p.title,
                         cover = p.cover,
