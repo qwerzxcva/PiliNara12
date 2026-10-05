@@ -230,3 +230,38 @@
 **规模**：Kotlin 118 文件 / 17,465 行；Rust 9 文件 / 874 行。**进度：58% → 70%**。
 
 **剩余（多为登录态/Vulkan）**：追番订阅页(pgc_review，匿名 53013 隐私)、动态话题/投票(-412)、音乐/音频(接口废弃)、签到/经验(需登录)、@用户评论搜索(需登录验证)、番剧 ep 字幕(需登录)、Vulkan/HDR/多引擎渲染(最后)。
+
+## 复盘 r15（2026-10-05，审核优化专项 23 轮 + 批次L32/L33，70%→80%）
+
+**审核优化（23 轮静态/动态/逻辑审查，12 轮落地修复，全部 :app:packageDebug 构建验证）**：
+- **审核1**（e70dc27）：静态扫描 TODO/假实现/空 catch —— 假实现 0、TODO 0；**真实 bug**：LoginRepository.parseUrlCookies 把 cookie 写成 `KEY:value` 而 applySetCookies 按 `=` 分割 → crossDomain cookie 全部丢弃，改回 `=`
+- **审核2**：全部 27 个 Screen 路由 composable 注册齐、navigate 全部走 createRoute、FollowList 多参路由正确 —— 断链 0
+- **审核3**：81 个 API 方法 vs 51 个调用点逐一核对，缺 0（getFavoritesRaw 为 inline 误报）
+- **审核4**（e70dc27）：Json 配置补 coerceInputValues + explicitNulls —— 线上字段突变不再崩溃
+- **审核5**（e70dc27）：PlaybackStatsService 30s while(true) 循环 close() 不取消 → scope.cancel()；Job→SupervisorJob；MainApplication 匿名 CoroutineScope → 常驻 appScope
+- **审核6**：重试按钮 11 处、加载指示 20 页、空态 261 处引用 —— 一致
+- **审核7**：Rust cargo test 8/8、clippy 0 warning
+- **审核8**：日志打印 cookie/SESSDATA 0 处；Room 存 cookie 与 Flutter 原版一致（私有目录，接受）
+- **审核9**：loadMore 11 处实现 + hasMore 守卫 57 处引用；scroll 触底用 snapshotFlow+derivedStateOf
+- **审核10**：contentDescription=null 仅 14 处（装饰性图标，合规）
+- **审核11**（c635559）：DownloadManager 6 处进度回调 launch{upsert} 改 suspend 顺序写 —— 消除 DB 写竞态与海量协程创建
+- **审核12**（1d37644）：WS 弹幕 JSON 空 catch → 记日志不打断弹幕流
+- **审核13**（1d37644）：_danmakuQueue MutableList → CopyOnWriteArrayList（WS 线程/主线程/渲染帧三方并发）
+- **审核14**（b970f0b）：删除 11 处确证未用 import
+- **审核15**：AccountSession ConcurrentHashMap+@Volatile —— 线程安全
+- **审核16**：16 处写操作全部经 postAuthForm（自动 csrf）—— 无漏
+- **审核17**（c0b76d7，重大）：B站封面/头像返回 http://，Android 9+ 禁明文 → **图片全部加载失败**；新增 toHttpsUrl() 应用于 38 处 AsyncImage
+- **审核18**（930587e）：video/audio baseUrl（普通/番剧/Rust 选流路径）同步 https 重写
+- **审核19**（1bb4fa5）：直播 HLS 流 host+baseUrl+extra 拼接后 https 重写
+- **审核20**（e0ca0d8，真实断链）：搜索"直播"类型结果行无任何 clickable → 补 onLiveClick→LiveRoom 路由
+- **审核21**：AsyncImage model= 0 处遗漏
+- **审核22**：48 处 BiliApiClient() 默认共享 BiliHttpClient.client 单例 —— 无连接泄漏
+- **审核23**（49e20a5）：首页顶栏图标间距审计后并入批次L33
+
+**新功能**：
+- **批次L32 视频分区浏览**（f981cae）：/x/web-interface/newlist（匿名可用）+ 20 分区横滑 FilterChip + 无限分页 + 视频卡（时长/播放数/UP主点击跳空间）+ HotMore 顶栏入口
+- **批次L33 首页直达入口**（49e20a5）：顶栏补分区浏览（Apps）/番剧（Movie）图标
+
+**规模**：Kotlin 121 文件 / 17,832 行；Rust 874 行。**进度：70% → 80%**。
+
+**剩余**：追番订阅（匿名 53013）、动态 feed（-412 风控）、音乐（接口废弃）、签到/@评论搜索/ep 字幕（需登录真机验证）、投币记录页（需登录）、Vulkan/HDR（最后）。
