@@ -120,6 +120,7 @@ class HotMoreViewModel : ViewModel() {
 fun HotMoreScreen(
     onBack: () -> Unit = {},
     onOpenVideo: (String, Long) -> Unit = { _, _ -> },
+    onOpenZone: () -> Unit = {},
     viewModel: HotMoreViewModel = viewModel()
 ) {
     val tab by viewModel.tab.collectAsState()
@@ -138,6 +139,9 @@ fun HotMoreScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
+                },
+                actions = {
+                    IconButton(onClick = onOpenZone) { Text("分区", style = MaterialTheme.typography.labelLarge) }
                 }
             )
         }

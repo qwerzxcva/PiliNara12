@@ -81,6 +81,18 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L32：视频分区最新（匿名可用） */
+    suspend fun getNewList(rid: Int, page: Int = 1, ps: Int = 20): Result<NewListResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/newlist") {
+            url {
+                parameters.append("rid", rid.toString())
+                parameters.append("ps", ps.toString())
+                parameters.append("pn", page.toString())
+            }
+            commonHeaders.forEach { (k, v) -> header(k, v) }
+        }.body()
+    }
+
     // ========== Video Info ==========
     
     suspend fun getVideoInfo(bvid: String): Result<VideoInfoResponse> = runCatching {

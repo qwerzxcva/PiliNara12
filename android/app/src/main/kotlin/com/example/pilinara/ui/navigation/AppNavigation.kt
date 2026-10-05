@@ -64,6 +64,7 @@ sealed class Screen(val route: String) {
     object HotMore : Screen("hotmore")
     object PgcIndex : Screen("pgcindex")
     object Timeline : Screen("timeline")
+    object Zone : Screen("zone")
     object Rank : Screen("rank")
     object Article : Screen("article/{articleId}") {
         fun createRoute(id: Long) = "article/$id"
@@ -286,7 +287,8 @@ fun AppNavigation() {
         composable(Screen.HotMore.route) {
             com.example.pilinara.ui.pages.home.HotMoreScreen(
                 onBack = { navController.popBackStack() },
-                onOpenVideo = { bvid, cid -> navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid)) }
+                onOpenVideo = { bvid, cid -> navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid)) },
+                onOpenZone = { navController.navigate(Screen.Zone.route) }
             )
         }
         composable(Screen.PgcIndex.route) {
@@ -304,6 +306,13 @@ fun AppNavigation() {
                 onOpenSeason = { sid ->
                     navController.navigate(Screen.Bangumi.createRoute(seasonId = sid.toLong()))
                 }
+            )
+        }
+        composable(Screen.Zone.route) {
+            com.example.pilinara.ui.pages.zone.ZoneScreen(
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid -> navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid)) },
+                onOpenUser = { mid -> navController.navigate(Screen.Member.createRoute(mid)) }
             )
         }
         composable(Screen.Rank.route) {
