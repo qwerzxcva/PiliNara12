@@ -313,3 +313,30 @@
 **规模**：Kotlin 12x 文件 / 18,187 行；Rust 11 文件 / 1263 行（dmfilter 4 单测 + dmheat 4 单测，cargo test 16/16、clippy 0 warning）。
 
 **注**：另一 AI 协作期间未见并行分支提交；本地/远端经 fetch 核对一致（如发现冲突按「保留更完整实现」原则处理）。
+
+## 复盘 r18（2026-10-05，第二轮审核专项 23 轮（审核38-60），85%→90%）
+
+用户新指令：以不同角度连续审核 10+ 轮并推进至 90%+。实际执行 **23 轮**（审核38-60，8 轮落地修复，15 轮核查通过）。
+
+### 本轮新功能（推进 85%→90%）
+- **L43 UP主空间公告**：x/space/notice 匿名可用（实测探测确认），MemberViewModel +loadNotice，空间页头部公告卡（有才显示）。
+- **L44 UP主空间内搜索投稿**：复用 wbi arc/search 的 keyword 参数（API 层早已支持但 UI 未接），投稿 Tab 增加搜索框（空关键词禁用按钮、防重入）。
+
+### 本轮修复（8 项真实缺陷/隐患）
+- **审核39（安全）**：BiliDocumentsProvider `exported=true` → false（组件加固）。
+- **审核40（崩溃兜底）**：MainApplication +setDefaultUncaughtExceptionHandler（记日志后 killProcess，防静默崩溃无迹可循）。
+- **审核42（竞态）**：SearchViewModel.loadMore 页码去重防重入；L44 searchArchives @Volatile 重入保护+空关键词拦截。
+- **审核43（生命周期，重大）**：视频播放页无 ON_STOP 监听——切后台/熄屏继续出声；加 LifecycleEventObserver 自动暂停。
+- **审核45（数据）**：Room exportSchema=true 但无 schemaLocation → schema 从未导出（无法写正式 Migration，只能破坏性清库）；gradle ksp arg 补 room.schemaLocation。
+- **审核48（UX）**：历史页未登录错误态只有纯文字 → 加「去登录」按钮并接线 Screen.Login 导航。
+- **审核54（CI）**：GitHub Actions Rust 全量编译无缓存 → +Swatinem/rust-cache@v2。
+- **审核55（生命周期）**：直播页同样切后台不停播（持续耗流量）→ ON_STOP 暂停/ON_START 恢复（修复 Composable 作用域编译错误一次）。
+- **审核56（边界，3 处）**：download/downloadPart/番剧下载均无存储空间预检 → StatFs availableBytes <200MB 抛明确错误。
+
+### 核查通过（15 轮）
+38 日志泄漏（无 Log.d/v/println）；41 交互图标 contentDescription 全覆盖（顶层 IconButton 均有）；44 Rust 16/16 测试+clippy 0；46 URL https 化已有 UrlFix+审核17 覆盖；47 CI so 打包链路核实无误（cargo-ndk→artifact→jniLibs，本地无 so 属已知形态）；49 空 onClick 复扫为零；50 设置 DataStore flow 持久化完整；51 历史搜索词已接；52 启动性能（warmup IO 协程/buvid 异步/loadLibrary 有 catch）；53 JNI 调用全 runCatching+Kotlin 回退；57 离线弹幕已落盘 danmaku.json；58 登录二维码过期刷新（86038/86090/86101 全覆盖）；59 列表 filter 非重组热路径；60 PlaybackStatsService 非前台服务无合规问题；35 承接（Flow 封装）。
+
+### 规模与状态
+- Kotlin ~18,340 行 / Rust 1,263 行；构建全绿（最近 4 次构建 30-59s）；cargo test 16/16、clippy 0。
+- 审核总轮数：r15-r18 累计 **23+11+23 = 57 轮**，累计修复 **25 项真实缺陷**。
+- 剩余（90% 后）：追番订阅/关注分组（需登录隐私接口）、动态 feed（-412 硬风控）、登录态项真机验证、Vulkan/HDR/多引擎（roadmap 末位）。
