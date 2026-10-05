@@ -60,6 +60,7 @@ sealed class Screen(val route: String) {
             "bangumi?seasonId=$seasonId&epId=$epId"
     }
     object LiveList : Screen("livelist")
+    object LiveArea : Screen("livearea")
     object PgcIndex : Screen("pgcindex")
     object Rank : Screen("rank")
     object Article : Screen("article/{articleId}") {
@@ -267,7 +268,14 @@ fun AppNavigation() {
         composable(Screen.LiveList.route) {
             com.example.pilinara.ui.pages.livelist.LiveListScreen(
                 onBack = { navController.popBackStack() },
-                onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId)) }
+                onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId)) },
+                onOpenArea = { navController.navigate(Screen.LiveArea.route) }
+            )
+        }
+        composable(Screen.LiveArea.route) {
+            com.example.pilinara.ui.pages.livelist.LiveAreaScreen(
+                onBack = { navController.popBackStack() },
+                onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId.toString())) }
             )
         }
         composable(Screen.PgcIndex.route) {

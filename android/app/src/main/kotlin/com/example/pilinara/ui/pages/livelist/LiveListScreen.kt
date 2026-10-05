@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Grid3x3
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -74,6 +75,7 @@ class LiveListViewModel : ViewModel() {
 fun LiveListScreen(
     onBack: () -> Unit = {},
     onOpenRoom: (String) -> Unit = {},
+    onOpenArea: () -> Unit = {},
     viewModel: LiveListViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -85,6 +87,11 @@ fun LiveListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenArea) {
+                        Icon(Icons.Default.Grid3x3, contentDescription = "分区")
                     }
                 }
             )

@@ -495,7 +495,7 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     /** 直播列表（分页，按人气） */
     suspend fun getLiveList(page: Int = 1, pageSize: Int = 30): Result<LiveListResponse> = runCatching {
         client.get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList") {
-            url {
+             url {
                 parameters.append("platform", "web")
                 parameters.append("parent_area_id", "0")
                 parameters.append("area_id", "0")
@@ -503,6 +503,21 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
                 parameters.append("page", page.toString())
                 parameters.append("page_size", pageSize.toString())
             }
+            header("Referer", "https://live.bilibili.com")
+        }.body()
+    }
+
+    /** 批次L25：直播分区列表（room/v1/Area/getList，匿名可用） */
+    suspend fun getLiveAreaList(): Result<LiveAreaListResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/room/v1/Area/getList") {
+            header("Referer", "https://live.bilibili.com")
+        }.body()
+    }
+
+    /** 批次L25：直播推荐流（webMain/getMoreRecList，匿名可用；分区过滤在前端做） */
+    suspend fun getLiveRecList(): Result<LiveRecListResponse> = runCatching {
+        client.get("https://api.live.bilibili.com/xlive/web-interface/v1/webMain/getMoreRecList") {
+            url { parameters.append("platform", "web") }
             header("Referer", "https://live.bilibili.com")
         }.body()
     }
