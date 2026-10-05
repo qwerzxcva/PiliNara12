@@ -95,6 +95,7 @@ fun MineScreen(
                     onToViewClick = onToViewClick,
                     onBangumiClick = onBangumiClick,
                     onDownloadsClick = onDownloadsClick,
+                    onSettingsClick = onSettingsClick,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -166,6 +167,7 @@ fun UserContent(
     onToViewClick: () -> Unit = {},
     onBangumiClick: () -> Unit = {},
     onDownloadsClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     LazyColumn(
@@ -180,7 +182,7 @@ fun UserContent(
         item { MenuItemRow(MenuItemData("稍后再看", Icons.Default.PlayArrow, onToViewClick)) }
         item { MenuItemRow(MenuItemData("我的收藏", Icons.Default.Favorite, onFavoritesClick)) }
         item { MenuItemRow(MenuItemData("追番中心", Icons.Default.PlayCircle, onBangumiClick)) }
-        item { MenuItemRow(MenuItemData("设置", Icons.Default.Settings, {})) }
+        item { MenuItemRow(MenuItemData("设置", Icons.Default.Settings, onSettingsClick)) }
         item { MenuItemRow(MenuItemData("退出登录", Icons.AutoMirrored.Filled.Logout, onLogout)) }
     }
 }
