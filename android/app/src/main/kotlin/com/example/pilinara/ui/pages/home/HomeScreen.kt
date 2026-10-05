@@ -2,6 +2,8 @@ package com.example.pilinara.ui.pages.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,14 +74,25 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("PiliNara") },
-                actions = {
-                    IconButton(onClick = onSearchClick) {
-                        Icon(Icons.Filled.Search, contentDescription = "搜索")
-                    }
-                },
-            )
+            // Kototoro 打磨：品牌渐变顶栏
+            Box(
+                Modifier.fillMaxWidth()
+                    .background(com.example.pilinara.ui.theme.PiliGradients.bilibili)
+                    .statusBarsPadding()
+            ) {
+                TopAppBar(
+                    title = { Text("PiliNara", color = androidx.compose.ui.graphics.Color.White) },
+                    actions = {
+                        IconButton(onClick = onSearchClick) {
+                            Icon(Icons.Filled.Search, contentDescription = "搜索",
+                                tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent
+                    ),
+                )
+            }
         },
     ) { padding ->
         PullToRefreshBox(
