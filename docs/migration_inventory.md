@@ -185,3 +185,24 @@
 **规模**：Kotlin 104 文件 / 15,136 行。**进度：40% → 50%**。
 
 **剩余**：DanmakuMerger(Rust 弹幕合并)接入播放器、Kototoro 页面级打磨、番剧 ep 字幕（字幕接口匿名实测为空，需登录态再验）、Vulkan/HDR（最后）。
+
+## 复盘 r13（2026-10-05，批次L15-L24：Rust弹幕合并/排行榜/简介/AI总结/专栏，50%→58%）
+
+**本轮新增（9 commit，均经 :app:packageDebug 构建验证）**：
+- **批次L15 Rust DanmakuMerger 接入**（5c140c3）：DanmakuNativeLib.nativeMerge JNI（JSON 进出）+ loadDanmakuFor 用 Rust 合并去重弹幕（失败回退原始列表）——上轮遗留的"Rust 侧无 Kotlin 调用入口"闭环
+- **批次L16 Kototoro 主页打磨**（d140c56）：HomeScreen 品牌渐变沉浸顶栏（Box+PiliGradients.bilibili Brush）
+- **批次L17 排行榜**（2e03254）：/x/web-interface/ranking/v2（桌面 UA + rank referer 防 -352）+ 8 分区 Tab + 奖牌色名次 + RankScreen + 主页奖杯入口 + 路由
+- **审查修复②**（433e16c）：排行榜 onOpenVideo 改用 VideoPlayer.createRoute——原裸字符串 "video/$bvid" 缺 local 参数无法匹配路由 pattern（真实断链）
+- **批次L18 视频简介面板**（4945e29）：VideoInfoData.tags 模型 + VM videoDesc/videoTags/videoPubdate + 播放器"简介"按钮 + ModalBottomSheet（标题/UP主/日期/标签 chips/简介）
+- **批次L19 投币枚数选择**（a93d2e8）：coinOnce(multiply) + 投币面板 1/2 枚选择
+- **批次L20 收藏夹选择**（5ec685b）：VM loadFavFolders(/x/v3/fav/folder/created/list-all)/favoriteTo(mediaId) + 收藏按钮弹出收藏夹列表按夹收藏（原来只有默认夹）
+- **批次L21 历史搜索**（f8238ec）：LibraryRepository.searchHistory(/x/web-interface/history/search，需登录) + 历史页搜索框（keyword 空=恢复列表）
+- **批次L22 AI 视频总结**（05cc4ac）：getAiConclusion(/x/web-interface/view/conclusion/get，wbi 签名，需登录，匿名 -403 静默) + 简介面板 AI 摘要 + 分段提纲（带时间戳）
+- **批次L23 专栏阅读页**（4cb9c58）：/x/article/view（匿名可用，实测 code 0）+ ArticleModels + ArticleScreen（AndroidView Html.fromHtml 正文渲染 + 作者/统计/头图）+ Article 路由
+- **批次L24 UP 主空间专栏 Tab**（0c2aed7）：getSpaceArticles(/x/space/article，匿名可用) + MemberScreen 投稿/专栏 TabRow + 专栏卡片列表分页 + 跳转阅读页
+
+**审查动作**：逐条 grep 验证路由/调用链闭环（RankScreen→nav、favoriteTo/loadFavFolders、searchHistory VM→repo→api）；发现并修复排行榜跳转断链 1 处。
+
+**规模**：Kotlin 106 文件 / 15,752 行。**进度：50% → 58%**（本目标 60%，因 AI 总结/历史搜索等需登录态无法匿名全链路验证，保守计 58%）。
+
+**剩余**：追番/追剧订阅页(pgc_review/subscription)、动态话题/投票、直播分区页(live_area)、音乐/音频、签到/经验(exp_log 需登录)、番剧 ep 字幕（需登录）、Vulkan/HDR/多引擎（最后）。
