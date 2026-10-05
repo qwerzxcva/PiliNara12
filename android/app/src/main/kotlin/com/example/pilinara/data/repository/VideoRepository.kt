@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import com.example.pilinara.utils.toHttpsUrl
 
 /**
  * 视频仓库 —— 视频详情、播放地址（wbi 签名 + Rust DASH 选流）、弹幕、写操作（点赞/投币/收藏/历史上报）
@@ -63,13 +64,13 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             val selected = resp.rawJson?.let { PlayUrlNativeLib.select(it, qn) }
             if (selected != null) {
                 val arr = JSONObject(selected)
-                val video = arr.optJSONObject("video")?.optString("baseUrl")
-                val audio = arr.optJSONObject("audio")?.optString("baseUrl")
+                val video = arr.optJSONObject("video")?.optString("baseUrl")?.toHttpsUrl()
+                val audio = arr.optJSONObject("audio")?.optString("baseUrl")?.toHttpsUrl()
                 Triple(resp, video, audio)
             } else {
-                val video = resp.data?.dash?.video?.firstOrNull()?.baseUrl
-                    ?: resp.data?.durl?.firstOrNull()?.url
-                val audio = resp.data?.dash?.audio?.firstOrNull()?.baseUrl
+                val video = (resp.data?.dash?.video?.firstOrNull()?.baseUrl
+                    ?: resp.data?.durl?.firstOrNull()?.url)?.toHttpsUrl()
+                val audio = resp.data?.dash?.audio?.firstOrNull()?.baseUrl?.toHttpsUrl()
                 Triple(resp, video, audio)
             }
         }.onSuccess { (_, video, _) ->
@@ -93,12 +94,12 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
             val selected = PlayUrlNativeLib.select(bodyJson, qn)
             if (selected != null) {
                 val arr = JSONObject(selected)
-                val video = arr.optJSONObject("video")?.optString("baseUrl")
-                val audio = arr.optJSONObject("audio")?.optString("baseUrl")
+                val video = arr.optJSONObject("video")?.optString("baseUrl")?.toHttpsUrl()
+                val audio = arr.optJSONObject("audio")?.optString("baseUrl")?.toHttpsUrl()
                 Triple(resp, video, audio)
             } else {
-                val video = resp.result?.dash?.video?.maxByOrNull { it.bandwidth }?.baseUrl
-                val audio = resp.result?.dash?.audio?.maxByOrNull { it.bandwidth }?.baseUrl
+                val video = resp.result?.dash?.video?.maxByOrNull { it.bandwidth }?.baseUrl?.toHttpsUrl()
+                val audio = resp.result?.dash?.audio?.maxByOrNull { it.bandwidth }?.baseUrl?.toHttpsUrl()
                 Triple(resp, video, audio)
             }
         }.onFailure {
