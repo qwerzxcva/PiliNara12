@@ -77,6 +77,11 @@ sealed class Screen(val route: String) {
     fun chat(talkerId: Long) = "chat/$talkerId"
 
     object Downloads : Screen("downloads")
+    object Subscribe : Screen("subscribe")
+    object DirectPlay : Screen("directplay/{url}?title={title}&cover={cover}") {
+        fun createRoute(url: String, title: String = "", cover: String = "") =
+            "directplay/$url?title=$title&cover=$cover"
+    }
 }
 
 @Composable
@@ -371,6 +376,46 @@ fun AppNavigation() {
             com.example.pilinara.ui.download.DownloadScreen(
                 onBack = { navController.popBackStack() },
                 onPlayLocal = { bvid -> navController.navigate("video/$bvid?local=1") }
+            )
+        }
+        // 订阅页：Animeko「订阅源」移植
+        composable(Screen.Subscribe.route) {
+            com.example.pilinara.ui.subscribe.SubscribeScreen(
+                onBack = { navController.popBackStack() },
+                onPlay = { url, title, cover ->
+                    // 外部源直链：走专用路由，播放器直接吃 URL（Kazumi 式直链播放）
+                    navController.navigate(
+                        Screen.DirectPlay.createRoute(
+                            android.net.Uri.encode(url),
+                            android.net.Uri.encode(title),
+                            android.net.Uri.encode(cover)
+                        )
+                    )
+                },
+                onSettingsClick = { navController.navigate(Screen.Settings.route) }
+            )
+        }
+        // 直链播放（订阅源 / 外部链接）：URL 经 Uri.encode，避免特殊字符破坏路由
+        composable(
+            Screen.DirectPlay.route,
+            arguments = listOf(
+                navArgument("url") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType; defaultValue = "" },
+                navArgument("cover") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val url = backStackEntry.arguments?.getString("url")?.let {
+                android.net.Uri.decode(it)
+            } ?: ""
+            val title = backStackEntry.arguments?.getString("title")?.let {
+                android.net.Uri.decode(it)
+            } ?: ""
+            VideoPlayerScreen(
+                videoUrl = url,
+                bvid = "",
+                cid = 0L,
+                title = title,
+                onBack = { navController.popBackStack() }
             )
         }
     }
