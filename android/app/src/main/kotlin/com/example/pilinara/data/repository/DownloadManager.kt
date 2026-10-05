@@ -82,13 +82,13 @@ object DownloadManager {
                 // 4) 双流下载（video 必需，audio 可选）
                 val videoFile = File(dir, "video.m4s")
                 downloadTo(videoUrl, videoFile) { p ->
-                    launch { dao.upsert(current(dao, bvid).copy(progress = p * 0.8f)) }
+                    dao.upsert(current(dao, bvid).copy(progress = p * 0.8f))
                 }
                 val audioFile = File(dir, "audio.m4s")
                 var audioSize = 0L
                 if (!audioUrl.isNullOrEmpty()) {
                     downloadTo(audioUrl, audioFile) { p ->
-                        launch { dao.upsert(current(dao, bvid).copy(progress = 0.8f + p * 0.2f)) }
+                        dao.upsert(current(dao, bvid).copy(progress = 0.8f + p * 0.2f))
                     }
                     audioSize = audioFile.length()
                 }
@@ -182,13 +182,13 @@ object DownloadManager {
 
                 val videoFile = File(dir, "video.m4s")
                 downloadTo(videoUrl, videoFile) { p ->
-                    launch { dao.upsert(current(dao, key).copy(progress = p * 0.8f)) }
+                    dao.upsert(current(dao, key).copy(progress = p * 0.8f))
                 }
                 val audioFile = File(dir, "audio.m4s")
                 var audioSize = 0L
                 if (!audioUrl.isNullOrEmpty()) {
                     downloadTo(audioUrl, audioFile) { p ->
-                        launch { dao.upsert(current(dao, key).copy(progress = 0.8f + p * 0.2f)) }
+                        dao.upsert(current(dao, key).copy(progress = 0.8f + p * 0.2f))
                     }
                     audioSize = audioFile.length()
                 }
@@ -266,13 +266,13 @@ object DownloadManager {
 
                 val videoFile = File(dir, "video.m4s")
                 downloadTo(videoUrl, videoFile) { p ->
-                    launch { dao.upsert(current(dao, key).copy(progress = p * 0.8f)) }
+                    dao.upsert(current(dao, key).copy(progress = p * 0.8f))
                 }
                 val audioFile = File(dir, "audio.m4s")
                 var audioSize = 0L
                 if (!audioUrl.isNullOrEmpty()) {
                     downloadTo(audioUrl, audioFile) { p ->
-                        launch { dao.upsert(current(dao, key).copy(progress = 0.8f + p * 0.2f)) }
+                        dao.upsert(current(dao, key).copy(progress = 0.8f + p * 0.2f))
                     }
                     audioSize = audioFile.length()
                 }
