@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Whatshot
@@ -65,6 +67,8 @@ fun HomeScreen(
     onSearchClick: () -> Unit = {},
     onRankClick: () -> Unit = {},
     onHotMoreClick: () -> Unit = {},
+    onZoneClick: () -> Unit = {},
+    onBangumiClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -104,6 +108,15 @@ fun HomeScreen(
                         IconButton(onClick = onHotMoreClick) {
                             Icon(Icons.Filled.Whatshot, contentDescription = "热门精选",
                                 tint = androidx.compose.ui.graphics.Color(0xFFFF7043))
+                        }
+                        // 审核23+批次L32：分区/番剧入口
+                        IconButton(onClick = onZoneClick) {
+                            Icon(Icons.Filled.Apps, contentDescription = "分区浏览",
+                                tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                        IconButton(onClick = onBangumiClick) {
+                            Icon(Icons.Filled.Movie, contentDescription = "番剧",
+                                tint = androidx.compose.ui.graphics.Color(0xFFB39DDB))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(

@@ -98,7 +98,9 @@ fun AppNavigation() {
                 },
                 onHotMoreClick = {
                     navController.navigate(Screen.HotMore.route)
-                }
+                },
+                onZoneClick = { navController.navigate(Screen.Zone.route) },
+                onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) }
             )
         }
         composable(Screen.Search.route) {
