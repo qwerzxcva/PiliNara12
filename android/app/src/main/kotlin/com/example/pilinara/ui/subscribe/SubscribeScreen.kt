@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -97,6 +98,7 @@ fun SubscribeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
+    var showBangumiLoginDialog by remember { mutableStateOf(false) }
 
     // 错误/提示统一走 Snackbar，展示后清空避免重复弹出
     LaunchedEffect(state.errorMessage) {
@@ -126,6 +128,9 @@ fun SubscribeScreen(
                     }
                     IconButton(onClick = { showManageDialog = true }) {
                         Icon(Icons.Default.Settings, contentDescription = "管理订阅源")
+                    }
+                    IconButton(onClick = { showBangumiLoginDialog = true }) {
+                        Icon(Icons.Default.Person, contentDescription = "Bangumi 登录")
                     }
                 }
             )
@@ -186,6 +191,83 @@ fun SubscribeScreen(
             onDelete = { id -> viewModel.removeSource(id) }
         )
     }
+
+    if (showBangumiLoginDialog) {
+        BangumiLoginDialog(
+            onDismiss = { showBangumiLoginDialog = false },
+            onLogin = { token ->
+                viewModel.loginBangumi(token)
+                showBangumiLoginDialog = false
+            },
+            onLogout = {
+                viewModel.logoutBangumi()
+                showBangumiLoginDialog = false
+            }
+        )
+    }
+}
+
+/**
+ * Bangumi 登录弹窗（Animeko「Bangumi 登录」移植）
+ *
+ * 使用个人访问令牌（api.bgm.tv 后台生成），登录时会真实请求 /v0/me 校验，
+ * 校验失败不会写入任何凭据（不做"假登录"）。
+ */
+@Composable
+private fun BangumiLoginDialog(
+    onDismiss: () -> Unit,
+    onLogin: (String) -> Unit,
+    onLogout: () -> Unit
+) {
+    var token by remember { mutableStateOf("") }
+    val loggedIn = com.example.pilinara.data.remote.BangumiSession.isLogin
+    val nickname = com.example.pilinara.data.remote.BangumiSession.nickname
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Bangumi 登录") },
+        text = {
+            Column {
+                if (loggedIn) {
+                    Text(
+                        "已登录：${nickname.ifBlank { "Bangumi 用户" }}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "登录后可同步 Bangumi 收藏与收视进度（用于订阅源）",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        "在 bgm.tv 生成个人访问令牌后粘贴到下方",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = token,
+                        onValueChange = { token = it },
+                        label = { Text("访问令牌") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (loggedIn) {
+                TextButton(onClick = onLogout) { Text("退出登录") }
+            } else {
+                TextButton(
+                    onClick = { onLogin(token) },
+                    enabled = token.isNotBlank()
+                ) { Text("登录") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 /**
