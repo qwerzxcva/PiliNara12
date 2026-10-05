@@ -579,6 +579,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         runCatching {
             val lib = com.example.pilinara.danmaku.DanmakuNativeLib()
             val pts = events.map { mapOf("t" to it.timestamp.toDouble(), "w" to 1.0) }
+            // 审核36：弹幕加载早于播放器就绪时 duration 为 0 → 用弹幕最大时间兜底（Rust 侧已处理）
             val dur = duration().toDouble()
             val out = lib.heatMap(com.google.gson.Gson().toJson(pts), dur, 120) ?: return@runCatching
             val arr = org.json.JSONObject(out).getJSONArray("buckets")
