@@ -387,3 +387,28 @@
 - Kotlin ~18,700 行 / Rust 1,263 行；lint 报告 "No issues found."。
 - 审核总轮数累计 **67 轮**（r15–r19），累计修复 **40+ 项真实缺陷**。
 - 剩余：需登录隐私接口（追番订阅/关注分组/收藏夹搜索/投币记录/黑名单）、动态 -412 硬风控、真机验证、Vulkan/HDR（roadmap 末位）。
+
+## 复盘 r20（2026-10-05，审核71–98，AI代码深审+性能/安全/CI门禁）
+
+用户指令：继续审核和优化前面生成的 AI 代码。
+
+### 落地修复（14 项）
+1. **审核71（性能，76处）**：`collectAsState` → `collectAsStateWithLifecycle`——后台仍更新 UI/浪费重组 → 仅前台收集。
+2. **审核72（真 bug，8处）**：LazyColumn `items` 无 key（直播聊天/搜索建议/历史/分区/屏蔽规则）→ 补 key；**其中 SearchScreen 用 data class 作 key 是运行时崩溃隐患**（key 必须可 Bundle 化）→ 改复合字符串 key。
+3. **审核76（并发）**：直播 WS 高频列表流 6 处 `_flow.value = (_flow.value + x)` 非原子 → `MutableStateFlow.update {}`。
+4. **审核77（性能）**：`Gson()` 每次调用重建（下载路径+播放器弹幕合并热路径）→ DownloadManager/VideoPlayerViewModel 复用单实例。
+5. **审核83（正确性）**：WbiSigner 两处 `String.format` 无 Locale → `Locale.ROOT`（wbi 签名在土耳其等 locale 下会算错）。
+6. **审核70遗留**：`@OptIn(…UnstableApi::class)` 对 androidx.annotation.RequiresOptIn 无效 → `@androidx.annotation.OptIn`（消最后一条 Kotlin 警告）。
+7. **审核87（体积/安全，重大）**：release `isMinifyEnabled=false` → **R8 minify + shrinkResources**，补全 proguard 规则（kotlinx-serialization/Ktor/Room/Gson/JNI native 方法保留）。实测 **28.3MB → 5.1MB**（release-unsigned）。
+8. **审核88**：manifest 移除已废弃 `package=` 属性（namespace 在 gradle）；移除无来源的 `tools:replace="allowBackup"`。
+9. **审核90（CI 门禁，重大）**：CI 此前只 assembleDebug、零质量校验 → 加 **cargo test + clippy -D warnings** 门禁和 **lintDebug + 报告回归检测**（errors>0 即失败）。
+10. **审核97**：ArticleScreen composable 内每次重组重建 SimpleDateFormat → 文件级 lazy。
+11. 审核94 记录：4 处 SimpleDateFormat 为文件级 val/lazy，composable 单线程调用，低危接受。
+12. 审核75 记录：BiliApiClient 50 处实例化——无状态轻类共享 HttpClient，重构收益低，记录。
+13. 审核91–92 记录：rememberSaveable/BackHandler 0 处——本 App 旋转由 android:configChanges 处理，不需要。
+14. 审核93/95/96/98 记录：Toast（0处，用 Snackbar）/BitmapFactory（0处）/viewModel factory（4处正常）通过。
+
+### 验证
+- `:app:compileDebugKotlin` 0w0e；`:app:lintDebug` **"No issues found."** 维持。
+- `:app:assembleRelease` **BUILD SUCCESSFUL**（R8 通过，5.1MB）；cargo test 16/16；clippy `-D warnings` 0。
+- commit 57662c4。
