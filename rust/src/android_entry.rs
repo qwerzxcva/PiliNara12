@@ -50,19 +50,22 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_finalize<'a>(
     _class: JClass<'_>,
     encoder_ptr: i64,
 ) -> JByteArray<'a> {
-    let encoder = unsafe { Box::from_raw(encoder_ptr as *mut crate::webp::AnimatedWebpEncoder) };
-    match encoder.finalize() {
-        Ok(bytes) => {
-            let jbytes = env.new_byte_array(bytes.len() as i32).unwrap();
-            let mut buf = vec![0; bytes.len()];
-            for (i, &b) in bytes.iter().enumerate() {
-                buf[i] = b as i8;
-            }
-            env.set_byte_array_region(&jbytes, 0, &buf).unwrap();
-            jbytes
-        }
-        Err(_) => env.new_byte_array(0).unwrap(),
+    if encoder_ptr == 0 {
+        return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into());
     }
+    let encoder = unsafe { Box::from_raw(encoder_ptr as *mut crate::webp::AnimatedWebpEncoder) };
+    let bytes = match encoder.finalize() {
+        Ok(b) => b,
+        Err(_) => return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into()),
+    };
+    let Ok(jbytes) = env.new_byte_array(bytes.len() as i32) else {
+        return JObject::null().into();
+    };
+    let buf: Vec<i8> = bytes.iter().map(|&b| b as i8).collect();
+    if env.set_byte_array_region(&jbytes, 0, &buf).is_err() {
+        return JObject::null().into();
+    }
+    jbytes
 }
 
 // ============================================================================
@@ -79,12 +82,14 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
     use crate::audio::{AudioNormalizationConfig, AudioNormalizer};
 
     let len = match env.get_array_length(&input) {
-        Ok(l) => l as usize,
-        Err(_) => return env.new_byte_array(0).unwrap(),
+        Ok(l) if l > 0 => l as usize,
+        _ => return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into()),
     };
 
-    let mut buf = vec![0; len];
-    env.get_byte_array_region(&input, 0, &mut buf).unwrap();
+    let mut buf = vec![0i8; len];
+    if env.get_byte_array_region(&input, 0, &mut buf).is_err() {
+        return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into());
+    }
 
     let input_samples: Vec<i16> = buf
         .chunks_exact(2)
@@ -101,9 +106,12 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
         output_bytes[i * 2 + 1] = b[1] as i8;
     }
 
-    let jbytes = env.new_byte_array(output_bytes.len() as i32).unwrap();
-    env.set_byte_array_region(&jbytes, 0, &output_bytes)
-        .unwrap();
+    let Ok(jbytes) = env.new_byte_array(output_bytes.len() as i32) else {
+        return JObject::null().into();
+    };
+    if env.set_byte_array_region(&jbytes, 0, &output_bytes).is_err() {
+        return JObject::null().into();
+    }
     jbytes
 }
 
