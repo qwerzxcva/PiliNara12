@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.SearchResultItem
 import com.example.pilinara.utils.toHttpsUrl
@@ -35,7 +36,7 @@ fun SearchScreen(
     onBack: () -> Unit = {},
     viewModel: SearchViewModel = viewModel()
 ) {
-    val state by viewModel.searchState.collectAsState()
+    val state by viewModel.searchState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf(initialQuery) }
     LaunchedEffect(Unit) { if (initialQuery.isNotBlank()) { viewModel.setSearchKeyword(initialQuery); viewModel.performSearch() } }
     var dropdown by remember { mutableStateOf(false) }
@@ -83,7 +84,7 @@ fun SearchScreen(
             // 建议联想
             if (state.suggestions.isNotEmpty() && state.results.isEmpty()) {
                 LazyColumn(Modifier.fillMaxWidth()) {
-                    items(state.suggestions) { s ->
+                    items(state.suggestions, key = { "${it.mid}:${it.uname}" }) { s ->
                         ListItem(
                             headlineContent = { Text(s.uname) },
                             leadingContent = { Icon(Icons.Default.Search, null) },
@@ -193,7 +194,7 @@ fun SearchScreen(
                                 TextButton(onClick = { viewModel.clearHistory() }) { Text("清空") }
                             }
                         }
-                        items(state.history) { h ->
+                        items(state.history, key = { it }) { h ->
                             ListItem(
                                 headlineContent = { Text(h) },
                                 leadingContent = { Icon(Icons.Default.History, null) },
@@ -212,7 +213,7 @@ fun SearchScreen(
                             modifier = Modifier.padding(16.dp, 12.dp)
                         )
                     }
-                    items(state.trending) { t ->
+                    items(state.trending, key = { it.keyword }) { t ->
                         ListItem(
                             headlineContent = {
                                 Text(t.show_name.ifEmpty { t.keyword }, maxLines = 1,

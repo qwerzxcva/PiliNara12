@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -103,9 +104,9 @@ fun ZoneScreen(
     onOpenUser: (mid: Long) -> Unit = {},
     viewModel: ZoneViewModel = viewModel()
 ) {
-    val items by viewModel.items.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val items by viewModel.items.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
 
     // 滚动近底自动加载（对齐 HomeScreen 模式）

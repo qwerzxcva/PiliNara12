@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * 弹幕屏蔽规则页（关键词/正则/UID 三 Tab + 添加/删除，Room 持久化）
@@ -31,7 +32,7 @@ fun DanmakuBlockScreen(
             DanmakuBlockViewModel(context) as T
     })
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val tabs = listOf("关键词", "正则", "用户UID")
     var tab by remember { mutableIntStateOf(0) }
     var input by remember { mutableStateOf("") }
@@ -111,7 +112,7 @@ fun DanmakuBlockScreen(
                 }
             } else {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    items(list) { rule ->
+                    items(list, key = { it }) { rule ->
                         ListItem(
                             headlineContent = { Text(rule) },
                             leadingContent = {

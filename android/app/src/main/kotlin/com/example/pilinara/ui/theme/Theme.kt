@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.pilinara.utils.StorageManager
 
 // ==================== 批次L：Kototoro 风格主题 ====================
@@ -264,9 +265,9 @@ fun PiliNaraTheme(
     // DataStore 消费：themeMode（system/light/dark）+ accentColor 真实作用于全局主题
     val context = LocalContext.current
     val storage = remember(context) { StorageManager(context) }
-    val themeMode by storage.themeModeFlow.collectAsState(initial = "system")
-    val accentHex by storage.accentColorFlow.collectAsState(initial = "")
-    val amoled by storage.amoledFlow.collectAsState(initial = false)
+    val themeMode by storage.themeModeFlow.collectAsStateWithLifecycle(initialValue = "system")
+    val accentHex by storage.accentColorFlow.collectAsStateWithLifecycle(initialValue = "")
+    val amoled by storage.amoledFlow.collectAsStateWithLifecycle(initialValue = false)
 
     val isDark = when (themeMode) {
         "light" -> false

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.*
 import java.text.SimpleDateFormat
@@ -45,7 +46,7 @@ fun SessionListScreen(
     onOpenChat: (Long) -> Unit = {}
 ) {
     val vm: SessionListViewModel = viewModel()
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.error) {
         // 未登录交给 UI 提示
@@ -134,7 +135,7 @@ fun ChatScreen(
                 ChatViewModel(talkerId) as T
         })
 ) {
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
     var showEmotePicker by remember { mutableStateOf(false) }
     val emotes = remember { androidx.compose.runtime.mutableStateListOf<com.example.pilinara.data.model.EmoteItem>() }

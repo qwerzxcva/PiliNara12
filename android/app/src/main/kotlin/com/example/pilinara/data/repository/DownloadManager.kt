@@ -26,6 +26,8 @@ object DownloadManager {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val running = ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+    // 审核77：Gson 线程安全，复用实例避免每次下载重建
+    private val gson = com.google.gson.Gson()
 
     private fun dao(ctx: Context) = PiliNaraDatabase.getDatabase(ctx).downloadItemDao()
 
@@ -219,7 +221,7 @@ object DownloadManager {
                                 "col" to (pp.color or 0xFF000000.toInt()), "fs" to pp.fontSize)
                         }
                         File(dir, "danmaku.json").writeText(
-                            com.google.gson.Gson().toJson(list)
+                            gson.toJson(list)
                         )
                     }
                 }
@@ -304,7 +306,7 @@ object DownloadManager {
                         mapOf("t" to (pp.timestamp * 1000).toLong(), "c" to pp.content,
                             "col" to (pp.color or 0xFF000000.toInt()), "fs" to pp.fontSize)
                     }
-                    File(dir, "danmaku.json").writeText(com.google.gson.Gson().toJson(list))
+                    File(dir, "danmaku.json").writeText(gson.toJson(list))
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 dao.upsert(current(dao, key).copy(state = DownloadItemEntity.STATE_PAUSED))
@@ -351,7 +353,7 @@ object DownloadManager {
                 ).type
             ).type
             @Suppress("UNCHECKED_CAST")
-            com.google.gson.Gson().fromJson<List<Map<String, Any?>>>(f.readText(), type)
+            gson.fromJson<List<Map<String, Any?>>>(f.readText(), type)
         }.getOrDefault(emptyList())
     }
 

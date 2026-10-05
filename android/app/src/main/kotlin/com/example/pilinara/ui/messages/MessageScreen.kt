@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.MsgFeedItem
 import java.text.SimpleDateFormat
@@ -38,7 +39,7 @@ fun MessageScreen(
     onOpenSessions: () -> Unit = {},
     viewModel: MessageViewModel = viewModel()
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val tabs = listOf("回复", "@我的", "收到的赞")
 

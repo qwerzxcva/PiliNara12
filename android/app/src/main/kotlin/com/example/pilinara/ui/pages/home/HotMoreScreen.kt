@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.VideoItem
 import com.example.pilinara.data.model.WeeklyItem
@@ -123,13 +124,13 @@ fun HotMoreScreen(
     onOpenZone: () -> Unit = {},
     viewModel: HotMoreViewModel = viewModel()
 ) {
-    val tab by viewModel.tab.collectAsState()
-    val precious by viewModel.precious.collectAsState()
-    val weeklyIssues by viewModel.weeklyIssues.collectAsState()
-    val weeklyVideos by viewModel.weeklyVideos.collectAsState()
-    val openWeekly by viewModel.openWeekly.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val tab by viewModel.tab.collectAsStateWithLifecycle()
+    val precious by viewModel.precious.collectAsStateWithLifecycle()
+    val weeklyIssues by viewModel.weeklyIssues.collectAsStateWithLifecycle()
+    val weeklyVideos by viewModel.weeklyVideos.collectAsStateWithLifecycle()
+    val openWeekly by viewModel.openWeekly.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {

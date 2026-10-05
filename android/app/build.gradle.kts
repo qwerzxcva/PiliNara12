@@ -30,7 +30,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 审核87：启用 R8 混淆 + 资源压缩（此前 false 导致 APK 未优化、代码可逆）
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

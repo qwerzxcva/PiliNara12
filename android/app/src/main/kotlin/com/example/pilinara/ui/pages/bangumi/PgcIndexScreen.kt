@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.PgcIndexItem
 import com.example.pilinara.utils.toHttpsUrl
@@ -46,7 +47,7 @@ fun PgcIndexScreen(
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
             PgcIndexViewModel() as T
     })
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {

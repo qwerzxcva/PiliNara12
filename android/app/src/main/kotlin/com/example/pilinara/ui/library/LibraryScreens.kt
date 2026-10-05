@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.FavFolder
 import com.example.pilinara.data.model.FavMedia
@@ -202,9 +203,9 @@ fun FavoritesScreen(
     onOpenFolder: (Long) -> Unit = {},
     viewModel: LibraryViewModel = viewModel()
 ) {
-    val folders by viewModel.folders.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val folders by viewModel.folders.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
 
     LaunchedEffect(mid) { viewModel.loadFolders(mid) }
 
@@ -270,9 +271,9 @@ fun FavMediaScreen(
     onOpenVideo: (bvid: String, cid: Long) -> Unit = { _, _ -> },
     viewModel: LibraryViewModel = viewModel()
 ) {
-    val medias by viewModel.medias.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val medias by viewModel.medias.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
 
     LaunchedEffect(mediaId) { viewModel.resetFavPage(); viewModel.loadMedias(mediaId) }
 
@@ -340,10 +341,10 @@ fun HistoryScreen(
     onLogin: () -> Unit = {},
     viewModel: LibraryViewModel = viewModel()
 ) {
-    val history by viewModel.history.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val historySearching by viewModel.historySearching.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val history by viewModel.history.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val historySearching by viewModel.historySearching.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { viewModel.loadHistory() }
@@ -488,8 +489,8 @@ fun ToViewScreen(
     onOpenVideo: (String, Long) -> Unit = { _, _ -> },
     viewModel: LibraryViewModel = viewModel()
 ) {
-    val toView by viewModel.toView.collectAsState()
-    val loading by viewModel.loading.collectAsState()
+    val toView by viewModel.toView.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { viewModel.loadToView() }
 

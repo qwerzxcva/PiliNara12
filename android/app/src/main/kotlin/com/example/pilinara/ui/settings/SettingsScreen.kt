@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.pilinara.ui.theme.ACCENT_OPTIONS
 import com.example.pilinara.ui.theme.accentFromHex
 
@@ -38,7 +39,7 @@ fun SettingsScreen(
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
             SettingsViewModel(context) as T
     })
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     // 弹窗选择器状态
     var showQualityDialog by remember { mutableStateOf(false) }

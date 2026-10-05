@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.security.MessageDigest
 import java.util.TreeMap
+import java.util.Locale
 
 /**
  * B站 Wbi 签名（算法参考 bilibili-API-collect §1.8）
@@ -95,7 +96,7 @@ object WbiSigner {
         for (ch in s) {
             when {
                 ch.isLetterOrDigit() || ch in "._-~*" -> sb.append(ch)
-                else -> sb.append('%').append(String.format("%02X", ch.code))
+                else -> sb.append('%').append(String.format(Locale.ROOT, "%02X", ch.code))
             }
         }
         return sb.toString()
@@ -103,6 +104,6 @@ object WbiSigner {
 
     private fun md5Hex(s: String): String {
         val d = MessageDigest.getInstance("MD5").digest(s.toByteArray(Charsets.UTF_8))
-        return d.joinToString("") { String.format("%02x", it) }
+        return d.joinToString("") { String.format(Locale.ROOT, "%02x", it) }
     }
 }

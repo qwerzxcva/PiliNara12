@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.DynamicFeedItem as DynamicItem
 import com.example.pilinara.data.model.formatCount
@@ -112,7 +113,7 @@ fun DynamicsScreen(
     onGoLogin: () -> Unit = {},
     viewModel: DynamicsViewModel = viewModel()
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (state.items.isEmpty() && state.error == null) viewModel.refresh()

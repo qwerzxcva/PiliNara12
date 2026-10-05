@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.SpaceVideoItem
 import java.text.SimpleDateFormat
@@ -48,7 +49,7 @@ fun MemberScreen(
     onOpenWeb: (String) -> Unit = {},
     viewModel: MemberViewModel = viewModel(factory = MemberViewModelFactory(mid))
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var tab by remember { mutableIntStateOf(0) }  // 0=投稿 1=专栏
     // 批次L44：空间内搜索

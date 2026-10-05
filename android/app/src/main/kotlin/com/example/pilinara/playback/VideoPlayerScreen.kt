@@ -39,11 +39,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.pilinara.danmaku.DanmakuView
 import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.utils.toHttpsUrl
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.media3.common.util.UnstableApi::class)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoPlayerScreen(
     videoUrl: String,
@@ -59,7 +61,7 @@ fun VideoPlayerScreen(
         factory = VideoPlayerViewModelFactory(LocalContext.current)
     )
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     var showControls by remember { mutableStateOf(true) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showVolumeSlider by remember { mutableStateOf(false) }
@@ -138,9 +140,9 @@ fun VideoPlayerScreen(
         }
 
         // 字幕层（批次K）
-        val subtitle by viewModel.currentSubtitle.collectAsState()
+        val subtitle by viewModel.currentSubtitle.collectAsStateWithLifecycle()
         // 批次L41：视频章节
-        val viewPoints by viewModel.viewPoints.collectAsState()
+        val viewPoints by viewModel.viewPoints.collectAsStateWithLifecycle()
         LaunchedEffect(state.isPlaying, state.currentTime) {
             viewModel.updateSubtitleAt(state.currentTime)
         }
@@ -253,7 +255,7 @@ fun VideoPlayerScreen(
                 Box {
                     if (isSeeking) {
                         val frame = viewModel.shotFrameAt(seekPreviewSec)
-                        val shot = viewModel.videoShot.collectAsState().value
+                        val shot = viewModel.videoShot.collectAsStateWithLifecycle().value
                         if (frame != null && shot != null && shot.imgXLen > 0 && shot.imgYLen > 0) {
                             // 雪碧图整图按格位偏移裁剪显示
                             val cellW = shot.imgXSize.toFloat()
@@ -284,7 +286,7 @@ fun VideoPlayerScreen(
                         }
                     }
                     // 批次L42：弹幕密度热力曲线（高能进度条），画在进度条上方
-                    val heatCurve by viewModel.heatCurve.collectAsState()
+                    val heatCurve by viewModel.heatCurve.collectAsStateWithLifecycle()
                     if (heatCurve.isNotEmpty()) {
                         androidx.compose.foundation.Canvas(
                             Modifier.fillMaxWidth().height(28.dp)
@@ -559,8 +561,8 @@ fun VideoPlayerScreen(
                         valueRange = 0.5f..2f
                     )
                     // 字幕选择（批次L9）
-                    val tracks by viewModel.subtitleTracks.collectAsState()
-                    val selectedSubId by viewModel.selectedSubtitleId.collectAsState()
+                    val tracks by viewModel.subtitleTracks.collectAsStateWithLifecycle()
+                    val selectedSubId by viewModel.selectedSubtitleId.collectAsStateWithLifecycle()
                     if (tracks.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Text("字幕", style = MaterialTheme.typography.labelLarge)

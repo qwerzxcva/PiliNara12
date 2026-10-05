@@ -19,6 +19,10 @@ import com.example.pilinara.data.remote.BiliApiClient
 import com.example.pilinara.data.repository.VideoRepository
 
 class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
+    companion object {
+        // 审核77：Gson 线程安全，全 VM 复用单实例
+        private val GSON = com.google.gson.Gson()
+    }
     // 审核27：ViewModel 生命周期长于 Activity，持有 applicationContext 防内存泄漏
     private val appContext: Context = context.applicationContext
     
@@ -233,7 +237,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                             "pool" to p.pool, "content" to p.content, "uid" to p.uid
                         )
                     })
-                    val srcJson = com.google.gson.Gson().toJson(sources)
+                    val srcJson = GSON.toJson(sources)  // 审核77：复用 Gson 实例
                     val out = lib.merge(ptr, srcJson) ?: return@runCatching null
                     val obj = org.json.JSONObject(out)
                     val arr = obj.getJSONArray("entries")
@@ -562,8 +566,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 "regexes" to com.example.pilinara.ui.settings.DanmakuBlockViewModel.cachedRegexStrings,
                 "uids" to com.example.pilinara.ui.settings.DanmakuBlockViewModel.cachedUids.toList()
             )
-            val gson = com.google.gson.Gson()
-            val out = lib.filterBlock(gson.toJson(entries), gson.toJson(rules)) ?: return@runCatching null
+            val out = lib.filterBlock(GSON.toJson(entries), GSON.toJson(rules)) ?: return@runCatching null
             val obj = org.json.JSONObject(out)
             val kept = obj.getJSONArray("kept_indices")
             (0 until kept.length()).map { i -> events[kept.getInt(i)] }
@@ -582,7 +585,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             val pts = events.map { mapOf("t" to it.timestamp.toDouble(), "w" to 1.0) }
             // 审核36：弹幕加载早于播放器就绪时 duration 为 0 → 用弹幕最大时间兜底（Rust 侧已处理）
             val dur = duration().toDouble()
-            val out = lib.heatMap(com.google.gson.Gson().toJson(pts), dur, 120) ?: return@runCatching
+            val out = lib.heatMap(GSON.toJson(pts), dur, 120) ?: return@runCatching
             val arr = org.json.JSONObject(out).getJSONArray("buckets")
             _heatCurve.value = (0 until arr.length()).map { arr.getDouble(it).toFloat() }
         }

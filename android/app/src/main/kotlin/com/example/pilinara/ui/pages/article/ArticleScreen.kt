@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.ArticleData
 import com.example.pilinara.data.remote.BiliApiClient
@@ -24,6 +25,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.pilinara.utils.toHttpsUrl
+
+// 审核97：复用 format 实例，避免 composable 内每次重组重建
+private val articleDateFormat by lazy { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA) }
 
 /**
  * 批次L23：专栏文章阅读页 ViewModel
@@ -59,8 +63,8 @@ fun ArticleScreen(
 ) {
     val vm: ArticleViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     LaunchedEffect(articleId) { vm.load(articleId) }
-    val article by vm.article.collectAsState()
-    val error by vm.error.collectAsState()
+    val article by vm.article.collectAsStateWithLifecycle()
+    val error by vm.error.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -94,8 +98,7 @@ fun ArticleScreen(
                                 append(a.author?.name.orEmpty())
                                 if (a.publishTime > 0) {
                                     append(" · ")
-                                    append(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA)
-                                        .format(java.util.Date(a.publishTime * 1000)))
+                                    append(articleDateFormat.format(java.util.Date(a.publishTime * 1000)))
                                 }
                             },
                             style = MaterialTheme.typography.labelMedium,

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.RankItem
 import com.example.pilinara.data.model.RankOwner
@@ -81,9 +82,9 @@ fun RankScreen(
     onOpenVideo: (bvid: String) -> Unit = { _ -> },
     viewModel: RankViewModel = viewModel()
 ) {
-    val items by viewModel.items.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val items by viewModel.items.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
     var currentTab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(currentTab) { viewModel.load(RANK_TABS[currentTab].second) }

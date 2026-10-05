@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.database.DownloadItemEntity
 import com.example.pilinara.data.repository.DownloadManager
@@ -35,7 +36,7 @@ fun DownloadScreen(
     onPlayLocal: (String) -> Unit = {}    // 传 bvid，播放器识别本地文件
 ) {
     val context = LocalContext.current
-    val items by DownloadManager.observeAll(context).collectAsState(initial = emptyList())
+    val items by DownloadManager.observeAll(context).collectAsStateWithLifecycle(initialValue = emptyList())
 
     Scaffold(
         topBar = {

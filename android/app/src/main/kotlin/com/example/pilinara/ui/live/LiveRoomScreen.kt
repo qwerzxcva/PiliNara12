@@ -24,6 +24,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * Live Room Screen（批次F）——真实 HLS 直播流 + 房间信息 + 进房上报
@@ -42,10 +43,10 @@ fun LiveRoomScreen(
         }
     )
 ) {
-    val state by viewModel.state.collectAsState()
-    val guardNum by viewModel.guardNum.collectAsState()
-    val guards by viewModel.guards.collectAsState()
-    val wsState by viewModel.wsState.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val guardNum by viewModel.guardNum.collectAsStateWithLifecycle()
+    val guards by viewModel.guards.collectAsStateWithLifecycle()
+    val wsState by viewModel.wsState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -204,9 +205,9 @@ fun LiveRoomScreen(
 
             // 弹幕聊天区（批次J）+ SC 醒目留言（批次L4）
             var input by remember { mutableStateOf("") }
-            val chat by viewModel.chatMessages.collectAsState()
-            val superChats by viewModel.superChats.collectAsState()
-            val gifts by viewModel.gifts.collectAsState()
+            val chat by viewModel.chatMessages.collectAsStateWithLifecycle()
+            val superChats by viewModel.superChats.collectAsStateWithLifecycle()
+            val gifts by viewModel.gifts.collectAsStateWithLifecycle()
             val listState = androidx.compose.foundation.lazy.rememberLazyListState()
             LaunchedEffect(chat.size, superChats.size) {
                 val total = chat.size + superChats.size
@@ -240,7 +241,7 @@ fun LiveRoomScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // SC 醒目留言卡片（置顶展示，含价格/背景色）
-                    items(superChats) { sc ->
+                    items(superChats, key = { it.ts * 1000 + it.uid }) { sc ->
                         Surface(
                             color = runCatching {
                                 Color(android.graphics.Color.parseColor(sc.backgroundColor))
@@ -268,7 +269,7 @@ fun LiveRoomScreen(
                             }
                         }
                     }
-                    items(chat) { msg ->
+                    items(chat, key = { it.ts * 1000_000 + it.uid + it.text.hashCode() }) { msg ->
                         Row(verticalAlignment = Alignment.Top) {
                             if (msg.medalName != null) {
                                 Surface(

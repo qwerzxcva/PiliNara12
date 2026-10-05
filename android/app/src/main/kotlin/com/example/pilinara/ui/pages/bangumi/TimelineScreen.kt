@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,9 +56,9 @@ fun TimelineScreen(
     onOpenSeason: (seasonId: Int) -> Unit = {},
     viewModel: TimelineViewModel = viewModel()
 ) {
-    val days by viewModel.days.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val days by viewModel.days.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {

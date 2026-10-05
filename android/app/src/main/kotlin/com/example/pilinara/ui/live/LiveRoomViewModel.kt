@@ -6,6 +6,7 @@ import com.example.pilinara.data.remote.BiliApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.example.pilinara.utils.toHttpsUrl
 
@@ -180,17 +181,17 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                 }
                 launch {
                     client.chat.collect { msg ->
-                        _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                        _chatMessages.update { (it + msg).takeLast(80) }
                     }
                 }
                 launch {
                     client.superChat.collect { sc ->
-                        _superChats.value = (_superChats.value + sc).takeLast(20)
+                        _superChats.update { (it + sc).takeLast(20) }
                     }
                 }
                 launch {
                     client.gift.collect { g ->
-                        _gifts.value = (_gifts.value + g).takeLast(20)
+                        _gifts.update { (it + g).takeLast(20) }
                     }
                 }
                 launch {
@@ -204,7 +205,7 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                         val msg = com.example.pilinara.data.model.LiveDanmakuMsg(
                             uid = 0L, name = "系统", text = "欢迎 $name 进入直播间"
                         )
-                        _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                        _chatMessages.update { (it + msg).takeLast(80) }
                     }
                 }
                 launch {
@@ -212,7 +213,7 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                         val msg = com.example.pilinara.data.model.LiveDanmakuMsg(
                             uid = 0L, name = "系统", text = "$name 点了个赞"
                         )
-                        _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                        _chatMessages.update { (it + msg).takeLast(80) }
                     }
                 }
                 client.connect()
@@ -231,7 +232,7 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                         name = "我",
                         text = text.trim()
                     )
-                    _chatMessages.value = (_chatMessages.value + msg).takeLast(80)
+                    _chatMessages.update { (it + msg).takeLast(80) }
                 } else {
                     _state.value = _state.value.copy(error = "发送失败（可能需要登录或粉丝牌）")
                 }

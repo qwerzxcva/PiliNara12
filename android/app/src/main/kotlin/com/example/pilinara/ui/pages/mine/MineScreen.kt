@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.NavData
 import com.example.pilinara.data.repository.LoginRepository
@@ -69,7 +70,7 @@ fun MineScreen(
     onDownloadsClick: () -> Unit = {},
     viewModel: MineViewModel = viewModel()
 ) {
-    val nav by viewModel.nav.collectAsState()
+    val nav by viewModel.nav.collectAsStateWithLifecycle()
     val isLoggedIn = nav != null
 
     Scaffold(

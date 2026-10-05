@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.LiveParentArea
 import com.example.pilinara.data.model.LiveRecRoom
@@ -102,10 +103,10 @@ fun LiveAreaScreen(
     onOpenRoom: (Long) -> Unit = {},
     viewModel: LiveAreaViewModel = viewModel()
 ) {
-    val areas by viewModel.areas.collectAsState()
-    val rooms by viewModel.rooms.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val areas by viewModel.areas.collectAsStateWithLifecycle()
+    val rooms by viewModel.rooms.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
     var selectedParent by remember { mutableLongStateOf(0L) }
 
     Scaffold(
@@ -139,7 +140,7 @@ fun LiveAreaScreen(
                         label = { Text("推荐") }
                     )
                 }
-                items(areas) { a ->
+                items(areas, key = { it.id }) { a ->
                     FilterChip(
                         selected = selectedParent == a.id,
                         onClick = { selectedParent = a.id },

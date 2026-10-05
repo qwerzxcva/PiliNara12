@@ -56,6 +56,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.VideoItem
 import com.example.pilinara.utils.toHttpsUrl
@@ -71,7 +72,7 @@ fun HomeScreen(
     onBangumiClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
 
     // 触底自动加载下一页
@@ -138,7 +139,7 @@ fun HomeScreen(
                     }
                 }
                 is HomeUiState.Success -> {
-                    val topRcmd by viewModel.topRcmd.collectAsState()
+                    val topRcmd by viewModel.topRcmd.collectAsStateWithLifecycle()
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         state = gridState,
