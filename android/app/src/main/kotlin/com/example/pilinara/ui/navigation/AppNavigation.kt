@@ -61,6 +61,7 @@ sealed class Screen(val route: String) {
     }
     object LiveList : Screen("livelist")
     object PgcIndex : Screen("pgcindex")
+    object Rank : Screen("rank")
     object DanmakuBlock : Screen("danmakublock")
     object Sessions : Screen("sessions")
 
@@ -84,6 +85,9 @@ fun AppNavigation() {
                 },
                 onSearchClick = {
                     navController.navigate(Screen.Search.route)
+                },
+                onRankClick = {
+                    navController.navigate(Screen.Rank.route)
                 }
             )
         }
@@ -266,6 +270,12 @@ fun AppNavigation() {
                 onOpenSeason = { sid ->
                     navController.navigate(Screen.Bangumi.createRoute(seasonId = sid))
                 }
+            )
+        }
+        composable(Screen.Rank.route) {
+            com.example.pilinara.ui.pages.rank.RankScreen(
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid -> navController.navigate("video/$bvid") }
             )
         }
         composable(Screen.DanmakuBlock.route) {

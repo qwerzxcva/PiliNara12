@@ -736,6 +736,19 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
 
     // ========== History / 稍后再看（批次G） ==========
 
+    /** 排行榜（批次L17）：需桌面 UA + rank referer，否则 -352 风控 */
+    suspend fun getRanking(rid: Int = 0, type: String = "all"): Result<RankResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/ranking/v2") {
+            url {
+                parameters.append("rid", rid.toString())
+                parameters.append("type", type)
+            }
+            header("Referer", "https://www.bilibili.com/v/popular/rank/all")
+            header("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        }.body()
+    }
+
     /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */
     suspend fun getHistoryCursor(
         max: Long = 0L,

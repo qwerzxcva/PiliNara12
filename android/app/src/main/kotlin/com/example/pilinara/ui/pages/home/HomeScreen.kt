@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -55,6 +56,7 @@ import com.example.pilinara.data.model.VideoItem
 fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
+    onRankClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -86,6 +88,10 @@ fun HomeScreen(
                         IconButton(onClick = onSearchClick) {
                             Icon(Icons.Filled.Search, contentDescription = "搜索",
                                 tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                        IconButton(onClick = onRankClick) {
+                            Icon(Icons.Filled.EmojiEvents, contentDescription = "排行榜",
+                                tint = androidx.compose.ui.graphics.Color(0xFFFFD54F))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
