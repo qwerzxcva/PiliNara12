@@ -267,13 +267,16 @@ object SubscribeParser {
     private fun parseDate(raw: String): Long {
         val s = raw.trim()
         if (s.isBlank()) return 0L
-        runCatching { return java.time.Instant.parse(s).toEpochMilli() }
+        // 注意：不使用 java.time.Instant（需 API 26，minSdk=24 会被 Lint 拦下），
+        // 统一用 SimpleDateFormat 覆盖常见格式。
         for (fmt in listOf(
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ssZ",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd",
             "EEE, dd MMM yyyy HH:mm:ss Z",
             "EEE, dd MMM yyyy HH:mm:ss z",
-            "dd MMM yyyy HH:mm:ss Z",
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-dd"
+            "dd MMM yyyy HH:mm:ss Z"
         )) {
             runCatching {
                 val df = java.text.SimpleDateFormat(fmt, java.util.Locale.US)
