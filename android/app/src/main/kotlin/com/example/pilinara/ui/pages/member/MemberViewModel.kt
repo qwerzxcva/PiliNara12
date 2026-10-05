@@ -27,6 +27,8 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         val mid: Long = 0L,
         val info: SpaceInfo? = null,
         val stat: RelationStat? = null,
+        // 批次L38：代表作
+        val masterpieces: List<com.example.pilinara.data.model.MasterpieceArc> = emptyList(),
         val videos: List<SpaceVideoItem> = emptyList(),
         val page: Int = 1,
         val hasMore: Boolean = false,
@@ -54,6 +56,7 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
     init {
         loadInfo()
         loadVideos(1)
+        loadMasterpieces()
     }
 
     fun loadInfo() {
@@ -108,6 +111,15 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         val s = _state.value
         if (s.isLoading || s.isLoadingMore || !s.hasMore) return
         loadVideos(s.page + 1)
+    }
+
+    /** 批次L38：代表作（匿名可用，失败静默不打扰主流程） */
+    fun loadMasterpieces() {
+        if (_state.value.masterpieces.isNotEmpty()) return
+        viewModelScope.launch {
+            val list = api.getMasterpiece(mid).getOrNull().orEmpty()
+            _state.value = _state.value.copy(masterpieces = list)
+        }
     }
 
     /** 批次L24：加载专栏列表（分页） */

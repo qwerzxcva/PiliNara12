@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -127,6 +128,52 @@ fun MemberScreen(
                     StatCell("关注", formatCount(state.stat?.following ?: 0),
                         onClick = { onOpenFollowList(mid, false) })
                     StatCell("投稿", "${state.videos.size}")
+                }
+            }
+
+            // ===== 批次L38：代表作横滑（UP 精选置顶，最多 3 条）=====
+            if (state.masterpieces.isNotEmpty()) item {
+                Column {
+                    Text(
+                        "代表作",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(state.masterpieces, key = { it.aid }) { m ->
+                            Card(
+                                modifier = Modifier.width(200.dp).clickable {
+                                    onOpenVideo(m.bvid, 0L)
+                                }
+                            ) {
+                                Column {
+                                    AsyncImage(
+                                        model = m.pic.toHttpsUrl(),
+                                        contentDescription = m.title,
+                                        modifier = Modifier.fillMaxWidth().height(110.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Column(Modifier.padding(8.dp)) {
+                                        Text(
+                                            m.title,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 2, overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "${formatCount(m.playCount)}播放 · ${formatCount(m.danmakuCount)}弹幕",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

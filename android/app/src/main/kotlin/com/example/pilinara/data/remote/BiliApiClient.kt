@@ -939,6 +939,15 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L38：UP主代表作（匿名可用，精选置顶，最多3条） */
+    suspend fun getMasterpiece(mid: Long): Result<List<MasterpieceArc>> = runCatching {
+        val resp: MasterpieceResponse = client.get("$API_BASE/x/space/masterpiece") {
+            url { parameters.append("vmid", mid.toString()) }
+            header("Referer", "https://space.bilibili.com/$mid")
+        }.body()
+        if (resp.code == 0) resp.data else error(resp.message.ifEmpty { "代表作获取失败" })
+    }
+
     /** 观看历史（cursor 分页，需登录）。max/view_at 取上一页 cursor 传回 */
     suspend fun getHistoryCursor(
         max: Long = 0L,
