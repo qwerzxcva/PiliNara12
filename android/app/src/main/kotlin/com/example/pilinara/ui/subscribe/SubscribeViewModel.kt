@@ -119,6 +119,16 @@ class SubscribeViewModel(
         viewModelScope.launch { repository.setEnabled(id, enabled) }
     }
 
+    /**
+     * 审核轮8：条目无可播放直链时的提示
+     * （避免把网页 URL 丢进播放器造成「点了没反应」）
+     */
+    fun reportNotPlayable(title: String) {
+        _state.value = _state.value.copy(
+            errorMessage = "「${title}」没有可播放的直链（该源可能只提供详情页链接）"
+        )
+    }
+
     fun clearError() {
         _state.value = _state.value.copy(errorMessage = null)
     }
