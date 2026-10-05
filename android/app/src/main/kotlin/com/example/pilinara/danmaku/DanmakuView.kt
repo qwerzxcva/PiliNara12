@@ -57,9 +57,10 @@ class DanmakuView @JvmOverloads constructor(
         return best
     }
 
-    /** 外部追加弹幕（播放到对应时间点 / 本地发送回显） */
-    fun add(text: String, color: Int, fontSizeSp: Int) {
+    /** 外部追加弹幕（播放到对应时间点 / 本地发送回显）。批次audit24：接通屏蔽规则 */
+    fun add(text: String, color: Int, fontSizeSp: Int, uid: Long = 0L) {
         if (text.isBlank() || measuredWidth <= 0 || !running) return
+        if (com.example.pilinara.ui.settings.DanmakuBlockViewModel.shouldBlock(text, uid)) return
         val fs = fontSizeSp * resources.displayMetrics.density * scaleFactor
         paint.textSize = fs
         val w = paint.measureText(text)
