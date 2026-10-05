@@ -45,6 +45,7 @@ fun SettingsScreen(
     var showQualityDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -170,7 +171,7 @@ fun SettingsScreen(
                     title = "关于 PiliNara",
                     subtitle = "Kotlin+Rust 版 v1.0 · Flutter 版功能移植中",
                     icon = Icons.Default.Info,
-                    onClick = { }
+                    onClick = { showAboutDialog = true }
                 )
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -253,6 +254,29 @@ fun SettingsScreen(
             current = state.accentColor,
             onPick = { viewModel.setAccentColor(it) },
             onDismiss = { showAccentDialog = false }
+        )
+    }
+
+    // 关于弹窗
+    if (showAboutDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showAboutDialog = false }) {
+                    androidx.compose.material3.Text("知道了")
+                }
+            },
+            title = { androidx.compose.material3.Text("关于 PiliNara") },
+            text = {
+                androidx.compose.material3.Text(
+                    "PiliNara —— B站第三方客户端\n\n" +
+                        "架构：Kotlin + Jetpack Compose + Rust native (ARM64)\n" +
+                        "网络：Ktor + Wbi 签名\n" +
+                        "存储：Room + DataStore\n" +
+                        "播放：Media3 ExoPlayer\n\n" +
+                        "本项目为 Flutter 原版的功能移植实现。"
+                )
+            }
         )
     }
 }
