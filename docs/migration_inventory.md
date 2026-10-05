@@ -412,3 +412,8 @@
 - `:app:compileDebugKotlin` 0w0e；`:app:lintDebug` **"No issues found."** 维持。
 - `:app:assembleRelease` **BUILD SUCCESSFUL**（R8 通过，5.1MB）；cargo test 16/16；clippy `-D warnings` 0。
 - commit 57662c4。
+
+## r20.5 补录（2026-10-05）
+- 审核99-100（703f729）：修复 rebase 遗留——room 插件与 ksp schemaLocation 冲突（KSP BUILD FAILED→统一 room{} 扩展）、SearchScreen 重复 import、补完 Json 共享单例。
+- 用户 P0 修复核查（82101e8/2e41d8e）：Rust JNI 符号名与 Kotlin 包路径不匹配（弹幕 JNI 全崩）——11/11 符号逐一比对通过，cargo build+test 16/16。
+- 推送 PUSH_OK 42adc62，远端=本地。
