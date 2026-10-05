@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.pilinara.utils.toHttpsUrl
 
 /**
  * 直播间 ViewModel（批次F）——真实 API
@@ -118,13 +119,13 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
             for (codec in format.codec) {
                 if (codec.codecName != "avc") continue  // ExoPlayer 兼容性优先 avc
                 val info = codec.url_info.firstOrNull() ?: continue
-                return info.host + codec.baseUrl + info.extra
+                return (info.host + codec.baseUrl + info.extra).toHttpsUrl()  // 审核19：直播流 host 常为 http
             }
         }
         // avc 没有则任意 codec
         val anyCodec = stream.format.firstOrNull()?.codec?.firstOrNull() ?: return ""
         val info = anyCodec.url_info.firstOrNull() ?: return ""
-        return info.host + anyCodec.baseUrl + info.extra
+        return (info.host + anyCodec.baseUrl + info.extra).toHttpsUrl()
     }
 
     fun consumeError() {
