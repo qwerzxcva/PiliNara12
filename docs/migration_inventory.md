@@ -206,3 +206,27 @@
 **规模**：Kotlin 106 文件 / 15,752 行。**进度：50% → 58%**（本目标 60%，因 AI 总结/历史搜索等需登录态无法匿名全链路验证，保守计 58%）。
 
 **剩余**：追番/追剧订阅页(pgc_review/subscription)、动态话题/投票、直播分区页(live_area)、音乐/音频、签到/经验(exp_log 需登录)、番剧 ep 字幕（需登录）、Vulkan/HDR/多引擎（最后）。
+
+## 复盘 r14（2026-10-05，批次L25-L31：直播分区/热门精选/合集/每周必看/首页轮播/番剧时间表/大航海，58%→70%）
+
+**本轮新增（7 commit，均经 :app:packageDebug 构建验证）**：
+- **批次L25 直播分区页**（dd763fd）：room/v1/Area/getList（匿名可用，12 大分区）+ xlive/webMain/getMoreRecList（匿名可用，12 条/页）前端按 parent_area/area_id 过滤 + LiveAreaScreen 2 列网格 + LiveList 分区入口（second/getList 匿名 -352 不可用，改此 web 方案）
+- **批次L26 热门精选页**（5bd83c1）：popular/precious（入站必刷 98 条，匿名）+ popular/series/list（每周必看期数，匿名）+ HotMoreScreen Tab + 主页火焰入口
+- **批次L27 UP主合集/系列 Tab**（124b17b）：seasons_series_list（seasons+series 两类，匿名）+ seasons_archives_list / series/archives 展开视频 + MemberScreen 第三 Tab + 点击合集加载视频列表
+- **批次L28 每周必看期数详情**（fcdbf00）：popular/series/one（buvid3 cookie 防 -352，登录态更稳）+ 点击期数加载该期视频列表（返回按钮回到期数列表）
+- **批次L29 首页顶部大卡轮播**（1cf55d7）：index/top/rcmd（fresh_type=3，匿名可用）+ HomeViewModel topRcmd StateFlow + HomeScreen LazyRow 横滑大卡（260dp，渐变标题）
+- **批次L30 番剧时间表**（7bb70cc）：pgc/web/timeline（匿名可用，before/after=6 天）+ TimelineScreen 按日分组 + 延播标记 + 跳转番剧详情 + PgcIndex 顶栏入口
+- **批次L31 直播间大航海**（9bf976e）：xlive/app-room/v2/guardTab/topList（匿名可用）+ room/v1/Room/room_info 解析主播 uid + 直播间头部舰长数 + 舰长名单展示
+
+**审核动作**：逐条验证新路由闭环（LiveArea/HotMore/Timeline/Rank/Article 全部 composable + navigate 入口齐全）；核验各页 VM→API 方法存在且签名匹配（getBangumiTimeline/getPrecious/getWeeklyList/getWeeklyDetail/getSeasonsSeries/getGuardTopList）；修复编译错误 6 处（LazyRow items 别名 rowItems、Brush/background/RoundedCornerShape import、Timeline onOpenSeason Long 类型、public inline 访问 private 改 bodyAsText、GuardModels SerialName import）。
+
+**风控调研（本轮实测）**：
+- 动态 feed/space + detail：匿名 -412（带真 buvid3+buvid4 仍 banned）→ 动态模块跳过
+- 直播 second/getList + getListByArea：匿名 -352（真 buvid 无效）→ 用 webMain/getMoreRecList 替代
+- 投币/经验记录（coin/log、exp_log）：需登录 → 跳过
+- 赛事 match/list：返回 HTML（已废弃）→ 跳过
+- 送礼物：Flutter 参照亦无此功能 → 保持一致跳过
+
+**规模**：Kotlin 118 文件 / 17,465 行；Rust 9 文件 / 874 行。**进度：58% → 70%**。
+
+**剩余（多为登录态/Vulkan）**：追番订阅页(pgc_review，匿名 53013 隐私)、动态话题/投票(-412)、音乐/音频(接口废弃)、签到/经验(需登录)、@用户评论搜索(需登录验证)、番剧 ep 字幕(需登录)、Vulkan/HDR/多引擎渲染(最后)。
