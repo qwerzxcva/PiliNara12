@@ -39,7 +39,16 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         val articles: List<com.example.pilinara.data.model.SpaceArticleItem> = emptyList(),
         val articlePage: Int = 1,
         val articleHasMore: Boolean = false,
-        val articlesLoading: Boolean = false
+        val articlesLoading: Boolean = false,
+        // 批次L27：合集/系列
+        val seasons: List<com.example.pilinara.data.model.SeasonSeriesEntry> = emptyList(),
+        val seasonsLoading: Boolean = false,
+        // 当前打开合集的视频（展开显示）
+        val seasonVideos: List<com.example.pilinara.data.model.SeasonArchiveItem> = emptyList(),
+        val seasonVideosTotal: Int = 0,
+        val openSeasonMeta: com.example.pilinara.data.model.SeasonSeriesMeta? = null,
+        val seasonVideoPage: Int = 1,
+        val seasonVideosLoading: Boolean = false
     )
 
     init {
@@ -120,6 +129,59 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
                 }
                 .onFailure { _state.value = _state.value.copy(articlesLoading = false) }
         }
+    }
+
+    /** 批次L27：加载合集/系列列表 */
+    fun loadSeasons() {
+        if (_state.value.seasonsLoading) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(seasonsLoading = true)
+            api.getSeasonsSeries(mid)
+                .onSuccess { resp ->
+                    if (resp.code == 0) {
+                        val all = (resp.data?.itemsLists?.seasonsList.orEmpty() +
+                            resp.data?.itemsLists?.seriesList.orEmpty())
+                        _state.value = _state.value.copy(seasons = all, seasonsLoading = false)
+                    } else _state.value = _state.value.copy(seasonsLoading = false)
+                }
+                .onFailure { _state.value = _state.value.copy(seasonsLoading = false) }
+        }
+    }
+
+    /** 批次L27：打开合集（拉取视频列表第一页） */
+    fun openSeason(entry: com.example.pilinara.data.model.SeasonSeriesEntry) {
+        val meta = entry.meta ?: return
+        if (meta.seasonId == 0L && meta.seriesId == 0L) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(seasonVideosLoading = true, openSeasonMeta = meta,
+                seasonVideos = emptyList(), seasonVideoPage = 1)
+            if (meta.seasonId > 0L) {
+                api.getSeasonArchives(mid, meta.seasonId)
+                    .onSuccess { resp ->
+                        if (resp.code == 0) _state.value = _state.value.copy(
+                            seasonVideos = resp.data?.archives.orEmpty(),
+                            seasonVideosTotal = resp.data?.total ?: 0,
+                            seasonVideosLoading = false
+                        ) else _state.value = _state.value.copy(seasonVideosLoading = false)
+                    }
+                    .onFailure { _state.value = _state.value.copy(seasonVideosLoading = false) }
+            } else {
+                // series 走 seasons_archives_list 的 series_id 参数（同接口 series_id 别名）
+                api.getSeriesArchives(mid, meta.seriesId)
+                    .onSuccess { resp ->
+                        if (resp.code == 0) _state.value = _state.value.copy(
+                            seasonVideos = resp.data?.archives.orEmpty(),
+                            seasonVideosTotal = resp.data?.total ?: 0,
+                            seasonVideosLoading = false
+                        ) else _state.value = _state.value.copy(seasonVideosLoading = false)
+                    }
+                    .onFailure { _state.value = _state.value.copy(seasonVideosLoading = false) }
+            }
+        }
+    }
+
+    fun closeSeason() {
+        _state.value = _state.value.copy(openSeasonMeta = null, seasonVideos = emptyList())
     }
 
     fun setOrder(order: String) {

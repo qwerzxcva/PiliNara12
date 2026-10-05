@@ -141,6 +141,14 @@ fun MemberScreen(
                         },
                         text = { Text("专栏") }
                     )
+                    Tab(
+                        selected = tab == 2,
+                        onClick = {
+                            tab = 2
+                            if (state.seasons.isEmpty()) viewModel.loadSeasons()
+                        },
+                        text = { Text("合集") }
+                    )
                 }
             }
 
@@ -195,6 +203,103 @@ fun MemberScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ===== 合集列表（批次L27）=====
+            if (tab == 2) {
+                if (state.seasonsLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (state.seasons.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                            Text("该 UP 主暂无合集", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    // 打开的合集：显示合集内视频列表
+                    if (state.openSeasonMeta != null) {
+                        item {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "${state.openSeasonMeta?.name ?: state.openSeasonMeta?.title} (${state.seasonVideosTotal})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = { viewModel.closeSeason() }) { Text("收起") }
+                            }
+                        }
+                        if (state.seasonVideosLoading) {
+                            item {
+                                Box(Modifier.fillMaxWidth().padding(20.dp), Alignment.Center) {
+                                    CircularProgressIndicator(Modifier.size(22.dp))
+                                }
+                            }
+                        }
+                        items(state.seasonVideos, key = { "sv${it.bvid}" }) { v ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                                    .clickable { onOpenVideo(v.bvid, v.cid) }
+                            ) {
+                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AsyncImage(
+                                        model = v.pic,
+                                        contentDescription = v.title,
+                                        modifier = Modifier.width(120.dp).aspectRatio(16f / 9f)
+                                            .clip(RoundedCornerShape(6.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        v.title,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(state.seasons, key = { s ->
+                            "s${s.meta?.seasonId ?: 0}-${s.meta?.seriesId ?: 0}"
+                        }) { s ->
+                            val meta = s.meta
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                                    .clickable { viewModel.openSeason(s) }
+                            ) {
+                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AsyncImage(
+                                        model = meta?.cover,
+                                        contentDescription = meta?.name,
+                                        modifier = Modifier.width(110.dp).aspectRatio(16f / 9f)
+                                            .clip(RoundedCornerShape(6.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            meta?.name ?: meta?.title ?: "",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "共 ${meta?.total ?: 0} 个视频",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

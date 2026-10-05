@@ -540,6 +540,46 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L27：UP 主合集/系列列表（polymer web-space，匿名可用） */
+    suspend fun getSeasonsSeries(mid: Long, pageNum: Int = 1, pageSize: Int = 20): Result<SeasonsSeriesResponse> = runCatching {
+        client.get("$API_BASE/x/polymer/web-space/seasons_series_list") {
+            url {
+                parameters.append("mid", mid.toString())
+                parameters.append("page_num", pageNum.toString())
+                parameters.append("page_size", pageSize.toString())
+            }
+            header("Referer", "https://space.bilibili.com")
+        }.body()
+    }
+
+    /** 批次L27：合集内视频列表（seasons_archives_list，匿名可用） */
+    suspend fun getSeasonArchives(mid: Long, seasonId: Long, pageNum: Int = 1, pageSize: Int = 20): Result<SeasonArchivesResponse> = runCatching {
+        client.get("$API_BASE/x/polymer/web-space/seasons_archives_list") {
+            url {
+                parameters.append("mid", mid.toString())
+                parameters.append("season_id", seasonId.toString())
+                parameters.append("page_num", pageNum.toString())
+                parameters.append("page_size", pageSize.toString())
+            }
+            header("Referer", "https://space.bilibili.com")
+        }.body()
+    }
+
+    /** 批次L27：系列内视频列表（/x/series/archives，匿名可用；archives 可能为 null） */
+    suspend fun getSeriesArchives(mid: Long, seriesId: Long, pageNum: Int = 1, pageSize: Int = 20): Result<SeasonArchivesResponse> = runCatching {
+        client.get("$API_BASE/x/series/archives") {
+            url {
+                parameters.append("mid", mid.toString())
+                parameters.append("series_id", seriesId.toString())
+                parameters.append("only_normal", "true")
+                parameters.append("sort", "desc")
+                parameters.append("pn", pageNum.toString())
+                parameters.append("ps", pageSize.toString())
+            }
+            header("Referer", "https://space.bilibili.com")
+        }.body()
+    }
+
     // ========== 番剧/影视（批次D） ==========
 
     /** 番剧详情（season_id 或 ep_id）。注意：pgc 接口在 api.bilibili.com，返回字段直属 result */
