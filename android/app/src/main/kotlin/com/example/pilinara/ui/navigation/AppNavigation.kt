@@ -62,6 +62,9 @@ sealed class Screen(val route: String) {
     object LiveList : Screen("livelist")
     object PgcIndex : Screen("pgcindex")
     object Rank : Screen("rank")
+    object Article : Screen("article/{articleId}") {
+        fun createRoute(id: Long) = "article/$id"
+    }
     object DanmakuBlock : Screen("danmakublock")
     object Sessions : Screen("sessions")
 
@@ -276,6 +279,13 @@ fun AppNavigation() {
             com.example.pilinara.ui.pages.rank.RankScreen(
                 onBack = { navController.popBackStack() },
                 onOpenVideo = { bvid -> navController.navigate(Screen.VideoPlayer.createRoute(bvid)) }
+            )
+        }
+        composable(Screen.Article.route) {
+            val id = it.arguments?.getString("articleId")?.toLongOrNull() ?: 0L
+            com.example.pilinara.ui.pages.article.ArticleScreen(
+                articleId = id,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.DanmakuBlock.route) {

@@ -119,6 +119,14 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
 
     // ========== Search ==========
 
+    /** 批次L23：专栏文章正文（匿名可用） */
+    suspend fun getArticleView(id: Long): Result<ArticleViewResponse> = runCatching {
+        client.get("$API_BASE/x/article/view") {
+            url { parameters.append("id", id.toString()) }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
     /** 批次L22：视频 AI 总结（wbi 签名，需登录，匿名 -403） */
     suspend fun getAiConclusion(bvid: String, cid: Long, upMid: Long = 0L): Result<AiConclusionResponse> = runCatching {
         val signed = WbiSigner.sign(
