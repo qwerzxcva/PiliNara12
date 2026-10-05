@@ -236,13 +236,14 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     
     // ========== Comments ==========
     
-    suspend fun getComments(bvid: String, oid: Long = 0L, page: Int = 1, pageSize: Int = 20): Result<CommentResponse> = runCatching {
+    suspend fun getComments(bvid: String, oid: Long = 0L, page: Int = 1, pageSize: Int = 20, mode: Int = 3): Result<CommentResponse> = runCatching {
         // /x/v2/reply/wbi/main 需 wbi 签名，签名错返回 -403（见 docs §1.5）
+        // mode: 2=按时间 3=按热度（批次L35 排序切换）
         val signed = WbiSigner.sign(
             mapOf(
                 "oid" to oid.toString(),
                 "type" to "1",
-                "mode" to "3",
+                "mode" to mode.toString(),
                 "pn" to page.toString(),
                 "ps" to pageSize.toString()
             )

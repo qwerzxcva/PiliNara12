@@ -57,7 +57,7 @@ class CommentViewModel(private val bvid: String) : ViewModel() {
                 _state.value = _state.value.copy(isLoading = false, error = "无法获取视频 aid")
                 return@launch
             }
-            api.getComments(bvid, oid = oid, page = page).onSuccess { resp ->
+            api.getComments(bvid, oid = oid, page = page, mode = m).onSuccess { resp ->
                 if (resp.code == 0) {
                     val list = resp.data?.replay.orEmpty()
                     _state.value = _state.value.copy(
