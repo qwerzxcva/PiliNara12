@@ -26,6 +26,7 @@ import com.example.pilinara.utils.toHttpsUrl
 fun SearchScreen(
     onVideoClick: (String) -> Unit = {},
     onUserClick: (Long) -> Unit = {},
+    onLiveClick: (Long) -> Unit = {},
     viewModel: SearchViewModel = viewModel()
 ) {
     val state by viewModel.searchState.collectAsState()
@@ -157,7 +158,8 @@ fun SearchScreen(
                             SearchResultRow(
                                 item = item,
                                 onVideoClick = onVideoClick,
-                                onUserClick = onUserClick
+                                onUserClick = onUserClick,
+                                onLiveClick = onLiveClick
                             )
                         }
                         if (state.hasMore) {
@@ -229,7 +231,8 @@ fun SearchScreen(
 private fun SearchResultRow(
     item: SearchResultItem,
     onVideoClick: (String) -> Unit,
-    onUserClick: (Long) -> Unit
+    onUserClick: (Long) -> Unit,
+    onLiveClick: (Long) -> Unit = {}
 ) {
     when (item.resultType) {
         "bili_user" -> Row(
@@ -253,7 +256,9 @@ private fun SearchResultRow(
         }
 
         "live" -> Row(
-            Modifier.fillMaxWidth().padding(12.dp),
+            Modifier.fillMaxWidth()
+                .clickable(enabled = item.roomid > 0) { onLiveClick(item.roomid) }  // 审核20：直播结果补跳转
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(

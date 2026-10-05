@@ -108,6 +108,9 @@ fun AppNavigation() {
                 },
                 onUserClick = { mid ->
                     navController.navigate(Screen.Member.createRoute(mid))
+                },
+                onLiveClick = { roomId ->
+                    navController.navigate(Screen.LiveRoom.createRoute(roomId.toString()))
                 }
             )
         }
