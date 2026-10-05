@@ -157,7 +157,8 @@ fun AppNavigation() {
                 onFavoritesClick = { mid ->
                     navController.navigate(Screen.Favorites.createRoute(mid))
                 },
-                onDownloadsClick = { navController.navigate(Screen.Downloads.route) }
+                onDownloadsClick = { navController.navigate(Screen.Downloads.route) },
+                onSubscribeClick = { navController.navigate(Screen.Subscribe.route) }
             )
         }
         composable(Screen.Settings.route) {
