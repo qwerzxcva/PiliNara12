@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.data.model.toParsed
+import com.example.pilinara.data.model.AiConclusionResponse
 import com.example.pilinara.data.remote.AccountSession
 import com.example.pilinara.data.remote.BiliApiClient
 import com.example.pilinara.data.repository.VideoRepository
@@ -599,6 +600,23 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     // 批次L20：收藏夹选择
     var favFolders: List<Triple<Long, String, Int>> = emptyList()
         private set
+    // 批次L22：AI 总结
+    var aiSummary: String = ""
+        private set
+    var aiOutline: List<Pair<Long, String>> = emptyList()  // (timestamp, title)
+        private set
+
+    /** 批次L22：加载 AI 总结（需登录，失败静默显示无摘要） */
+    fun loadAiConclusion() {
+        viewModelScope.launch {
+            val resp = BiliApiClient().getAiConclusion(currentBvid, effectiveCid).getOrNull() ?: return@launch
+            val mr = resp.data?.model_result
+            if (resp.data?.code == 0 && mr != null && mr.result_type > 0) {
+                aiSummary = mr.summary
+                aiOutline = mr.outline.map { Pair(it.timestamp, it.title) }
+            }
+        }
+    }
 
     /** 发起离线下载（下载按钮 → DownloadManager 队列） */
     fun downloadCurrent(appContext: android.content.Context) {

@@ -118,7 +118,22 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     }
 
     // ========== Search ==========
-    
+
+    /** 批次L22：视频 AI 总结（wbi 签名，需登录，匿名 -403） */
+    suspend fun getAiConclusion(bvid: String, cid: Long, upMid: Long = 0L): Result<AiConclusionResponse> = runCatching {
+        val signed = WbiSigner.sign(
+            mapOf(
+                "bvid" to bvid,
+                "cid" to cid.toString(),
+                "up_mid" to upMid.toString()
+            )
+        )
+        client.get("$API_BASE/x/web-interface/view/conclusion/get") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
     suspend fun search(keyword: String, page: Int = 1, order: String = "totalrank"): Result<SearchResponse> = runCatching {
         // wbi 签名接口；缺 buvid3 会 -412 风控（见 docs/bilibili_api_checklist.md）
         AccountSession.ensureBuvid()

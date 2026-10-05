@@ -366,7 +366,10 @@ fun VideoPlayerScreen(
                     EngagementButton(
                         icon = Icons.Default.Info,
                         label = "简介",
-                        onClick = { showIntroSheet = true },
+                        onClick = {
+                            viewModel.loadAiConclusion()
+                            showIntroSheet = true
+                        },
                         tintColor = Color.White
                     )
                     // 分享（复制链接到剪贴板）
@@ -641,6 +644,28 @@ fun VideoPlayerScreen(
                         Text(
                             viewModel.videoDesc,
                             style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    // AI 总结（批次L22，需登录，失败不显示）
+                    if (viewModel.aiSummary.isNotBlank()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("AI 视频总结", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(4.dp))
+                        Text(viewModel.aiSummary, style = MaterialTheme.typography.bodySmall)
+                        viewModel.aiOutline.forEach { (ts, title) ->
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "%02d:%02d  %s".format(ts / 60, ts % 60, title),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "AI 总结加载中或不可用（需登录）",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Spacer(Modifier.height(24.dp))
