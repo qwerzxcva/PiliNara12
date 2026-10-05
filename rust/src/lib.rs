@@ -18,6 +18,8 @@ pub mod webp;
 pub mod audio;
 // Danmaku merging module
 pub mod danmaku;
+
+pub mod dmfilter;
 // Playurl DASH stream selection (stage 5)
 pub mod playurl;
 

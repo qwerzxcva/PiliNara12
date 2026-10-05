@@ -206,6 +206,41 @@ pub extern "C" fn Java_com_example_pilinara_PlayUrlNativeLib_selectStreams<'a>(
 }
 
 // ============================================================================
+// Danmaku block-rule filtering (batch L39): JSON in / JSON out
+// 输入: entries=[{content,uid}...], rules={keywords:[],regexes:[],uids:[]}
+// 输出: {kept_indices:[...], blocked_total, blocked_by_uid, blocked_by_keyword, blocked_by_regex}
+// ============================================================================
+#[no_mangle]
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeFilterBlock<'a>(
+    mut env: JNIEnv<'a>,
+    _class: JClass<'a>,
+    entries_json: JString<'a>,
+    rules_json: JString<'a>,
+) -> JString<'a> {
+    let entries_s: String = match env.get_string(&entries_json) {
+        Ok(s) => s.into(),
+        Err(_) => return JObject::null().into(),
+    };
+    let rules_s: String = match env.get_string(&rules_json) {
+        Ok(s) => s.into(),
+        Err(_) => return JObject::null().into(),
+    };
+    let entries: Vec<crate::dmfilter::FilterInput> = match serde_json::from_str(&entries_s) {
+        Ok(v) => v,
+        Err(_) => return JObject::null().into(),
+    };
+    let rules: crate::dmfilter::BlockRules = match serde_json::from_str(&rules_s) {
+        Ok(r) => r,
+        Err(_) => return JObject::null().into(),
+    };
+    let report = crate::dmfilter::filter_entries(&entries, &rules);
+    match env.new_string(serde_json::to_string(&report).unwrap_or_default()) {
+        Ok(s) => s.into(),
+        Err(_) => JObject::null().into(),
+    }
+}
+
+// ============================================================================
 // Danmaku merge (batch L15): JSON in / JSON out
 // 输入: [[{id,mode,fontsize,color,timestamp,pool,content,uid}...], ...] 多源弹幕
 // 输出: {entries:[...], filtered_count, merged_count, elapsed_ms}；失败返回 null

@@ -44,6 +44,12 @@ class DanmakuNativeLib {
     }
 
     private external fun nativeMerge(ptr: Long, sourcesJson: String): String?
+
+    /** 批次L39：弹幕屏蔽规则批量过滤（JSON 进/出，失败返回 null → Kotlin 回退逐条 shouldBlock） */
+    fun filterBlock(entriesJson: String, rulesJson: String): String? =
+        runCatching { nativeFilterBlock(entriesJson, rulesJson) }.getOrNull()
+
+    private external fun nativeFilterBlock(entriesJson: String, rulesJson: String): String?
     
     private external fun nativeCreate(
         windowSeconds: Double,

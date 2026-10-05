@@ -102,6 +102,7 @@ class DanmakuBlockViewModel(private val context: android.content.Context) : View
         /** 全局规则缓存（弹幕渲染时过滤用） */
         @Volatile var cachedKeywords: List<String> = emptyList(); private set
         @Volatile var cachedRegexes: List<Regex> = emptyList(); private set
+        @Volatile var cachedRegexStrings: List<String> = emptyList(); private set  // 批次audit25：原始正则串供 Rust 过滤
         @Volatile var cachedUids: Set<Long> = emptySet(); private set
 
         /** 弹幕过滤入口：返回 true = 该条应被屏蔽 */
@@ -120,6 +121,7 @@ class DanmakuBlockViewModel(private val context: android.content.Context) : View
                 cachedKeywords = e?.dmFilterStrings?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
                 cachedRegexes = e?.dmRegExpPatterns?.split("\n")?.filter { it.isNotBlank() }
                     ?.mapNotNull { runCatching { Regex(it) }.getOrNull() }.orEmpty()
+                cachedRegexStrings = e?.dmRegExpPatterns?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
                 cachedUids = e?.dmUids?.split("\n")?.filter { it.isNotBlank() }
                     ?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet()
             }

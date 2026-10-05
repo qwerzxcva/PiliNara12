@@ -64,7 +64,8 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         val timestamp: Long,
         val content: String,
         val color: Int,
-        val fontSize: Int
+        val fontSize: Int,
+        val uid: Long = 0L   // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
     )
     
     init {
@@ -252,10 +253,16 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                     timestamp = (p.timestamp * 1000).toLong(),
                     content = p.content,
                     color = p.color or 0xFF000000.toInt(),
-                    fontSize = p.fontSize
+                    fontSize = p.fontSize,
+                    uid = p.uid
                 )
             }
-            addDanmakuEvents(list)
+            // 批次audit25：Rust 路径保留了原始 uid，回填到合并结果
+            val uidByTs = raw.map { d -> d.toParsed() }.associate { (it.timestamp * 1000).toLong() to it.uid }
+            val withUid = if (mergedEvents != null) list.map { e ->
+                e.copy(uid = uidByTs[e.timestamp] ?: 0L)
+            } else list
+            addDanmakuEvents(withUid)
         }
     }
 
@@ -523,12 +530,23 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
 
     fun addDanmakuEvents(events: List<DanmakuEvent>) {
         _danmakuQueue.clear()
-        // 弹幕屏蔽规则过滤（关键词/正则/UID）
-        _danmakuQueue.addAll(
-            events.filterNot {
-                com.example.pilinara.ui.settings.DanmakuBlockViewModel.shouldBlock(it.content, 0L)
-            }
-        )
+        // 批次audit25：屏蔽规则批量过滤优先走 Rust（万条×多规则 CPU 密集下沉），失败回退 Kotlin 逐条
+        val filtered = runCatching {
+            val lib = com.example.pilinara.danmaku.DanmakuNativeLib()
+            val entries = events.map { mapOf("content" to it.content, "uid" to it.uid) }
+            val rules = mapOf(
+                "keywords" to com.example.pilinara.ui.settings.DanmakuBlockViewModel.cachedKeywords,
+                "regexes" to com.example.pilinara.ui.settings.DanmakuBlockViewModel.cachedRegexStrings,
+                "uids" to com.example.pilinara.ui.settings.DanmakuBlockViewModel.cachedUids.toList()
+            )
+            val gson = com.google.gson.Gson()
+            val out = lib.filterBlock(gson.toJson(entries), gson.toJson(rules)) ?: return@runCatching null
+            val obj = org.json.JSONObject(out)
+            val kept = obj.getJSONArray("kept_indices")
+            (0 until kept.length()).map { i -> events[kept.getInt(i)] }
+        }.getOrNull()
+            ?: events.filterNot { com.example.pilinara.ui.settings.DanmakuBlockViewModel.shouldBlock(it.content, it.uid) }
+        _danmakuQueue.addAll(filtered)
     }
     
     fun getDanmakuAtTime(currentTimeMs: Long): List<DanmakuEvent> {
