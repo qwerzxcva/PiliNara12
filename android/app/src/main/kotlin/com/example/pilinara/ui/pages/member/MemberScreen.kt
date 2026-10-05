@@ -50,6 +50,9 @@ fun MemberScreen(
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var tab by remember { mutableStateOf(0) }  // 0=投稿 1=专栏
+    // 批次L44：空间内搜索
+    var searchKw by remember { mutableStateOf("") }
+    var lastSearched by remember { mutableStateOf("") }
 
     LaunchedEffect(state.error) {
         state.error?.let {
@@ -214,6 +217,25 @@ fun MemberScreen(
                         text = { Text("合集") }
                     )
                 }
+            }
+
+            // ===== 批次L44：空间内搜索投稿 =====
+            if (tab == 0) item {
+                OutlinedTextField(
+                    value = searchKw,
+                    onValueChange = { searchKw = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    placeholder = { Text("在 TA 的投稿中搜索", style = MaterialTheme.typography.bodySmall) },
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(
+                            onClick = { lastSearched = searchKw; viewModel.searchArchives(searchKw) },
+                            enabled = searchKw != lastSearched
+                        ) {
+                            Icon(Icons.Default.Search, "搜索")
+                        }
+                    }
+                )
             }
 
             // ===== 排序切换（仅投稿页显示）=====

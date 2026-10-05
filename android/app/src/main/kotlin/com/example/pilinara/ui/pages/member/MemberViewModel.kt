@@ -213,6 +213,25 @@ class MemberViewModel(private val mid: Long) : ViewModel() {
         loadVideos(1)
     }
 
+    /** 批次L44：空间内搜索投稿（复用 wbi arc/search keyword） */
+    fun searchArchives(keyword: String) {
+        _state.value = _state.value.copy(videos = emptyList(), isLoading = true, error = null)
+        viewModelScope.launch {
+            api.getSpaceArchives(mid, 1, _state.value.order, keyword = keyword.trim()).onSuccess { resp ->
+                if (resp.code == 0) {
+                    val list = resp.data?.list?.vlist.orEmpty()
+                    _state.value = _state.value.copy(
+                        isLoading = false, videos = list, page = 1, hasMore = false
+                    )
+                } else {
+                    _state.value = _state.value.copy(isLoading = false, error = resp.message.ifEmpty { "搜索失败" })
+                }
+            }.onFailure { e ->
+                _state.value = _state.value.copy(isLoading = false, error = e.message)
+            }
+        }
+    }
+
     fun toggleFollow() {
         if (!AccountSession.isLogin) {
             _state.value = _state.value.copy(error = "请先登录")
