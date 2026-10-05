@@ -65,10 +65,8 @@ android {
     }
 }
 
-// 审核45：Room schema 导出（供未来正式 Migration 用，避免只能破坏性迁移）
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}
+// 审核45 + 审核99：Room schema 导出统一由 room 插件扩展配置（见文件末尾 room{} 块）。
+// 注意：不可同时使用 ksp arg("room.schemaLocation")，Room Gradle 插件会报冲突——已移除。
 
 dependencies {
     // Core Android

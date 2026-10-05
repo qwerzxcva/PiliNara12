@@ -15,7 +15,6 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     
     companion object {
         /** 单例 Json（审核：避免每次请求重建，性能） */
-        private val lenientJson = Json { ignoreUnknownKeys = true }
         private const val API_BASE = "https://api.bilibili.com"
         private const val WBI_BASE = "https://api.bilibili.com/x/web-interface/nav"
         
@@ -128,7 +127,7 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
             header("Referer", "https://www.bilibili.com")
         }.bodyAsText().let { text ->
             // 审核：复用单例 Json，避免每次请求重建（性能）
-            lenientJson.decodeFromString<PlayUrlResponse>(text)
+            BiliHttpClient.json.decodeFromString<PlayUrlResponse>(text)
                 .copy(rawJson = text)
         }
     }
