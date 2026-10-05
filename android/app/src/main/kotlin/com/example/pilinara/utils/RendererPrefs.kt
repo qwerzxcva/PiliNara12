@@ -22,6 +22,11 @@ object RendererPrefs {
     var useTextureView: Boolean = false
         private set
 
+    /** Kazumi：低延迟音频（同步缓存，供 ExoPlayer.Builder 读取） */
+    @Volatile
+    var lowLatencyAudio: Boolean = false
+        private set
+
     private var inited = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -35,10 +40,20 @@ object RendererPrefs {
                 useTextureView = (v == 1)
             }
         }
+        scope.launch {
+            storage.lowLatencyAudioFlow.collectLatest { v ->
+                lowLatencyAudio = v
+            }
+        }
     }
 
     /** 设置变更时同步更新缓存（下次创建 PlayerView 生效） */
     fun update(v: Int) {
         useTextureView = (v == 1)
+    }
+
+    /** 更新低延迟音频缓存 */
+    fun updateLowLatency(v: Boolean) {
+        lowLatencyAudio = v
     }
 }
