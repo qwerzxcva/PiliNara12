@@ -139,3 +139,20 @@ data class EmoteItem(
 data class EmoteMeta(
     @SerialName("size") val size: Int = 1  // 1=小 2=大
 )
+
+// ==================== @用户搜索（批次L7） ====================
+
+@Serializable
+data class AtSearchResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: List<AtUser> = emptyList()
+)
+
+@Serializable
+data class AtUser(
+    val mid: Long = 0L,
+    val uname: String = "",
+    val face: String = "",
+    @SerialName("is_up") val isUp: Int = 0
+)

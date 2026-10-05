@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.pilinara.data.model.CommentNode
@@ -56,6 +57,7 @@ fun CommentScreen(
     val snackbar = remember { SnackbarHostState() }
     var inputText by remember { mutableStateOf("") }
     var showEmotePanel by remember { mutableStateOf(false) }
+    var showAtSearch by remember { mutableStateOf(false) }
     var emotes by remember { mutableStateOf<List<com.example.pilinara.data.model.EmoteItem>>(emptyList()) }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -124,13 +126,78 @@ fun CommentScreen(
                         }
                     }
                 }
+                // @ 候选下拉（批次L7）
+                if (showAtSearch && state.atResults.isNotEmpty()) {
+                    Surface(
+                        tonalElevation = 4.dp,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                    ) {
+                        Column {
+                            state.atResults.take(5).forEach { u ->
+                                Row(
+                                    Modifier.fillMaxWidth()
+                                        .clickable {
+                                            // 替换最后一个 @ 后缀为用户名
+                                            val atIdx = inputText.lastIndexOf('@')
+                                            if (atIdx >= 0) {
+                                                inputText = inputText.substring(0, atIdx + 1) + u.uname + " "
+                                            } else {
+                                                inputText += "@${u.uname} "
+                                            }
+                                            viewModel.pickAtUser(u)
+                                            showAtSearch = false
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    coil.compose.AsyncImage(
+                                        model = u.face, contentDescription = u.uname,
+                                        modifier = Modifier.size(28.dp)
+                                            .clip(CircleShape)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(u.uname, style = MaterialTheme.typography.bodyMedium)
+                                    if (u.isUp == 1) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "UP", fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 Row(
                     Modifier.fillMaxWidth().padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // @ 用户按钮（批次L7）
+                    IconButton(onClick = {
+                        inputText += "@"
+                        viewModel.searchAt("", 0L)
+                        showAtSearch = false
+                    }) {
+                        Icon(
+                            Icons.Default.AlternateEmail, "@",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     OutlinedTextField(
                         value = inputText,
-                        onValueChange = { inputText = it },
+                        onValueChange = {
+                            inputText = it
+                            // 输入 @xxx 时实时搜索候选
+                            val atIdx = it.lastIndexOf('@')
+                            if (atIdx >= 0 && it.length > atIdx + 1) {
+                                viewModel.searchAt(it.substring(atIdx + 1), 0L)
+                                showAtSearch = true
+                            } else if (atIdx < 0) {
+                                showAtSearch = false
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("发一条友善的评论") },
                         maxLines = 3,

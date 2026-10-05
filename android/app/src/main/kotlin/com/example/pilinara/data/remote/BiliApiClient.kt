@@ -186,7 +186,10 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
     }
 
     /** 发评论 /x/v2/reply/add（csrf） */
-    suspend fun addComment(oid: Long, message: String, rootRpid: Long = 0L, parentRpid: Long = 0L): Result<Boolean> = runCatching {
+    suspend fun addComment(
+        oid: Long, message: String, rootRpid: Long = 0L, parentRpid: Long = 0L,
+        atUid: Long = 0L, atName: String = ""
+    ): Result<Boolean> = runCatching {
         val form = linkedMapOf(
             "oid" to oid.toString(),
             "type" to "1",
@@ -196,8 +199,32 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         )
         if (rootRpid > 0L) form["root"] = rootRpid.toString()
         if (parentRpid > 0L) form["parent"] = parentRpid.toString()
+        if (atUid > 0L && atName.isNotBlank()) {
+            form["at_name_to_mid"] = org.json.JSONObject().put(atName, atUid).toString()
+        }
         val resp: String = BiliHttpClient.postAuthForm("$API_BASE/x/v2/reply/add", form)
         org.json.JSONObject(resp).optInt("code") == 0
+    }
+
+    /** @用户搜索（登录态，/x/v2/reply/at；oid/root/parent 参数从 Flutter 版对齐） */
+    suspend fun searchAtUser(
+        keyword: String, oid: Long, rootRpid: Long, parentRpid: Long
+    ): Result<AtSearchResponse> = runCatching {
+        val signed = WbiSigner.sign(
+            mapOf(
+                "keyword" to keyword,
+                "oid" to oid.toString(),
+                "type" to "1",
+                "root" to rootRpid.toString(),
+                "parent" to parentRpid.toString(),
+                "platform" to "web",
+                "web_location" to "1315875"
+            )
+        )
+        client.get("$API_BASE/x/v2/reply/at") {
+            url { signed.forEach { (k, v) -> parameters.append(k, v) } }
+            header("Referer", "https://www.bilibili.com/")
+        }.body()
     }
     
     // ========== Danmaku ==========

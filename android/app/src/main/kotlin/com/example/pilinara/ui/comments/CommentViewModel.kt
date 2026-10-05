@@ -34,7 +34,11 @@ class CommentViewModel(private val bvid: String) : ViewModel() {
         // 楼中楼展开状态：rootRpid -> 回复列表
         val expandedReplies: Map<Long, List<CommentNode>> = emptyMap(),
         val likedRpid: Set<Long> = emptySet(),
-        val sending: Boolean = false
+        val sending: Boolean = false,
+        // @用户搜索（批次L7）
+        val atResults: List<com.example.pilinara.data.model.AtUser> = emptyList(),
+        val atQuery: String = "",
+        val pendingAt: com.example.pilinara.data.model.AtUser? = null
     )
 
     init { load(1) }
@@ -148,8 +152,12 @@ class CommentViewModel(private val bvid: String) : ViewModel() {
         }
         viewModelScope.launch {
             _state.value = _state.value.copy(sending = true)
-            api.addComment(aid(), message.trim(), rootRpid = rootRpid).onSuccess { ok ->
-                _state.value = _state.value.copy(sending = false)
+            val at = _state.value.pendingAt
+            api.addComment(
+                aid(), message.trim(), rootRpid = rootRpid,
+                atUid = at?.mid ?: 0L, atName = at?.uname.orEmpty()
+            ).onSuccess { ok ->
+                _state.value = _state.value.copy(sending = false, pendingAt = null)
                 if (ok) {
                     if (rootRpid > 0) expandReplies(rootRpid) else load(1)
                 } else {
@@ -160,6 +168,29 @@ class CommentViewModel(private val bvid: String) : ViewModel() {
             }
         }
     }
+
+    /** @用户搜索（批次L7，需登录） */
+    fun searchAt(keyword: String, rootRpid: Long = 0L) {
+        _state.value = _state.value.copy(atQuery = keyword)
+        if (keyword.isBlank()) {
+            _state.value = _state.value.copy(atResults = emptyList())
+            return
+        }
+        viewModelScope.launch {
+            api.searchAtUser(keyword, aid(), rootRpid, rootRpid).onSuccess { resp ->
+                _state.value = _state.value.copy(atResults = resp.data)
+            }.onFailure {
+                _state.value = _state.value.copy(atResults = emptyList())
+            }
+        }
+    }
+
+    /** 选中某 @用户 → 记录待发送 + 作为 pendingAt */
+    fun pickAtUser(user: com.example.pilinara.data.model.AtUser) {
+        _state.value = _state.value.copy(pendingAt = user, atResults = emptyList(), atQuery = "")
+    }
+
+    fun clearAt() { _state.value = _state.value.copy(pendingAt = null) }
 
     fun consumeError() {
         _state.value = _state.value.copy(error = null)
