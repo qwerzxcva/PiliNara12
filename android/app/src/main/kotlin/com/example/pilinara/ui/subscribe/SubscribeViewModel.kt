@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.pilinara.database.SubscribeItemEntity
 import com.example.pilinara.database.SubscribeSourceEntity
 import com.example.pilinara.data.repository.SubscribeRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -143,6 +145,39 @@ class SubscribeViewModel(
         _state.value = _state.value.copy(
             errorMessage = "「${title}」没有可播放的直链（该源可能只提供详情页链接）"
         )
+    }
+
+    /**
+     * Bangumi 登录（Animeko 移植）
+     *
+     * 真实调用 api.bgm.tv/v0/me 校验令牌；失败不写入凭据。
+     */
+    fun loginBangumi(token: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                com.example.pilinara.data.remote.BangumiSession.loginWithToken(
+                    com.example.pilinara.AppContext.get(),
+                    token
+                )
+            }.onSuccess { name ->
+                _state.value = _state.value.copy(
+                    infoMessage = "Bangumi 登录成功：$name",
+                    errorMessage = null
+                )
+            }.onFailure { e ->
+                _state.value = _state.value.copy(
+                    errorMessage = e.message ?: "Bangumi 登录失败"
+                )
+            }
+        }
+    }
+
+    /** Bangumi 退出登录（清除本地 token） */
+    fun logoutBangumi() {
+        com.example.pilinara.data.remote.BangumiSession.logout(
+            com.example.pilinara.AppContext.get()
+        )
+        _state.value = _state.value.copy(infoMessage = "已退出 Bangumi 登录")
     }
 
     fun clearError() {
