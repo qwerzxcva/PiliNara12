@@ -563,11 +563,23 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         )
     }
 
-    /** 批量下载：下载指定分P（分P面板逐项触发，批次L10） */
+    /** 批量下载：下载指定分P（分P面板逐项触发，批次L10/L13 支持番剧） */
     fun downloadPart(appContext: android.content.Context, partIndex: Int) {
         val p = pages.getOrNull(partIndex) ?: return
         val bv = currentBvid
-        if (bv.isEmpty() || bv.startsWith("ep")) return
+        if (bv.isEmpty()) return
+        if (bv.startsWith("ep")) {
+            // 番剧模式：ep{id} 虚拟键 → pgc playurl
+            val ep = bv.removePrefix("ep").toLongOrNull() ?: return
+            com.example.pilinara.data.repository.DownloadManager.downloadPgcPart(
+                appContext, ep, p.cid, p.page,
+                pageLabel = p.part.ifBlank { "第${p.page}集" },
+                durationSec = p.durationSec,
+                title = p.part.ifBlank { videoTitle },
+                cover = videoCover, ownerName = videoOwner
+            )
+            return
+        }
         com.example.pilinara.data.repository.DownloadManager.downloadPart(
             appContext, bv, p.cid, p.page,
             pageLabel = "P${p.page}",
