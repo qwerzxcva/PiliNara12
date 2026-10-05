@@ -46,6 +46,7 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showRendererDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -74,6 +75,24 @@ fun SettingsScreen(
                     icon = Icons.Default.PlayArrow,
                     checked = state.autoPlay,
                     onChange = { viewModel.setAutoPlay(it) }
+                )
+            }
+            // ===== Kazumi 特性：低延迟音频 + 渲染器 =====
+            item {
+                SettingSwitch(
+                    title = "低延迟音频",
+                    subtitle = "降低音画延迟（弱网下可能卡顿）",
+                    icon = Icons.Default.Speed,
+                    checked = state.lowLatencyAudio,
+                    onChange = { viewModel.setLowLatencyAudio(it) }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "视频渲染器",
+                    subtitle = if (state.renderer == 1) "TextureView（可合成动画）" else "SurfaceView（性能最佳）",
+                    icon = Icons.Default.ViewQuilt,
+                    onClick = { showRendererDialog = true }
                 )
             }
             item {
@@ -276,6 +295,69 @@ fun SettingsScreen(
                         "播放：Media3 ExoPlayer\n\n" +
                         "本项目为 Flutter 原版的功能移植实现。"
                 )
+            }
+        )
+    }
+
+    // Kazumi：渲染器选择弹窗
+    if (showRendererDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showRendererDialog = false },
+            title = { Text("视频渲染器") },
+            text = {
+                Column {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.setRenderer(0)
+                                showRendererDialog = false
+                            }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = state.renderer == 0,
+                            onClick = { viewModel.setRenderer(0); showRendererDialog = false }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("SurfaceView", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "性能最佳、功耗最低（默认）",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.setRenderer(1)
+                                showRendererDialog = false
+                            }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = state.renderer == 1,
+                            onClick = { viewModel.setRenderer(1); showRendererDialog = false }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("TextureView", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "支持圆角/动画合成，性能略低",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRendererDialog = false }) { Text("取消") }
             }
         )
     }
