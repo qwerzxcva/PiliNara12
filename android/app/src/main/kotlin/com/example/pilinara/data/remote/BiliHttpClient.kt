@@ -5,6 +5,8 @@ import io.ktor.client.call.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
@@ -25,6 +27,19 @@ object BiliHttpClient {
     val client = HttpClient(OkHttp) {
         install(ContentNegotiation) {
             json(json)
+        }
+        // 审核31：请求级超时（弱网下防挂死）——总 30s，连接 15s，socket 20s
+        install(HttpTimeout) {
+            requestTimeoutMillis = 30_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 20_000
+        }
+        // 审核31：幂等 GET 失败自动重试（网络抖动/风控瞬时），其余方法不重试
+        install(HttpRequestRetry) {
+            retryOnServerErrors(maxRetries = 2)
+            retryOnExceptionIf { _, cause -> cause is java.io.IOException }
+            exponentialDelay(base = 1.5, maxDelayMs = 4_000)
+            retryIf(maxRetries = 2) { _, resp -> resp.status.value in 500..599 }
         }
         
         defaultRequest {
