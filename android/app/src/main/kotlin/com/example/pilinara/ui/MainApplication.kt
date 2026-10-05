@@ -31,6 +31,9 @@ class MainApplication : Application() {
         // 进程级 Application 上下文，供无 Context 层（LoginRepository 等）取 Room
         AppContext.init(this)
 
+        // Kazumi 特性：预热渲染器偏好缓存（异步，不阻塞主线程）
+        com.example.pilinara.utils.RendererPrefs.init(this)
+
         // 弹幕屏蔽规则启动 warmup（缓存到内存供渲染过滤）
         com.example.pilinara.ui.settings.DanmakuBlockViewModel.warmup(
             com.example.pilinara.database.PiliNaraDatabase.getDatabase(this)
