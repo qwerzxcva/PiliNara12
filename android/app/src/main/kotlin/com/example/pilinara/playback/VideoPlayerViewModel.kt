@@ -596,6 +596,9 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     var videoTags: List<String> = emptyList()
     var videoPubdate: Long = 0L
         private set
+    // 批次L20：收藏夹选择
+    var favFolders: List<Triple<Long, String, Int>> = emptyList()
+        private set
 
     /** 发起离线下载（下载按钮 → DownloadManager 队列） */
     fun downloadCurrent(appContext: android.content.Context) {
@@ -754,6 +757,38 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     }
 
     /** 收藏（需登录，使用用户默认收藏夹） */
+    /** 批次L20：加载收藏夹列表供选择 */
+    fun loadFavFolders() {
+        viewModelScope.launch {
+            runCatching {
+                BiliApiClient().getMyFavFolders().getOrNull().orEmpty()
+            }.onSuccess { folders ->
+                favFolders = folders.mapNotNull { f ->
+                    f.id.takeIf { it > 0 }?.let { Triple(it, f.title, f.media_count) }
+                }
+            }
+        }
+    }
+
+    /** 批次L20：收藏到指定收藏夹（含默认夹取消收藏） */
+    fun favoriteTo(mediaId: Long) {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) { setError("请先登录后再收藏"); return@launch }
+            ensureAid()
+            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
+            val fav = _state.value.isFavorited
+            repo.favoriteVideo(aid, mediaId, if (fav) 2 else 1)
+                .onSuccess { ok ->
+                    if (ok) _state.value = _state.value.copy(
+                        isFavorited = !fav,
+                        favCount = _state.value.favCount + if (fav) -1 else 1
+                    )
+                    else setError("收藏操作失败")
+                }
+                .onFailure { setError("收藏失败: ${it.message}") }
+        }
+    }
+
     fun toggleFavorite() {
         viewModelScope.launch {
             if (!AccountSession.isLogin) {

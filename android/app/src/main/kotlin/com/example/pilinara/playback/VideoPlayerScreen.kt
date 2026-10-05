@@ -65,6 +65,7 @@ fun VideoPlayerScreen(
     var showRelatedSheet by remember { mutableStateOf(false) }
     var showIntroSheet by remember { mutableStateOf(false) }
     var showCoinSheet by remember { mutableStateOf(false) }
+    var showFavSheet by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     
@@ -332,7 +333,10 @@ fun VideoPlayerScreen(
                         icon = if (state.isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         label = "收藏",
                         count = formatCount(state.favCount),
-                        onClick = { viewModel.toggleFavorite() },
+                        onClick = {
+                            viewModel.loadFavFolders()
+                            showFavSheet = true
+                        },
                         tintColor = if (state.isFavorited) Color(0xFFFF6B9D) else Color.White
                     )
                     EngagementButton(
@@ -545,6 +549,33 @@ fun VideoPlayerScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
+
+        // 收藏夹选择面板（批次L20）
+        if (showFavSheet) {
+            ModalBottomSheet(onDismissRequest = { showFavSheet = false }) {
+                Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                    Text("选择收藏夹", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    viewModel.favFolders.forEach { f ->
+                        ListItem(
+                            headlineContent = { Text(f.second) },
+                            supportingContent = { Text("${f.third} 个内容") },
+                            leadingContent = {
+                                Icon(Icons.Filled.Folder, contentDescription = null)
+                            },
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                viewModel.favoriteTo(f.first)
+                                showFavSheet = false
+                            }
+                        )
+                    }
+                    if (viewModel.favFolders.isEmpty()) {
+                        Text("未获取到收藏夹（需登录）", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }
