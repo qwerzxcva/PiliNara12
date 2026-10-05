@@ -48,6 +48,7 @@ fun LiveRoomScreen(
     val wsState by viewModel.wsState.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     // 独立轻量 ExoPlayer 播直播流
     val player = remember {
@@ -64,7 +65,19 @@ fun LiveRoomScreen(
         onDispose {}
     }
     DisposableEffect(Unit) {
-        onDispose { player.release() }
+        // 审核55：直播切后台自动暂停（省流量+省电），回前台恢复
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> player.pause()
+                androidx.lifecycle.Lifecycle.Event.ON_START -> if (state.playUrl.isNotEmpty()) player.play()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            player.release()
+        }
     }
 
     LaunchedEffect(state.error) {

@@ -34,6 +34,13 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
 
+      # 审核54：Rust 依赖缓存——避免每次 CI 全量重编
+      - name: Cache Rust builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: arm64-release
+
       - name: Setup Android SDK & NDK
         run: |
           export SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
