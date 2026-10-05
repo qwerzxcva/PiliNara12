@@ -88,9 +88,14 @@ class SearchViewModel(
 
     fun loadMore() {
         val s = _searchState.value
+        // 审核42：防止快速滚动重入（isSearching 检查 + 页码去重）
         if (s.isSearching || !s.hasMore) return
+        if (s.page == lastRequestedPage) return
+        lastRequestedPage = s.page + 1
         performSearch(s.page + 1)
     }
+
+    private var lastRequestedPage = 0
 
     fun setFilter(searchType: String? = null, order: String? = null, duration: Int? = null) {
         _searchState.value = _searchState.value.copy(

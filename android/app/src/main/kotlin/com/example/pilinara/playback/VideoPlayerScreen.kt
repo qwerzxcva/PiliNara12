@@ -84,6 +84,20 @@ fun VideoPlayerScreen(
     }
     
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // 审核43：前后台切换——App 不可见时自动暂停，回前台恢复
+        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+        androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                when (event) {
+                    androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
+                        viewModel.pause()
+                    }
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
         // Video Surface
         AndroidView(
             factory = { ctx ->

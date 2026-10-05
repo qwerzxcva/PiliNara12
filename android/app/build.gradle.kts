@@ -62,6 +62,11 @@ android {
     }
 }
 
+// 审核45：Room schema 导出（供未来正式 Migration 用，避免只能破坏性迁移）
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.13.1")
