@@ -23,9 +23,11 @@ data class DownloadItemEntity(
     val audioPath: String = "",
     val videoSize: Long = 0L,
     val audioSize: Long = 0L,
-    val state: Int = STATE_PENDING, // 0待下载 1进行中 2完成 3失败
+    val state: Int = STATE_PENDING, // 0待下载 1进行中 2完成 3失败 4暂停
     val progress: Float = 0f,
     val error: String? = null,
+    val videoUrlCache: String = "", // 暂停时缓存的视频流 URL（续传用，有时效）
+    val audioUrlCache: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
     companion object {
@@ -33,6 +35,7 @@ data class DownloadItemEntity(
         const val STATE_RUNNING = 1
         const val STATE_DONE = 2
         const val STATE_FAILED = 3
+        const val STATE_PAUSED = 4  // 已暂停（断点续传：videoUrl 缓存于 record）
     }
 }
 

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -66,7 +67,9 @@ fun DownloadScreen(
                 DownloadRow(
                     item = item,
                     onPlay = { onPlayLocal(item.bvid) },
-                    onDelete = { DownloadManager.delete(context, item.bvid) }
+                    onDelete = { DownloadManager.delete(context, item.bvid) },
+                    onPause = { DownloadManager.pause(context, item.bvid) },
+                    onResume = { DownloadManager.resume(context, item.bvid) }
                 )
                 HorizontalDivider()
             }
@@ -78,7 +81,9 @@ fun DownloadScreen(
 private fun DownloadRow(
     item: DownloadItemEntity,
     onPlay: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
 ) {
     Row(
         Modifier.fillMaxWidth().padding(12.dp),
@@ -107,6 +112,15 @@ private fun DownloadRow(
                     "失败：${item.error ?: ""}", fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.error, maxLines = 1
                 )
+                DownloadItemEntity.STATE_PAUSED -> {
+                    LinearProgressIndicator(
+                        progress = { item.progress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text("已暂停 ${(item.progress * 100).toInt()}%", fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 else -> {
                     LinearProgressIndicator(
                         progress = { item.progress.coerceIn(0f, 1f) },
@@ -119,8 +133,16 @@ private fun DownloadRow(
             }
         }
         Spacer(Modifier.width(8.dp))
-        if (item.state == DownloadItemEntity.STATE_DONE) {
-            IconButton(onClick = onPlay) {
+        when (item.state) {
+            DownloadItemEntity.STATE_RUNNING -> IconButton(onClick = onPause) {
+                Icon(Icons.Default.Pause, "暂停")
+            }
+            DownloadItemEntity.STATE_PAUSED, DownloadItemEntity.STATE_FAILED ->
+                IconButton(onClick = onResume) {
+                    Icon(Icons.Default.PlayArrow, "继续/重试",
+                        tint = MaterialTheme.colorScheme.primary)
+                }
+            DownloadItemEntity.STATE_DONE -> IconButton(onClick = onPlay) {
                 Icon(Icons.Default.PlayArrow, "离线播放", tint = MaterialTheme.colorScheme.primary)
             }
         }

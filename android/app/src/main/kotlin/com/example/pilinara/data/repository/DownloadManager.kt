@@ -49,8 +49,14 @@ object DownloadManager {
         running[bvid] = scope.launch {
             val dao = dao(appCtx)
             try {
-                dao.upsert(DownloadItemEntity(bvid = bvid, title = title, cover = cover,
-                    ownerName = ownerName, state = DownloadItemEntity.STATE_RUNNING))
+                // 恢复/重试时保留原记录（进度/cid/标题），仅置为进行中
+                val prev = dao.getByBvid(bvid)
+                dao.upsert((prev ?: DownloadItemEntity(bvid = bvid)).copy(
+                    title = title.ifEmpty { prev?.title.orEmpty() },
+                    cover = cover.ifEmpty { prev?.cover.orEmpty() },
+                    ownerName = ownerName.ifEmpty { prev?.ownerName.orEmpty() },
+                    state = DownloadItemEntity.STATE_RUNNING, error = null
+                ))
 
                 val api = BiliApiClient()
                 val repo = VideoRepository(api)
@@ -118,6 +124,23 @@ object DownloadManager {
         }
     }
 
+    /** 暂停：缓存当前流 URL 供续传（流 URL 有时效，resume 时若过期会重新 playurl） */
+    fun pause(context: Context, bvid: String) {
+        running.remove(bvid)?.cancel()
+        scope.launch {
+            val d = dao(context)
+            val item = d.getByBvid(bvid) ?: return@launch
+            if (item.state == DownloadItemEntity.STATE_RUNNING) {
+                d.upsert(item.copy(state = DownloadItemEntity.STATE_PAUSED, error = "已暂停"))
+            }
+        }
+    }
+
+    /** 恢复：断点续传（HTTP Range 追加），URL 过期则重走 playurl */
+    fun resume(context: Context, bvid: String) {
+        download(context, bvid) // download 内部检测半成品文件走 Range 续传
+    }
+
     /** 删除离线项（记录 + 文件） */
     fun delete(context: Context, bvid: String) {
         cancel(context, bvid)
@@ -145,18 +168,26 @@ object DownloadManager {
         target: File,
         onProgress: suspend (Float) -> Unit
     ) = withContext(Dispatchers.IO) {
+        var already = if (target.exists()) target.length() else 0L
         val conn = URL(url).openConnection() as java.net.HttpURLConnection
         conn.connectTimeout = 30_000
         conn.readTimeout = 60_000
         conn.setRequestProperty("Referer", "https://www.bilibili.com/")
         conn.setRequestProperty("User-Agent",
             "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
-        val total = conn.contentLengthLong.takeIf { it > 0 } ?: -1L
+        var resumeMode = false
+        if (already > 0) {
+            conn.setRequestProperty("Range", "bytes=$already-")
+            resumeMode = conn.responseCode == 206
+            if (!resumeMode) already = 0L  // 服务器不支持 Range → 重下
+        }
+        val total = conn.contentLengthLong.takeIf { it > 0 }?.let { it + already } ?: -1L
+        if (!resumeMode) target.delete()
         conn.inputStream.use { input ->
-            java.io.FileOutputStream(target).use { out ->
+            java.io.FileOutputStream(target, resumeMode).use { out ->
                 val buf = ByteArray(64 * 1024)
                 var read: Int
-                var done = 0L
+                var done = already
                 var lastPct = -1
                 while (input.read(buf).also { read = it } != -1) {
                     out.write(buf, 0, read)
