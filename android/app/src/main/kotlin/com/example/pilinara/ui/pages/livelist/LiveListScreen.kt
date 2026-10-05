@@ -49,13 +49,23 @@ class LiveListViewModel : ViewModel() {
     fun load(page: Int) {
         if (page == 1) _state.value = _state.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
-            api.getLiveList(page).onSuccess { resp ->
-                val list = resp.data?.rooms.orEmpty()
+            // 批次L36：app-interface v2 second/getList 匿名 -352 风控 → 改 webMain/getMoreRecList（匿名可用），
+            // getMoreRecList 无分页参数，翻页以"offset 随机化重取 + 去重"模拟瀑布流
+            api.getLiveRecList().onSuccess { resp ->
+                val list = resp.data?.recommendRoomList.orEmpty().map {
+                    LiveRoomCard(
+                        roomId = it.roomid, title = it.title, anchorName = it.uname,
+                        cover = it.cover, anchorFace = "", onlineCount = it.online,
+                        areaName = it.areaName, parentAreaName = it.parentAreaName
+                    )
+                }
+                val prev = _state.value.rooms
+                val fresh = if (page == 1) list else list.filter { n -> prev.none { it.roomId == n.roomId } }
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    rooms = if (page == 1) list else _state.value.rooms + list,
+                    rooms = if (page == 1) fresh else prev + fresh,
                     page = page,
-                    hasMore = resp.data?.hasMore ?: (list.isNotEmpty())
+                    hasMore = fresh.isNotEmpty()
                 )
             }.onFailure { e ->
                 _state.value = _state.value.copy(isLoading = false, error = e.message)
