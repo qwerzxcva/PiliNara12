@@ -98,6 +98,7 @@ fun MineScreen(
                     onBangumiClick = onBangumiClick,
                     onDownloadsClick = onDownloadsClick,
                     onSettingsClick = onSettingsClick,
+                    onSubscribeClick = onSubscribeClick,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -170,6 +171,7 @@ fun UserContent(
     onBangumiClick: () -> Unit = {},
     onDownloadsClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onSubscribeClick: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     LazyColumn(
