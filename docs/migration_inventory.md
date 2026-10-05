@@ -168,3 +168,20 @@
 **规模**：Kotlin 104 文件 / 14,822 行。**进度：34% → 40%**。
 
 **剩余**：番剧 ep 字幕、Kototoro 页面级打磨、下载弹幕/字幕离线、批量下载、重连退避增强、Vulkan/HDR/多引擎（最后）。
+
+## 复盘 r12（2026-10-05，批次L10-L14：批量下载/番剧下载/弹幕渲染重大修复，40%→50%）
+
+**本轮新增（8 commit，均经 :app:packageDebug 构建验证）**：
+- **审查修复①**（4422e30）：ensureAid 对番剧 "ep{id}" 虚拟 bvid 防护（此前会去请求 getVideoDetail("ep…") 必然失败）+ 播放器分享按钮（复制链接，bangumi 链接区分）+ notifyShared 反馈
+- **批次L10 批量下载**（7e8b998）：DownloadManager.downloadPart（cid 直传，键 bvid_pN，Range 续传兼容）+ DownloadItemEntity.pageLabel 字段 + 分P面板显示真实分P标题 + 每行"下载本P"按钮
+- **批次L11 弹幕离线**（c3e682c）：下载完成后抓取弹幕存 danmaku.json（t/c/col/fs）+ DownloadManager.localDanmaku 反序列化 + 离线播放优先本地弹幕（无缓存回退在线拉取）
+- **批次L12 直播WS重连**（a182f78+47a9e58）：指数退避 2/4/8/16/32/64s、host_list 轮换、最多6次、成功重置；State 增 Connected/Reconnecting(attempt)；直播间状态条显示"弹幕重连中(第N次)…"
+- **批次L13 番剧选集下载**（5112c76）：DownloadManager.downloadPgcPart（pgc playurl，键 ep{id}_pN，含弹幕离线）+ VM downloadPart 分流番剧/普通视频
+- **半成品修复② 弹幕大小持久化**（d460048）：setDanmakuScale 此前只改内存，重启丢失 → StorageManager DANMAKU_SCALE_KEY + danmakuScaleFlow + VM 双向接线
+- **半成品修复③（重大）弹幕渲染完全打通**（41a6c18）：审查发现 DanmakuView 为空转半成品——旧实现 addDanmaku 后**无任何滚动绘制逻辑**，且 Screen 端 AndroidView 从未喂数据（danmakuQueue 从未到达渲染层），用户实际看不到任何弹幕。重写为 Canvas 渲染：每帧推进 x 坐标（基准 6s/屏）、8 轨道避让 pickRow、透明度/大小倍率/速度倍率实时生效、暂停冻结恢复无跳帧、出屏回收；Screen 端 LaunchedEffect 每帧 getDanmakuAtTime 窗口分发 + id 去重 + danmakuOn 关闭清屏 + seek 重置
+
+**审查结论（第四轮）**：修复 3 个真实半成品（ensureAid 番剧崩溃路径、弹幕大小不持久化、弹幕渲染断链）；确认 Rust JNI 链路健康（PlayUrlNativeLib.selectStreams 真实调用，WebpNativeLib/AudioNativeLib/DanmakuNativeLib 均有 Rust 实现导出，DanmakuMerger 弹幕合并 Kotlin 侧尚无调用入口——留待后续批次）。
+
+**规模**：Kotlin 104 文件 / 15,136 行。**进度：40% → 50%**。
+
+**剩余**：DanmakuMerger(Rust 弹幕合并)接入播放器、Kototoro 页面级打磨、番剧 ep 字幕（字幕接口匿名实测为空，需登录态再验）、Vulkan/HDR（最后）。
