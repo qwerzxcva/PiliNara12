@@ -109,6 +109,13 @@ interface SubscribeItemDao {
     @Query("SELECT * FROM subscribe_item WHERE sourceId = :sourceId ORDER BY pubAt DESC")
     fun observeBySource(sourceId: Long): Flow<List<SubscribeItemEntity>>
 
+    /**
+     * 一次性取该源全部条目（审核轮22：同步时查既有主键用，
+     * 避免 Upsert 每次新建 id=0 的行而撞唯一索引）
+     */
+    @Query("SELECT * FROM subscribe_item WHERE sourceId = :sourceId")
+    suspend fun getBySourceOnce(sourceId: Long): List<SubscribeItemEntity>
+
     @Query("SELECT * FROM subscribe_item WHERE id = :id")
     suspend fun getById(id: Long): SubscribeItemEntity?
 
