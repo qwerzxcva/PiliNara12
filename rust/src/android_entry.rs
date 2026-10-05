@@ -113,7 +113,7 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
 
 /// Create a new DanmakuMerger instance
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_create(
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeCreate(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
     window_seconds: f64,
@@ -137,7 +137,7 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_create(
 
 /// Free DanmakuMerger instance
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_destroy(
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeDestroy(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
     merger_ptr: i64,
@@ -151,7 +151,7 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_destroy(
 
 /// Load pinyin dictionary
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_loadPinyinDict<'a>(
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeLoadPinyinDict<'a>(
     env: JNIEnv<'a>,
     _class: JClass<'_>,
     merger_ptr: i64,
@@ -279,7 +279,7 @@ pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeFilterBlock<'
 // 输出: {entries:[...], filtered_count, merged_count, elapsed_ms}；失败返回 null
 // ============================================================================
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_merge<'a>(
+pub extern "C" fn Java_com_example_pilinara_DanmakuNativeLib_nativeMerge<'a>(
     mut env: JNIEnv<'a>,
     _class: JClass<'a>,
     merger_ptr: i64,
