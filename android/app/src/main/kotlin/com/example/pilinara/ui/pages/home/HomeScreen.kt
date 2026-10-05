@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +58,7 @@ fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
     onRankClick: () -> Unit = {},
+    onHotMoreClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -92,6 +94,10 @@ fun HomeScreen(
                         IconButton(onClick = onRankClick) {
                             Icon(Icons.Filled.EmojiEvents, contentDescription = "排行榜",
                                 tint = androidx.compose.ui.graphics.Color(0xFFFFD54F))
+                        }
+                        IconButton(onClick = onHotMoreClick) {
+                            Icon(Icons.Filled.Whatshot, contentDescription = "热门精选",
+                                tint = androidx.compose.ui.graphics.Color(0xFFFF7043))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(

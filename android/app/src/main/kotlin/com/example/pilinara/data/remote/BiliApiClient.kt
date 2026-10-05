@@ -522,6 +522,24 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         }.body()
     }
 
+    /** 批次L26：入站必刷（匿名可用，一次返回全部 98 条） */
+    suspend fun getPopularPrecious(): Result<PreciousResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/popular/precious") {
+            url {
+                parameters.append("page_size", "100")
+                parameters.append("page", "1")
+            }
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
+    /** 批次L26：每周必看期数列表（匿名可用） */
+    suspend fun getWeeklyList(): Result<WeeklyListResponse> = runCatching {
+        client.get("$API_BASE/x/web-interface/popular/series/list") {
+            header("Referer", "https://www.bilibili.com")
+        }.body()
+    }
+
     // ========== 番剧/影视（批次D） ==========
 
     /** 番剧详情（season_id 或 ep_id）。注意：pgc 接口在 api.bilibili.com，返回字段直属 result */

@@ -61,6 +61,7 @@ sealed class Screen(val route: String) {
     }
     object LiveList : Screen("livelist")
     object LiveArea : Screen("livearea")
+    object HotMore : Screen("hotmore")
     object PgcIndex : Screen("pgcindex")
     object Rank : Screen("rank")
     object Article : Screen("article/{articleId}") {
@@ -92,6 +93,9 @@ fun AppNavigation() {
                 },
                 onRankClick = {
                     navController.navigate(Screen.Rank.route)
+                },
+                onHotMoreClick = {
+                    navController.navigate(Screen.HotMore.route)
                 }
             )
         }
@@ -276,6 +280,12 @@ fun AppNavigation() {
             com.example.pilinara.ui.pages.livelist.LiveAreaScreen(
                 onBack = { navController.popBackStack() },
                 onOpenRoom = { roomId -> navController.navigate(Screen.LiveRoom.createRoute(roomId.toString())) }
+            )
+        }
+        composable(Screen.HotMore.route) {
+            com.example.pilinara.ui.pages.home.HotMoreScreen(
+                onBack = { navController.popBackStack() },
+                onOpenVideo = { bvid, cid -> navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid)) }
             )
         }
         composable(Screen.PgcIndex.route) {
