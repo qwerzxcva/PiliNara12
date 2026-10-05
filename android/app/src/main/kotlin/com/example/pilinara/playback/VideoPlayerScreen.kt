@@ -131,6 +131,8 @@ fun VideoPlayerScreen(
 
         // 字幕层（批次K）
         val subtitle by viewModel.currentSubtitle.collectAsState()
+        // 批次L41：视频章节
+        val viewPoints by viewModel.viewPoints.collectAsState()
         LaunchedEffect(state.isPlaying, state.currentTime) {
             viewModel.updateSubtitleAt(state.currentTime)
         }
@@ -635,6 +637,22 @@ fun VideoPlayerScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
+                    }
+                    // 批次L41：视频章节（view_points，点击跳转时间点）
+                    if (viewPoints.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("章节", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        viewPoints.forEach { vp ->
+                            Text(
+                                "[${java.text.SimpleDateFormat("mm:ss", java.util.Locale.CHINA).format(java.util.Date((vp.from * 1000).toLong()))}] ${vp.content}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.seekTo((vp.from * 1000).toLong()) }
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
                     }
                     if (viewModel.videoTags.isNotEmpty()) {
                         Spacer(Modifier.height(10.dp))

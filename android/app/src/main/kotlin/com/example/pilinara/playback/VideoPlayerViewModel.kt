@@ -274,6 +274,9 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
     // 可选字幕列表（批次L9：字幕选择 UI）——(id, 语言名, url)
     private val _subtitleTracks = MutableStateFlow<List<Triple<Long, String, String>>>(emptyList())
     val subtitleTracks: StateFlow<List<Triple<Long, String, String>>> = _subtitleTracks.asStateFlow()
+    // 批次L41：视频章节
+    private val _viewPoints = MutableStateFlow<List<com.example.pilinara.data.model.ViewPoint>>(emptyList())
+    val viewPoints: StateFlow<List<com.example.pilinara.data.model.ViewPoint>> = _viewPoints.asStateFlow()
 
     private val _currentSubtitle = MutableStateFlow("")
     val currentSubtitle: StateFlow<String> = _currentSubtitle.asStateFlow()
@@ -288,8 +291,11 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         viewModelScope.launch {
             runCatching {
                 val api = BiliApiClient()
-                val subs = api.getPlayerV2(bvid, cid).getOrNull()?.data?.subtitle?.subtitles.orEmpty()
+                val resp = api.getPlayerV2(bvid, cid).getOrNull()?.data
+                val subs = resp?.subtitle?.subtitles.orEmpty()
                 _subtitleTracks.value = subs.map { Triple(it.id, it.langDoc, it.subtitleUrl) }
+                // 批次L41：视频章节
+                _viewPoints.value = resp?.viewPoints.orEmpty()
                 val pick = subs.firstOrNull { !it.isLock } ?: return@launch
                 selectSubtitle(pick.id)
             }

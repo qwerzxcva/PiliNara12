@@ -14,7 +14,19 @@ data class PlayerV2Response(
 
 @Serializable
 data class PlayerV2Data(
-    val subtitle: SubtitleInfo? = null
+    val subtitle: SubtitleInfo? = null,
+    // 批次L41：视频分段章节
+    @SerialName("view_points") val viewPoints: List<ViewPoint> = emptyList()
+)
+
+/** 批次L41：视频章节/分段（player/v2 view_points，匿名可用） */
+@Serializable
+data class ViewPoint(
+    val from: Double = 0.0,   // 起始秒
+    val to: Double = 0.0,
+    val content: String = "", // 章节标题
+    @SerialName("img_x_len") val imgXLen: Int = 0,
+    @SerialName("img_y_len") val imgYLen: Int = 0
 )
 
 @Serializable
