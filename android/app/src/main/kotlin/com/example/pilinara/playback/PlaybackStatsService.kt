@@ -5,6 +5,8 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -19,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class PlaybackStatsService(private val context: Context) {
     
-    private val scope = CoroutineScope(Dispatchers.IO + Job())
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val stats = ConcurrentHashMap<String, VideoStat>()
     private val saveFile = File(context.filesDir, "playback_stats.json")
     private var saveJob: Job? = null
@@ -159,6 +161,7 @@ class PlaybackStatsService(private val context: Context) {
     }
     
     fun close() {
+        scope.cancel()          // 审核5：先停 30s 自动保存循环，防泄漏
         saveJob?.cancel()
         saveStats()
     }

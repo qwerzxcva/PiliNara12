@@ -10,7 +10,12 @@ import kotlinx.coroutines.launch
  * Initializes all native and database components
  */
 class MainApplication : Application() {
-    
+
+    // 审核5：Application 级常驻作用域（SupervisorJob 防子协程异常互相取消）
+    private val appScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
+
     override fun onCreate() {
         super.onCreate()
         
@@ -26,7 +31,7 @@ class MainApplication : Application() {
         )
 
         // 匿名启动即取 buvid3（风控接口强依赖），协程后台执行
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        appScope.launch {
             AccountSession.ensureBuvid()
         }
 

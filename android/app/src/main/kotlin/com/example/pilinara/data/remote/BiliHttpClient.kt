@@ -18,6 +18,8 @@ object BiliHttpClient {
         ignoreUnknownKeys = true
         isLenient = true
         encodeDefaults = true
+        coerceInputValues = true   // 审核4：null/越界值回退默认值，防线上字段突变崩溃
+        explicitNulls = false
     }
     
     val client = HttpClient(OkHttp) {
