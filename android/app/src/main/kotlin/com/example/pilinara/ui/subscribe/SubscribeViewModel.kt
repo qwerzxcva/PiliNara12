@@ -97,28 +97,38 @@ class SubscribeViewModel(
                 return@launch
             }
             val errors = mutableListOf<String>()
-            // 审核轮15：限制并发（最多 4 个源同时拉）。
-            // 源很多时全并发会瞬间打出大量请求：既容易触发对端风控/限流，
-            // 也会同时持有多个响应体造成内存峰值。这里用 Semaphore 限流，
-            // 仍保持并发（不至于串行太慢）。
-            val semaphore = kotlinx.coroutines.sync.Semaphore(MAX_CONCURRENT_SYNC)
-            val jobs = sources.map { s ->
-                launch {
-                    semaphore.withPermit {
-                        repository.syncSource(s).onFailure { e ->
-                            synchronized(errors) {
-                                errors.add("${s.name}: ${e.message ?: "同步失败"}")
+            // 审核轮25：用 try/finally 保证 isRefreshing 一定会被复位。
+            // 否则协程被取消（ViewModel 清除 / 页面退出）时不会走到末尾的
+            // copy(isRefreshing=false)，下拉刷新圈会永远转下去。
+            try {
+                // 审核轮15：限制并发（最多 4 个源同时拉）。
+                // 源很多时全并发会瞬间打出大量请求：既容易触发对端风控/限流，
+                // 也会同时持有多个响应体造成内存峰值。这里用 Semaphore 限流，
+                // 仍保持并发（不至于串行太慢）。
+                val semaphore = kotlinx.coroutines.sync.Semaphore(MAX_CONCURRENT_SYNC)
+                val jobs = sources.map { s ->
+                    launch {
+                        semaphore.withPermit {
+                            repository.syncSource(s).onFailure { e ->
+                                synchronized(errors) {
+                                    errors.add("${s.name}: ${e.message ?: "同步失败"}")
+                                }
                             }
                         }
                     }
                 }
+                jobs.forEach { it.join() }   // 等全部结束再收尾，避免 isRefreshing 闪烁
+                _state.value = _state.value.copy(
+                    isRefreshing = false,
+                    errorMessage = errors.takeIf { it.isNotEmpty() }?.joinToString("\n"),
+                    infoMessage = if (errors.isEmpty()) "刷新完成" else null
+                )
+            } finally {
+                // 无论成功 / 失败 / 取消，都复位刷新态
+                if (_state.value.isRefreshing) {
+                    _state.value = _state.value.copy(isRefreshing = false)
+                }
             }
-            jobs.forEach { it.join() }   // 等全部结束再收尾，避免 isRefreshing 闪烁
-            _state.value = _state.value.copy(
-                isRefreshing = false,
-                errorMessage = errors.takeIf { it.isNotEmpty() }?.joinToString("\n"),
-                infoMessage = if (errors.isEmpty()) "刷新完成" else null
-            )
         }
     }
 
