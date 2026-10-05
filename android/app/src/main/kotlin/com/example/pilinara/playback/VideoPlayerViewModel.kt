@@ -91,6 +91,11 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
                 _state.value = _state.value.copy(danmakuAlpha = a)
             }
         }
+        viewModelScope.launch {
+            storage.danmakuScaleFlow.collect { s ->
+                _state.value = _state.value.copy(danmakuScale = s)
+            }
+        }
     }
     
     fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L, local: Boolean = false) {
@@ -845,9 +850,15 @@ class VideoPlayerViewModel(private val context: Context) : ViewModel(), Player.L
         _state.value = _state.value.copy(danmakuAlpha = alpha.coerceIn(0f, 1f))
     }
 
-    /** 弹幕大小倍率 0.5..2.0 */
+    /** 弹幕大小倍率 0.5..2.0（持久化到 DataStore） */
     fun setDanmakuScale(scale: Float) {
         _state.value = _state.value.copy(danmakuScale = scale.coerceIn(0.5f, 2f))
+        viewModelScope.launch {
+            runCatching {
+                com.example.pilinara.utils.StorageManager(context.applicationContext)
+                    .setDanmakuScale(scale.coerceIn(0.5f, 2f))
+            }
+        }
     }
 
     /** 手势进度（UI 层渲染提示条用）：deltaX 横滑快进 */

@@ -41,6 +41,7 @@ class StorageManager(private val context: Context) {
         // Danmaku settings
         private val DANMAKU_ENABLED_KEY = booleanPreferencesKey("enableShowDanmaku")
         private val DANMAKU_OPACITY_KEY = floatPreferencesKey("danmakuOpacity")
+        private val DANMAKU_SCALE_KEY = floatPreferencesKey("danmakuScale")
         private val DANMAKU_FONT_SIZE_KEY = intPreferencesKey("danmakuFontSize")
         private val DANMAKU_SPEED_KEY = floatPreferencesKey("danmakuSpeed")
         
@@ -152,6 +153,13 @@ class StorageManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[DANMAKU_OPACITY_KEY] = opacity
         }
+    }
+
+    val danmakuScaleFlow: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[DANMAKU_SCALE_KEY] ?: 1.0f }
+
+    suspend fun setDanmakuScale(scale: Float) {
+        context.dataStore.edit { preferences -> preferences[DANMAKU_SCALE_KEY] = scale }
     }
 
     suspend fun setDanmakuFontSize(size: Int) {
