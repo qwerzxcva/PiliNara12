@@ -68,6 +68,7 @@ fun MineScreen(
     onToViewClick: () -> Unit = {},
     onBangumiClick: () -> Unit = {},
     onDownloadsClick: () -> Unit = {},
+    onSubscribeClick: () -> Unit = {},
     viewModel: MineViewModel = viewModel()
 ) {
     val nav by viewModel.nav.collectAsStateWithLifecycle()
@@ -183,6 +184,7 @@ fun UserContent(
         item { MenuItemRow(MenuItemData("稍后再看", Icons.Default.PlayArrow, onToViewClick)) }
         item { MenuItemRow(MenuItemData("我的收藏", Icons.Default.Favorite, onFavoritesClick)) }
         item { MenuItemRow(MenuItemData("追番中心", Icons.Default.PlayCircle, onBangumiClick)) }
+        item { MenuItemRow(MenuItemData("我的订阅", Icons.Default.Subscriptions, onSubscribeClick)) }
         item { MenuItemRow(MenuItemData("设置", Icons.Default.Settings, onSettingsClick)) }
         item { MenuItemRow(MenuItemData("退出登录", Icons.AutoMirrored.Filled.Logout, onLogout)) }
     }
