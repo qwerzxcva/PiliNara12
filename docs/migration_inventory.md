@@ -265,3 +265,29 @@
 **规模**：Kotlin 121 文件 / 17,832 行；Rust 874 行。**进度：70% → 80%**。
 
 **剩余**：追番订阅（匿名 53013）、动态 feed（-412 风控）、音乐（接口废弃）、签到/@评论搜索/ep 字幕（需登录真机验证）、投币记录页（需登录）、Vulkan/HDR（最后）。
+
+## 复盘 r16（2026-10-05，功能推进 L34-L42 + 审核24-26，80%→85%）
+
+**新功能批次（均 :app:packageDebug 构建验证）**：
+- **L34 排行榜分区榜**（2d52700）：ranking/region（匿名可用，11条/分区）替代 v2 全站榜传 rid 无效的问题；RankViewModel 按 rid 分流 v2（全站）/region（分区）
+- **L38 UP主代表作**（b4545b9）：x/space/masterpiece（匿名可用，3条精选）；MemberScreen 头部下方代表作横滑卡（200dp 卡 + 播放/弹幕数）
+- **L40 播放页实时在线人数**（15256c7）：x/player/online/total（匿名可用）；VM loadOnlineCount + 简介面板「👁 N 人正在看」
+- **L41 视频章节**（c8c1757）：player/v2 view_points 解析（复用已有 player/v2 调用，零额外请求）；ViewPoint 模型 + 简介面板章节列表 + 点击 seekTo 跳转
+- **L42 弹幕高能进度条**（2fa5079）：Rust dmheat.rs 密度分桶归一化（4 单测）；JNI nativeHeatMap；进度条上方 Canvas 热力曲线
+
+**Rust 增强（CPU 密集下沉）**：
+- **L39 dmfilter.rs**（cd3c737）：关键词/正则/UID 三类屏蔽规则批量过滤；regex crate 编译（非法正则忽略）；4 单测；JNI nativeFilterBlock + Kotlin 回退
+- **L42 dmheat.rs**（2fa5079）：弹幕密度直方图 + 归一化 + 峰值检测；4 单测；JNI nativeHeatMap
+- Rust 规模：874 行 → 1263 行；cargo test 16/16 全通过、clippy 0 warning
+
+**真实 bug 修复（审核专项目）**：
+- **审核24**（e9beeb1，重大）：DanmakuBlockViewModel.shouldBlock() **从未被调用**——弹幕屏蔽规则 UI/Room/缓存全齐但完全不生效；接线 DanmakuView.add(uid) 渲染过滤
+- **审核25**（cd3c737）：屏蔽过滤 uid 恒传 0L → UID 规则永不生效；DanmakuEvent 补 uid 字段，Rust 路径回填原始 uid
+- **审核26**（3a469cc）：MineScreen UserContent「设置」菜单项空 onClick → 接通 onSettingsClick；UserContent 补参数
+- **L35**（561d069）：getComments 硬编码 mode=3 未传参 → 评论排序切换 UI 形同虚设的真实 bug
+- **L36**（c0b2359）：直播列表 second/getList 匿名 -352 → webMain/getMoreRecList + 去重翻页
+- **L37**（7012eb2）：SearchScreen 返回键空 onClick（第5处断链）、简介 tag chip 空点击、Search 路由 initialQuery
+
+**规模**：Kotlin 12x 文件 / 18,187 行；Rust 11 文件 / 1263 行。**进度：80% → 85%**。
+
+**剩余**：追番订阅（匿名 53013 隐私）、动态 feed（-412 风控）、音乐（接口废弃）、登录态项真机验证（@评论搜索/番剧 ep 字幕/投币记录/关注分组/黑名单）、Vulkan/HDR（最后）。
