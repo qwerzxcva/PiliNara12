@@ -19,8 +19,13 @@ class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize database
-        DatabaseInitializer().initialize(this)
+        // 审核（真卡顿根因）：原 DatabaseInitializer.initialize 在主线程同步
+        // getDatabase()——Room 首次建库 + 执行 MIGRATION_2_3 是重 IO，
+        // 数据量大时阻塞主线程数百 ms~秒级，表现为启动图卡死/黑屏/“按钮无反应”。
+        // 挪到后台协程预热；UI 侧首次访问 Room 均有协程包裹，懒加载不受影响。
+        appScope.launch {
+            DatabaseInitializer().initialize(this@MainApplication)
+        }
 
         // 批次审核40：全局兜底——未捕获协程异常记日志防静默崩溃
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
