@@ -13,4 +13,10 @@
     <issue id="VectorPath" severity="ignore" />
     <!-- NormalTheme 由系统在部分场景引用，静态分析判为 unused 属误报 -->
     <issue id="UnusedResources" severity="warning" />
+    <!--
+      targetSdk 34 是本项目有意选择（跟随 B 站/Media3 兼容矩阵），
+      并非遗漏升级；"未用最新 target" 属策略提示而非缺陷。
+      若未来升级 targetSdk，应移除本条重新校验。
+    -->
+    <issue id="OldTargetApi" severity="ignore" />
 </lint>
