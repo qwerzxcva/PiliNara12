@@ -10,6 +10,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -80,8 +82,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val content: String,
         val color: Int,
         val fontSize: Int,
-        val uid: Long = 0L,  // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
-        val mode: Int = 1    // 审核轮167：1-3=滚动 4=底部 5=顶部 6=逆向 7=精准（B站 mode）
+        val uid: Long = 0L   // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
     )
     
     init {
@@ -233,12 +234,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
 
-    private fun ensureCurrent(generation: Long) {
+    private suspend fun ensureCurrent(generation: Long) {
+        currentCoroutineContext().ensureActive()
         if (generation != loadGeneration) throw CancellationException("stale playback request")
     }
 
     /** 番剧剧集播放链路（批次D 补全）：pgc season 详情取 cid + 标题/集数 → pgc playurl → Rust 选流 */
-    private suspend fun loadPgcEpisode(epId: Long, generation: Long = loadGeneration) {
+    private suspend fun loadPgcEpisode(epId: Long, generation: Long) {
         val repo = VideoRepository(BiliApiClient())
         ensureCurrent(generation)
         _state.value = _state.value.copy(isBuffering = true, error = null)
@@ -253,7 +255,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             setError("无法获取剧集 cid（pgc 详情失败）")
             return
         }
-        aid = episode?.bvid?.let { repo.getVideoDetail(it).getOrNull()?.data?.aid } ?: 0L
+        val episodeAid = episode?.bvid?.let { repo.getVideoDetail(it).getOrNull()?.data?.aid } ?: 0L
+        ensureCurrent(generation)
+        aid = episodeAid
 
         // 同番剧全部分集作为“分P”面板
         pages = season?.episodes.orEmpty().mapIndexed { idx, ep ->
@@ -422,7 +426,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     private suspend fun resolveAndPlay(
         bvid: String,
         cidIn: Long,
-        generation: Long = loadGeneration
+        generation: Long
     ) {
         val repo = VideoRepository(BiliApiClient())
         ensureCurrent(generation)
@@ -582,7 +586,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
-    fun setPlaybackSpeed(speed: Float, raw: Boolean = false) {
+    fun setPlaybackSpeed(speed: Float) {
         val normalizedSpeed = when {
             speed <= 0.5f -> 0.5f
             speed <= 1.0f -> 1.0f
@@ -623,7 +627,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         if (error != null) _state.value = _state.value.copy(error = error)
     }
 
-
+    /** 分享反馈（复制链接成功提示） */
+    fun notifyShared(link: String) {
+        setError("链接已复制：$link")
+    }
 
     /** 批次L40：实时在线人数（匿名，失败静默） */
     private fun loadOnlineCount(bvid: String, cid: Long) {
@@ -1087,7 +1094,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             aid = item.bvid.let { repo.getVideoDetail(it).getOrNull()?.data?.aid ?: 0L }
             loadEngagement(aid, item.bvid)
             loadRelated(item.bvid)
-            resolveAndPlay(item.bvid, item.cid)
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        loadJob = viewModelScope.launch {
+            resolveAndPlay(item.bvid, item.cid, generation)
         }
     }
 
@@ -1136,69 +1146,4 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
 
     private fun duration(): Long = _player?.duration?.takeIf { it > 0 } ?: _state.value.duration
-
-    // ===== 审核轮208：从 f6c8e84 恢复被 Animeko 提交误删的 r24 功能符号 =====
-
-    init {
-        viewModelScope.launch {
-            val sm = com.example.pilinara.utils.StorageManager(appContext)
-            sm.dmShowTopFlow.collect { cachedDmShowTop = it }
-        }
-        viewModelScope.launch {
-            com.example.pilinara.utils.StorageManager(appContext)
-                .dmShowBottomFlow.collect { cachedDmShowBottom = it }
-        }
-    }
-
-/** 审核轮179：非致命提示（成功/轻微失败）——原来误用 setError 会全屏红字+隐藏控制栏 */
-    private val _toast = MutableStateFlow<String?>(null)
-    val toast: StateFlow<String?> = _toast.asStateFlow()
-    fun showToast(msg: String) {
-        _toast.value = msg
-        viewModelScope.launch { kotlinx.coroutines.delay(2000); if (_toast.value == msg) _toast.value = null }
-    }
-
-    /** 分享反馈（复制链接成功提示） */
-    fun notifyShared(link: String) {
-        showToast("链接已复制：$link")
-    }
-
-/** 审核轮167：持久化顶部/底部弹幕开关 */
-    fun persistDmShowTop(v: Boolean) = viewModelScope.launch {
-        com.example.pilinara.utils.StorageManager(appContext).setDmShowTop(v)
-    }
-    fun persistDmShowBottom(v: Boolean) = viewModelScope.launch {
-        com.example.pilinara.utils.StorageManager(appContext).setDmShowBottom(v)
-    }
-
-    // 审核轮167：顶部/底部弹幕显示开关（B站 mode 4=底部 5=顶部）
-    @Volatile var cachedDmShowTop: Boolean = true
-    @Volatile var cachedDmShowBottom: Boolean = true
-
-    // 审核轮153：亮度手势是否已被用户操作（防进页即写系统亮度）
-    @Volatile var brightnessTouched: Boolean = false
-
-fun playNextPart(): Boolean {
-        val next = currentPartIndex + 1
-        return if (next < pages.size) { playPart(next); true } else false
-    }
-
-
-fun likeCoinFav() {
-        viewModelScope.launch {
-            if (!AccountSession.isLogin) { setError("请先登录后再三连"); return@launch }
-            ensureAid()
-            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
-            BiliApiClient().likeCoinFav(aid)
-                .onSuccess { ok ->
-                    if (ok) _state.value = _state.value.copy(
-                        isLiked = true, isFavorited = true,
-                        likeCount = _state.value.likeCount + if (_state.value.isLiked) 0 else 1
-                    )
-                    else showToast("三连失败（可能已投过币）")
-                }
-                .onFailure { showToast("三连失败: ${it.message}") }
-        }
-    }
-
 }
