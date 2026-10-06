@@ -1,50 +1,53 @@
-# PiliNara 逐行审计（2026-10-05）
+# PiliNara 订阅源 + Kazumi + 刮削引擎（2026-10-06 凌晨）
 
-CI: Run 37342380440 全绿（Rust/APK/Verify）
+## 环境约束
+- `github.com:443` 被墙（git push/SSH 全失败）；`api.github.com` 可用
+  → 用 `.push_via_api.py` 经 Contents API 上传
+- 本地 Gradle 起不来 → **只能靠 CI 验证编译**
 
-## 本轮修复的 P1（真 bug）
+## 当前 CI
+Run 37422127408 **全绿**（APK 26.06 MB + rust-lib 0.52 MB）
 
-### Rust JNI 边界 panic 清零
-JNI 导出函数内 panic 会 abort 整个进程，Kotlin runCatching 拦不住。
-- WebpNativeLib_finalize: 补 encoder_ptr==0 判空（防 Box::from_raw(0) UB）
-  + new_byte_array/set_byte_array_region unwrap → match
-- AudioNativeLib_normalize: get_array_length 补 l>0；
-  三处 unwrap → match（失败返回空数组/null）
-- 核查：danmaku.rs 用 unwrap_or（安全）；playurl.rs 的 unwrap 在 #[cfg(test)] 内
-- 验证：cargo clean -p pilinara-native && cargo build --lib 通过，零警告
+## Animeko 刮削引擎（本轮全部完成）
 
-### 前两轮 P0（JNI 符号）
-- 方法名不匹配 x4（create→nativeCreate 等）
-- 包路径缺 danmaku x7
-- 11 个符号现已逐一对账一致，#[no_mangle] 11/11
+### 调研结论（抓真实 4 个文件，非猜）
+4 个链接全是「媒体源配置」，非条目列表。all.json=70 源（63 web-selector + 7 rss），
+零可播 URL。播放地址需运行时：关键词→searchUrl→CSS 刮→matchVideo 提地址。
 
-## 审计结论（逐项）
-
-| 检查项 | 结果 |
+### 已实现（AnimekoScraper.kt + SubscribeRepository.kt）
+| 能力 | 覆盖 |
 |---|---|
-| `!!` 非空断言 | 4 处，均在判空分支内（nav!=null / else / !isNullOrEmpty），安全 |
-| runBlocking（主线程卡死） | 0 |
-| GlobalScope（泄漏） | 0 |
-| collectAsState（非生命周期感知） | 0（已全部 WithLifecycle） |
-| ViewModel 持 Context | 3 个，全部用 applicationContext，无泄漏 |
-| 主线程网络/DB | 0 |
-| 硬编码明文密钥/http | 无；UrlFix 正确 http→https |
-| AndroidManifest cleartext | 未开启（Android 9+ 默认禁 http）→ UrlFix 是必需且正确的 |
-| 空 onClick | 1 处「关于」（无害，弹窗未接） |
+| parseConfig（selector*/matchVideo/headers） | 全部 |
+| parseSubjects（a 41 / indexed 21） | 62 |
+| parseEpisodes（index-grouped 59 / no-channel 4） | 63 |
+| extractVideoUrl（matchVideoUrl 正则） | 63 |
+| nestedUrl 二级跳（60 源 enableNestedUrl） | 60 |
+| 命名组 (?<v>)(25源) / (?<ep>)(55源) 提取 | 覆盖 |
+| searchUseOnlyFirstWord（63） | 63 |
+| searchRemoveSpecial（51） | 51 |
+| filterByEpisodeSort + matchEpisodeSortFromName（53/55） | 55 |
+| diagnoseJsRendered（区分 JS渲染 vs 选择器失效） | 全部 |
+| json-path-indexed（1 源） | **未支持** |
 
-## 发现的"写了但没接线"（P2）
-Room 建了 8 张表，但**设置/缓存实际走 DataStore(StorageManager)**，
-因此以下 DAO 定义后从未被调用：
-- SettingDao / VideoSettingDao / LocalCacheDao / TodayWatchFeedbackDao
-- getUserInfo 仅 1 处，saveUserInfo 0 处
-实际在用：DownloadItemDao（下载，完整）、LoginAccountDao（登录持久化）、
-DanmakuFilterRuleDao（弹幕屏蔽）
-→ 属于冗余而非崩溃；删除需同步改 entities+迁移，风险 > 收益，建议保留或后续单独清理。
+### 关键正确性修复
+1. 命名组不能 groups["v"]（API26 限制）→ 手写 compileWithNamedV 换算组序号
+2. 命名组 (?<v>) 的组序号≠1（第1组常是 http/https）→ 精确数出 v 的位置
+3. matchEpisodeSortFromName 用源配置正则而非硬编码
 
-## 已验证功能完整（非纯 UI）
-- DownloadManager：download/pause/resume/cancel/delete/本地播放/本地弹幕 全套
-- VideoPlayerViewModel：loadVideo/loadDanmakuFor/loadSubtitles/热力曲线 全套
-- HomeRepository：真调 apiClient.popularVideos + 错误处理
+### 诚实标注的未验证项
+- matchNestedUrl 语义（推断「嵌套播放页链接」，未找到 Animeko 源码佐证）
+- 全链路未真机验证；JS 动态渲染站点 jsoup 无解
+- 我实现的只是选择器配置的**子集**
 
-## 仍无法验证
-无真机/模拟器：播放、弹幕渲染、UI 观感、运行时行为均未实测。
+## 其余已完成
+- 订阅源数据层（2 表 + v2→v3 Migration，不用 destructive）
+- RSS/Atom/JSON 解析 + 类型嗅探
+- 订阅页 UI（三级视图：条目→作品→剧集）+ 添加/管理/Bangumi登录
+- Kazumi：低延迟音频（Builder 应用，不能热切换）+ 渲染器切换
+- Bangumi 登录（Bearer Token，真实调 /v0/me）
+- 25+ 轮审核修复（内存泄漏/原子性/命名组/路由/并发限流/重入等）
+
+## 认知更正记录
+- Media3 实际 1.3.1（早先误按 1.5.1）
+- PlayerView.setSurfaceType 未公开 → XML surface_type
+- ExoPlayer.setAudioAttributes 不存在（只在 Builder）
