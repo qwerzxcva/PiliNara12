@@ -77,3 +77,59 @@ Run 37422127408 **全绿**（APK 26.06 MB + rust-lib 0.52 MB）
 
 ## 最终 CI
 Run 37429231602 全绿，APK 26.06 MB
+
+## 质量门禁与遗留编译修复（本轮）
+
+### 已做的确定性修复
+1. Lint 门禁从“grep 文本报告”改为解析 XML 并按 severity 判定；报告缺失/畸形即失败。
+   新增 tests/check_lint_report.py + tests/test_lint_gate.py（7 个单测，本地通过）。
+2. 新增 tests/run_scraper_regression.py：用 Kotlin 编译器编译**生产源文件**里的
+   extractVideoUrl / compileWithNamedGroup / resolveUrl 并在 JVM 断言，
+   不再是 Python 复刻（此前复刻可能与 Kotlin 语义不一致）。
+3. 修 VideoPlayerScreen.kt 引用 ViewModel 不存在 API 的遗留编译错误：
+   brightnessTouched / cachedDmShowTop/Bottom / persistDmShow* / playNextPart /
+   likeCoinFav / toast，并给 DanmakuEvent 补 mode（4=底部 5=顶部）以支撑类型开关。
+4. 播放器新增“陈旧请求”保护：loadJob/loadGeneration，切源与切分P都取消旧请求，
+   挂起点后 ensureCurrent()（ensureActive + generation）避免旧响应覆盖新状态。
+
+### 版本事实（可核验）
+- Kotlin 2.0.21（android/settings.gradle.kts）与 Compose/KSP 2.0.21 对齐；非最新但更适合当前 AGP 8.5.2。
+- Rust 1.99.0 与官方 stable 一致；已加 rust/rust-toolchain.toml 固定。
+
+### 未完成/未验证（如实列出）
+- Cargo 全量测试与 clippy 在沙箱内 180s 超时未完成，未在 CI 外独立验证通过。
+- Android JNI 只能在 Android target 编译，host 测试无法覆盖 FFI。
+- 真机/设备验证仍然缺失；刮削源与实际站点渲染仍未知。
+
+## 修复遗留编译错误并恢复 CI（Run 37473405011 全绿）
+
+按 CI 真实 `e:` 错误逐条修（不再猜）：
+1. VideoPlayerScreen 引用 ViewModel 不存在 API：
+   brightnessTouched / cachedDmShowTop(Bottom) / persistDmShow* /
+   playNextPart / likeCoinFav / toast → 在 ViewModel 补齐实现。
+2. DanmakuEvent 补 mode（1=滚动 4=底部 5=顶部），使顶/底弹幕开关有意义。
+3. DownloadManager/Theme 仍用 StorageManager.getInstance(appCtx)
+   → 给 StorageManager 加进程内单例 getInstance 兼容（原有构造方式不变）。
+4. setPlaybackSpeed 补 raw 参数，保留长按 3x 临时倍速语义。
+
+### Lint 门禁（现在真的会失败）
+- 改为解析 XML 按 severity 判定，报告缺失/畸形/未知 severity 即失败。
+- 首次运行暴露并基线化 3 条“升级提示类”警告：
+  OldTargetApi / AndroidGradlePluginVersion / GradleDependency。
+  它们在 android/app/lint.xml 中显式 ignore 并注明原因；
+  真实代码类警告（如 UnusedResources）仍会让构建失败。
+
+### 12 项质量审核（有证据）
+1 编译：CI compileDebugKotlin 成功（此前 40+ e: 错误）。
+2 版本-Kotlin：2.0.21，与 Compose/KSP 2.0.21 对齐；非最新但适合 AGP 8.5.2。
+3 版本-Rust：1.99.0（与 stable 一致），已加 rust/rust-toolchain.toml 固定。
+4 版本-Java：CI 与本地均 JDK 17。
+5 依赖锁定：CI 使用 cargo --locked；Rust 侧 rust-toolchain 固定。
+6 真回归：tests/run_scraper_regression.py 编译**生产 Kotlin**并在 JVM 断言。
+7 真回归：tests/run_rss_regression.py 编译生产 RSS 解析器并断言命名空间/Atom。
+8 门禁测试：tests/test_lint_gate.py（7 例）覆盖缺失/畸形/未知 severity。
+9 竞态：播放器 loadJob/loadGeneration + ensureCurrent，防旧请求覆盖新状态。
+10 解析边界：RSS/Atom 支持 media、itunes、enclosure、嵌套 XHTML、畸形 XML 失败。
+11 URL 边界：URI.resolve 正确处理目录/../；非法 scheme、userinfo URL 被拒。
+12 未验证项：Cargo 测试/clippy 在沙箱 180s 超时未完成；JNI 仅 Android target；
+   真机与真实站点渲染/风控未验证。
