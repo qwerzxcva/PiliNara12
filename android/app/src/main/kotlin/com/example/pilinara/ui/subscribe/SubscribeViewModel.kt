@@ -45,6 +45,10 @@ class SubscribeViewModel(
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
 
+    /** Animeko 数据源内搜索的结果（临时视图，不落库） */
+    private val _searchResults = MutableStateFlow<List<SubscribeItemEntity>>(emptyList())
+    val searchResults: StateFlow<List<SubscribeItemEntity>> = _searchResults.asStateFlow()
+
     private var refreshJob: Job? = null
 
     init {
@@ -188,6 +192,49 @@ class SubscribeViewModel(
             com.example.pilinara.AppContext.get()
         )
         _state.value = _state.value.copy(infoMessage = "已退出 Bangumi 登录")
+    }
+
+    /**
+     * 在指定 Animeko 数据源里按关键词搜索（仅 rss 型可用）
+     *
+     * 结果写入 _searchResults，由 UI 展示；不落库（搜索是临时视图）。
+     */
+    fun searchInSource(searchUrl: String, keyword: String, factoryId: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            try {
+                repository.searchAnimekoSource(searchUrl, keyword, factoryId)
+                    .onSuccess { parsed ->
+                        _searchResults.value = parsed.items.map { p ->
+                            com.example.pilinara.database.SubscribeItemEntity(
+                                sourceId = -1L,
+                                title = p.title,
+                                cover = p.cover,
+                                link = p.link,
+                                desc = p.desc,
+                                episode = p.episode
+                            )
+                        }
+                        if (parsed.items.isEmpty()) {
+                            _state.value = _state.value.copy(infoMessage = "没有搜到结果")
+                        }
+                    }
+                    .onFailure { e ->
+                        _state.value = _state.value.copy(
+                            errorMessage = e.message ?: "搜索失败"
+                        )
+                    }
+            } finally {
+                if (_state.value.isRefreshing) {
+                    _state.value = _state.value.copy(isRefreshing = false)
+                }
+            }
+        }
+    }
+
+    /** 清空搜索结果（返回订阅列表视图） */
+    fun clearSearch() {
+        _searchResults.value = emptyList()
     }
 
     fun clearError() {
