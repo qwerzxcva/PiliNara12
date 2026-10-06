@@ -21,23 +21,26 @@ class LibraryRepository(private val api: BiliApiClient = BiliApiClient()) {
         }
 
     /** 某个收藏夹内的视频（带 pn 分页） */
-    suspend fun favResources(mediaId: Long, pn: Int = 1, ps: Int = 20): Result<FavResourceListResponse> =
+    // 审核轮203：收藏夹排序（PiliPlus fav_sort；B站 API 原生参数）
+    // order: "" 默认 / "view" 播放量 / "pubtime" 收藏时间倒序最新
+    suspend fun favResources(mediaId: Long, pn: Int = 1, ps: Int = 20, order: String = ""): Result<FavResourceListResponse> =
         withContext(Dispatchers.IO) {
             runCatching {
                 api.getFavoritesRaw("x/v3/fav/resource/list") {
                     append("media_id", mediaId.toString())
                     append("pn", pn.toString())
                     append("ps", ps.toString())
+                    if (order.isNotBlank()) append("order", order)
                 }
             }
         }
 
     /** 收藏夹内容无限分页（返回本页 items + 是否还有更多） */
     suspend fun favResourcesPage(
-        mediaId: Long, pn: Int, ps: Int = 20
+        mediaId: Long, pn: Int, ps: Int = 20, order: String = ""
     ): Result<Pair<List<com.example.pilinara.data.model.FavMedia>, Boolean>> =
         withContext(Dispatchers.IO) {
-            favResources(mediaId, pn, ps).map { resp ->
+            favResources(mediaId, pn, ps, order).map { resp ->
                 val items = resp.data?.medias.orEmpty()
                 // has_more：本页满页即认为可能还有更多
                 Pair(items, items.size >= ps)

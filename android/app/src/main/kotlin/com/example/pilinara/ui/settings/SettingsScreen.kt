@@ -5,6 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.heightIn
+import org.json.JSONObject as JsonObj
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -152,6 +156,19 @@ fun SettingsScreen(
                     icon = Icons.Default.Block,
                     onClick = onDanmakuBlockClick
                 )
+            }
+            item {
+                // 审核轮204：黑名单管理（PiliPlus blacklist 对齐）
+                var showBlacklist by remember { mutableStateOf(false) }
+                SettingRow(
+                    title = "黑名单管理",
+                    subtitle = "查看/移除已拉黑用户",
+                    icon = Icons.Default.GppBad,
+                    onClick = { showBlacklist = true }
+                )
+                if (showBlacklist) {
+                    BlacklistDialog(onDismiss = { showBlacklist = false })
+                }
             }
 
             // ===== 主题 =====
@@ -498,5 +515,89 @@ private fun SettingSlider(
         leadingContent = {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
         }
+    )
+}
+
+
+/** 审核轮204：黑名单管理对话框（列表 + 分页 + 移除） */
+@Composable
+private fun BlacklistDialog(onDismiss: () -> Unit) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var items by remember { mutableStateOf<List<org.json.JSONObject>>(emptyList()) }
+    var total by remember { mutableIntStateOf(0) }
+    var pn by remember { mutableIntStateOf(1) }
+    var loading by remember { mutableStateOf(true) }
+    var msg by remember { mutableStateOf<String?>(null) }
+
+    suspend fun load(page: Int) {
+        loading = true
+        com.example.pilinara.data.remote.BiliApiClient().getBlacklist(page)
+            .onSuccess { resp ->
+                if (resp.optInt("code") == 0) {
+                    val list = resp.optJSONObject("data")?.optJSONArray("list")
+                    total = resp.optJSONObject("data")?.optInt("total") ?: 0
+                    items = if (page == 1) {
+                        (0 until (list?.length() ?: 0)).map { list!!.getJSONObject(it) }
+                    } else items + (0 until (list?.length() ?: 0)).map { list!!.getJSONObject(it) }
+                    pn = page
+                } else msg = "加载失败 code=${resp.optInt("code")}"
+            }.onFailure { msg = "加载失败: ${it.message}" }
+        loading = false
+    }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) { load(1) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("黑名单（$total 人）") },
+        text = {
+            Column(Modifier.heightIn(max = 400.dp)) {
+                if (loading && items.isEmpty()) {
+                    Box(Modifier.fillMaxWidth(), Alignment.Center) { CircularProgressIndicator() }
+                }
+                msg?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (!loading && items.isEmpty() && msg == null) Text("黑名单为空")
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    itemsIndexed(items) { _, u ->
+                        val mid = u.optLong("mid")
+                        val uname = u.optString("uname", "用户$mid")
+                        val face = u.optString("face")
+                        ListItem(
+                            headlineContent = { Text(uname, maxLines = 1) },
+                            leadingContent = {
+                                coil.compose.AsyncImage(
+                                    model = face,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            },
+                            trailingContent = {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        com.example.pilinara.data.remote.BiliApiClient()
+                                            .modifyBlacklist(mid, 2)
+                                            .onSuccess { ok ->
+                                                if (ok) {
+                                                    items = items.filterNot { it.optLong("mid") == mid }
+                                                    total = (total - 1).coerceAtLeast(0)
+                                                    msg = "已将 $uname 移出黑名单"
+                                                } else msg = "移除失败（需登录）"
+                                            }.onFailure { msg = "移除失败: ${it.message}" }
+                                    }
+                                }) { Text("移除") }
+                            }
+                        )
+                    }
+                    if (items.size < total) {
+                        item {
+                            TextButton(onClick = { scope.launch { load(pn + 1) } }) {
+                                Text("加载更多（${items.size}/$total）")
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } }
     )
 }

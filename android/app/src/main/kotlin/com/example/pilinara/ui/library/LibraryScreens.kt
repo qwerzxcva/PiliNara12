@@ -159,11 +159,20 @@ class LibraryViewModel(
         }
     }
 
+    // 审核轮203：收藏夹排序状态（"" 默认 / view 播放量 / pubtime 最新收藏）
+    var favOrder: String = ""
+        private set
+    fun setFavOrder(mediaId: Long, order: String) {
+        favOrder = order
+        resetFavPage()
+        loadMedias(mediaId, force = true)
+    }
+
     fun loadMedias(mediaId: Long, force: Boolean = false) {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            repo.favResources(mediaId)
+            repo.favResources(mediaId, order = favOrder)
                 .onSuccess { _medias.value = it.data?.medias.orEmpty() }
                 .onFailure { _error.value = it.message ?: "加载收藏内容失败" }
             _loading.value = false
@@ -181,7 +190,7 @@ class LibraryViewModel(
         if (favLoadingMore || !favHasMore) return
         favLoadingMore = true
         viewModelScope.launch {
-            repo.favResourcesPage(mediaId, ++favPn).onSuccess { (items, more) ->
+            repo.favResourcesPage(mediaId, ++favPn, order = favOrder).onSuccess { (items, more) ->
                 val known = _medias.value.map { it.id }.toSet()
                 _medias.value = _medias.value + items.filterNot { it.id in known }
                 favHasMore = more
@@ -284,6 +293,23 @@ fun FavMediaScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                // 审核轮203：排序切换（默认/播放量/最新收藏，PiliPlus fav_sort 对齐）
+                actions = {
+                    var expanded by remember { mutableStateOf(false) }
+                    val orderLabel = when (viewModel.favOrder) {
+                        "view" -> "最多播放"; "pubtime" -> "最近收藏"; else -> "排序"
+                    }
+                    TextButton(onClick = { expanded = true }) { Text(orderLabel) }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        listOf("" to "默认排序", "view" to "最多播放", "pubtime" to "最近收藏")
+                            .forEach { (v, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = { expanded = false; viewModel.setFavOrder(mediaId, v) }
+                                )
+                            }
                     }
                 }
             )

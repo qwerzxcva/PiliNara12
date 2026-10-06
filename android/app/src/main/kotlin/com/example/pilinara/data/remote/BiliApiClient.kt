@@ -163,6 +163,24 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         )
     }
 
+    /** 审核轮204：拉黑/取消拉黑用户（fid=目标 mid；act=1 拉黑 2 取消，需登录） */
+    suspend fun modifyBlacklist(fid: Long, act: Int): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "$API_BASE/x/relation/modify",
+            mapOf("fid" to fid.toString(), "act" to act.toString(), "re_src" to "11")
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
+    /** 审核轮204：黑名单列表（ps/pn 分页） */
+    suspend fun getBlacklist(pn: Int = 1, ps: Int = 20): Result<org.json.JSONObject> = runCatching {
+        val resp: String = client.get("$API_BASE/x/relation/blacks") {
+            parameter("pn", pn); parameter("ps", ps)
+            header("Referer", "https://www.bilibili.com")
+        }.bodyAsText()
+        org.json.JSONObject(resp)
+    }
+
     /** 上报观看历史（progress 秒；sid/cid 可选） */
     suspend fun reportHistory(aid: Long, cid: Long, progress: Long): Result<Map<String, Any>> = runCatching {
         BiliHttpClient.postAuthForm<Map<String, Any>>(
