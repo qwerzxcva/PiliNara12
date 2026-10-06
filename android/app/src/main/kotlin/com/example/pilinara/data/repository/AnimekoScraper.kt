@@ -238,10 +238,11 @@ object AnimekoScraper {
             val pattern = cfg.matchVideoUrl
             if (pattern.isBlank()) return ""
             val re = Regex(pattern)
-            val m = re.find(html)
-            // 支持命名组 (?<v>...)
-            val named = runCatching { m?.groups?.get("v")?.value }.getOrNull()
-            val raw = named?.takeIf { it.isNotBlank() } ?: m?.value ?: return ""
+            val m = re.find(html) ?: return ""
+            // 注意：不能用 m.groups["v"]（按命名组查找需 API 26，minSdk=24 会被 Lint 拦）。
+            // 改为按索引取：优先第 1 个捕获组（多数源把地址放组里），否则取整条匹配。
+            val g = m.groupValues
+            val raw = g.getOrNull(1)?.takeIf { it.isNotBlank() } ?: g.getOrNull(0) ?: ""
             // url=xxx 形式需解码
             val decoded = if (raw.contains("url=", ignoreCase = true)) {
                 raw.substringAfter("url=", "").let {
