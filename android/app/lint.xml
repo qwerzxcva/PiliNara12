@@ -35,4 +35,13 @@
       属规则误判，故基线忽略；其余 Error/Warning 仍会令构建失败。
     -->
     <issue id="RememberReturnType" severity="ignore" />
+
+    <!--
+      第三方 lint registry 版本提示（非本项目代码问题）：
+      androidx.annotation 的 ExperimentalIssueRegistry 要求更新的 lint API。
+      随 Kotlin 2.2.21 升级暴露（lint 版本随 AGP 8.5.2 固定）。
+      修复需升级 AGP（会牵动 Kotlin/Compose/JDK 整条链），风险高于收益，
+      故基线忽略；真实代码问题仍会令构建失败。
+    -->
+    <issue id="ObsoleteLintCustomCheck" severity="ignore" />
 </lint>
