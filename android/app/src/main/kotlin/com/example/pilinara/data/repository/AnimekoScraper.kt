@@ -53,6 +53,7 @@ object AnimekoScraper {
 
     data class SearchConfig(
         val searchUrl: String = "",
+        val searchUseOnlyFirstWord: Boolean = false,
         val subjectFormatId: String = "",
         val channelFormatId: String = "",
         val selectLists: String = "",           // subjectFormat "a"
@@ -121,6 +122,7 @@ object AnimekoScraper {
 
         return SearchConfig(
             searchUrl = s("searchUrl"),
+            searchUseOnlyFirstWord = o["searchUseOnlyFirstWord"]?.jsonPrimitive?.booleanOrNull ?: false,
             subjectFormatId = s("subjectFormatId"),
             channelFormatId = s("channelFormatId"),
             selectLists = a?.get("selectLists")?.jsonPrimitive?.contentOrNull ?: "",
@@ -307,8 +309,15 @@ object AnimekoScraper {
     }
 
     /** 构造搜索 URL（替换 {keyword} 占位） */
-    fun buildSearchUrl(cfg: SearchConfig, keyword: String): String =
-        cfg.searchUrl.replace("{keyword}", java.net.URLEncoder.encode(keyword, "UTF-8"))
+    fun buildSearchUrl(cfg: SearchConfig, keyword: String): String {
+        // 审核：多数源 searchUseOnlyFirstWord=true，只取第一个词（站点搜索框
+        // 通常只支持单关键词，多词反而搜不到）。空格等空白符也一并处理。
+        val k = if (cfg.searchUseOnlyFirstWord) {
+            keyword.trim().split(Regex("\\s+")).firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: keyword.trim()
+        } else keyword.trim()
+        return cfg.searchUrl.replace("{keyword}", java.net.URLEncoder.encode(k, "UTF-8"))
+    }
 
     /** 主页 base（用于拼相对链接） */
     fun baseOf(url: String): String = runCatching {
