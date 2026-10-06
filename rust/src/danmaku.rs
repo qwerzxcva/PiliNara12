@@ -12,7 +12,7 @@ use std::time::Instant;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DanmakuEntry {
     pub id: u64,
-    pub mode: i32, // 1=scroll, 2=top, 3=bottom
+    pub mode: i32, // B站协议：1-3=滚动, 4=底部, 5=顶部, 6=逆向, 7=精准, 8=大会员
     pub fontsize: i32,
     pub color: u32,
     pub timestamp: f64, // seconds
@@ -43,8 +43,11 @@ impl Default for DanmakuMergeConfig {
             max_distance: 1.5,
             max_cosine: 0.95,
             use_pinyin: false,
-            skip_subtitle: true,
-            skip_advanced: true,
+            // 审核轮189（真bug）：B站协议 mode 4=底部 5=顶部（本文件旧注释 1=scroll/2=top/3=bottom
+            // 是错误语义）。原 default skip_subtitle/skip_advanced=true 会把用户底部+顶部
+            // 弹幕在 Rust 合并阶段整类静默丢弃。现默认不过滤，类型开关由 Kotlin UI 控制（审核167）。
+            skip_subtitle: false,
+            skip_advanced: false,
             skip_bottom: false,
             mark_position: false,
             mark_threshold: 0.8,
@@ -127,14 +130,16 @@ impl DanmakuMerger {
     }
 
     fn should_skip(&self, entry: &DanmakuEntry) -> bool {
-        if self.config.skip_subtitle && entry.mode == 4 {
-            return true;
+        // 审核轮189：按 B站协议 mode 语义（1-3 滚动 / 4 底部 / 5 顶部 / 6 逆向 / 7 精准）。
+        // 旧实现把 4 当"字幕"、5 当"高级"、3 当"底部"，与协议不符 → 误删用户弹幕。
+        if self.config.skip_subtitle && entry.mode == 8 {
+            return true; // 大会员专属弹幕
         }
-        if self.config.skip_advanced && entry.mode == 5 {
-            return true;
+        if self.config.skip_advanced && entry.mode == 7 {
+            return true; // 精准定位弹幕（特殊模式）
         }
-        if self.config.skip_bottom && entry.mode == 3 {
-            return true;
+        if self.config.skip_bottom && entry.mode == 4 {
+            return true; // 底部弹幕
         }
         false
     }
@@ -146,17 +151,21 @@ impl DanmakuMerger {
 
         let mut result = Vec::new();
         let mut current = entries[0].clone();
+        let mut run = 1usize; // 审核轮190：累积计数（原来硬编码 2，最多只能合并 2 条）
         let mut merge_count = 0;
 
         for entry in entries.into_iter().skip(1) {
-            if self.is_similar(&current, &entry) {
-                // Merge: keep the later one but increment count
-                current.content = format!("{}×{}", entry.content, 2);
+            // 审核轮190：先按"原始内容"判断相似（current.content 可能已被加上 ×N 后缀，
+            // 旧实现直接比较导致第 3 条起永远无法合并）
+            if self.is_similar_raw(&current, &entry) {
+                run += 1;
+                current.content = format!("{}×{}", entry.content, run);
                 current.timestamp = entry.timestamp;
                 merge_count += 1;
             } else {
                 result.push(current);
                 current = entry;
+                run = 1;
             }
         }
         result.push(current);
@@ -164,6 +173,28 @@ impl DanmakuMerger {
         (result, merge_count)
     }
 
+    /// 审核轮190：剥离合并后缀 "×N" 后的原始内容
+    fn raw_content(s: &str) -> &str {
+        match s.rfind('×') {
+            Some(i) if s[i + '×'.len_utf8()..].chars().all(|c| c.is_ascii_digit()) => &s[..i],
+            _ => s,
+        }
+    }
+
+    fn is_similar_raw(&self, a: &DanmakuEntry, b: &DanmakuEntry) -> bool {
+        if Self::raw_content(&a.content) != Self::raw_content(&b.content) {
+            return false;
+        }
+        if (b.timestamp - a.timestamp) > self.config.window_seconds || b.timestamp < a.timestamp {
+            return false;
+        }
+        if a.mode != b.mode {
+            return false;
+        }
+        true
+    }
+
+    #[allow(dead_code)]
     fn is_similar(&self, a: &DanmakuEntry, b: &DanmakuEntry) -> bool {
         if a.content != b.content {
             return false;
