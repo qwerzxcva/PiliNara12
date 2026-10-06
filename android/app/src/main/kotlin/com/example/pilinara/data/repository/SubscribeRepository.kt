@@ -693,11 +693,24 @@ class SubscribeRepository(
             if (v.isNotBlank()) return@runCatching v
 
             // 本页没有 → nestedUrl 二级跳（60/63 源如此）
+            // 审核：visited 集合防自引用/环（A→A 或 A→B→A），比 take(3) 更可靠。
+            val visited = mutableSetOf(episodeUrl)
             val nested = AnimekoScraper.extractNestedUrls(html, base, cfg.cfg)
-            for (n in nested.take(3)) {   // 最多跳 3 次，防死循环
+            for (n in nested) {
+                if (!visited.add(n)) continue   // 已访问过，跳过
+                if (visited.size > 4) break      // 含首条 episodeUrl，最多再跳 3 次
                 val nHtml = fetch(n, cfg)
                 v = AnimekoScraper.extractVideoUrl(nHtml, n, cfg.cfg)
                 if (v.isNotBlank()) return@runCatching v
+                // 嵌套页里可能再指向下一层
+                val deeper = AnimekoScraper.extractNestedUrls(nHtml, n, cfg.cfg)
+                for (d in deeper) {
+                    if (visited.add(d) && visited.size <= 4) {
+                        val dHtml = fetch(d, cfg)
+                        v = AnimekoScraper.extractVideoUrl(dHtml, d, cfg.cfg)
+                        if (v.isNotBlank()) return@runCatching v
+                    }
+                }
             }
             val diag = AnimekoScraper.diagnoseJsRendered(html)
             error(diag ?: "未提取到视频地址（可能站点改版/风控/需要 JS 渲染）")
