@@ -51,3 +51,29 @@ Run 37422127408 **全绿**（APK 26.06 MB + rust-lib 0.52 MB）
 - Media3 实际 1.3.1（早先误按 1.5.1）
 - PlayerView.setSurfaceType 未公开 → XML surface_type
 - ExoPlayer.setAudioAttributes 不存在（只在 Builder）
+
+## 十轮审核（2026-10-06 凌晨批次）汇总
+| 轮 | 发现 | 处理 |
+|---|---|---|
+| 1 | 命名组编译函数重复 | 合并为 compileWithNamedGroup |
+| 2 | URLDecoder.decode 异常 | 已在 runCatching 内，可接受 |
+| 3 | groupValues[0] 空指针 | 永远是整条匹配，安全 |
+| 4 | configCache 无上限 | key=订阅配置URL（≤几个），非泄漏 |
+| 5 | ViewModel 可变字段并发 | 主线程无竞态，可接受 |
+| 6 | RendererPrefs.scope | app-lifetime 单例，非泄漏 |
+| 7 | nested 跳转死循环/超时 | take(3) + 30s 超时，安全 |
+| 8 | episodeNum 空结果 | "" → null → MAX_VALUE，安全 |
+| 9 | RSS 源搜索断链 | **修复**：sourceName=="rss" 弹搜索 |
+| 10 | 命名组函数重复 | **重构**：合并 |
+| 11 | 播放器布局引用 | 通过 |
+| 12 | Media3 版本注释错(1.5.1) | **修正**为 1.3.1 |
+| 13 | 渲染器值一致性 | 通过(0/1) |
+| 14 | PiP 状态同步 | 半成品：进PiP可用，进出时控制器状态未同步（未改，风险>收益） |
+| 15 | external fun 对账 | 11个已一致 |
+| 16 | 硬编码中文 | 全项目统一，非订阅独有，记录不改 |
+| 17 | db.withTransaction | Room 扩展签名匹配，通过 |
+| 18 | 事务内删+写 | 通过 |
+| 19-20 | updateSyncResult 非事务 | 轻微不一致，可接受 |
+
+## 最终 CI
+Run 37429231602 全绿，APK 26.06 MB
