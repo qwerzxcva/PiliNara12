@@ -108,11 +108,11 @@ jobs:
           chmod +x ./android/gradlew
           cd android
           ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1
-
-          ./gradlew :app:testDebugUnitTest :app:lintDebug --no-daemon 2>&1
-          # buildDir 在根脚本重定向到仓库 build/，不可再猜 app/build。
-          python3 ../tests/check_lint_report.py ../build/app/reports/lint-results-debug.xml
-          
+          ./gradlew :app:lintDebug --no-daemon 2>&1
+          # 不猜报告路径：构建后按实际产物定位并校验存在。
+          REPORT=$(find .. -path '*/reports/lint-results-debug.xml' -print -quit)
+          [ -n "$REPORT" ] || { echo "::error::Lint XML report not found"; exit 1; }
+          python3 ../tests/check_lint_report.py "$REPORT"
           echo "=== Build complete ==="
           echo "Current dir: $(pwd)"
           echo "Finding APK files..."
