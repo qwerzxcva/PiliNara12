@@ -610,8 +610,9 @@ class SubscribeRepository(
             if (html.isBlank()) error("搜索页返回为空")
             val list = AnimekoScraper.parseSubjects(html, base, cfg.cfg)
             if (list.isEmpty()) {
-                // 不伪造结果：明确告知可能是选择器失效或站点改版
-                error("未解析到作品（可能站点改版或选择器失效）")
+                // 不伪造结果：明确告知可能原因（优先诊断 JS 渲染）
+                val diag = AnimekoScraper.diagnoseJsRendered(html)
+                error(diag ?: "未解析到作品（可能站点改版或选择器失效）")
             }
             list
         }
@@ -633,7 +634,10 @@ class SubscribeRepository(
             }.bodyAsText()
             if (html.isBlank()) error("作品页返回为空")
             val list = AnimekoScraper.parseEpisodes(html, base, cfg.cfg)
-            if (list.isEmpty()) error("未解析到剧集（可能站点改版或需要登录）")
+            if (list.isEmpty()) {
+                val diag = AnimekoScraper.diagnoseJsRendered(html)
+                error(diag ?: "未解析到剧集（可能站点改版或需要登录）")
+            }
             list
         }
     }
@@ -663,7 +667,8 @@ class SubscribeRepository(
                 v = AnimekoScraper.extractVideoUrl(nHtml, AnimekoScraper.baseOf(n), cfg.cfg)
                 if (v.isNotBlank()) return@runCatching v
             }
-            error("未提取到视频地址（可能站点改版/风控/需要 JS 渲染）")
+            val diag = AnimekoScraper.diagnoseJsRendered(html)
+            error(diag ?: "未提取到视频地址（可能站点改版/风控/需要 JS 渲染）")
         }
     }
 
