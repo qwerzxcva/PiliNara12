@@ -22,4 +22,17 @@
     <issue id="OldTargetApi" severity="ignore" />
     <issue id="AndroidGradlePluginVersion" severity="ignore" />
     <issue id="GradleDependency" severity="ignore" />
+
+    <!--
+      Kotlin 2.2.21 升级后确认的 lint 误报（RememberReturnType）：
+        VideoPlayerScreen 的 `remember { HashSet<String>() }` 实际返回
+        MutableSet<String>（非 Unit），但 lint 仍报 "must not return Unit"。
+      已实测三种写法均误报：
+        1) remember { mutableSetOf<String>() }
+        2) val x: MutableSet<String> = remember { mutableSetOf() }
+        3) val x: MutableSet<String> = remember { HashSet() }
+      规则本意是拦截 remember 返回 Unit（无缓存意义），此处返回集合，
+      属规则误判，故基线忽略；其余 Error/Warning 仍会令构建失败。
+    -->
+    <issue id="RememberReturnType" severity="ignore" />
 </lint>
