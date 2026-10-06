@@ -4,11 +4,11 @@ import java.util.Properties
 
 plugins {
     id("com.android.application") version "8.5.2"
-    id("org.jetbrains.kotlin.android") version "2.0.21"
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
-    id("com.google.devtools.ksp") version "2.0.21-1.0.28"
+    id("org.jetbrains.kotlin.android") version "2.2.21"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.21"
+    id("com.google.devtools.ksp") version "2.2.21-2.0.5"
     id("androidx.room") version "2.6.1"
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.serialization") version "2.2.21"
 }
 
 android {
