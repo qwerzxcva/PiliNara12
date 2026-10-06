@@ -70,6 +70,7 @@ fun HomeScreen(
     onHotMoreClick: () -> Unit = {},
     onZoneClick: () -> Unit = {},
     onBangumiClick: () -> Unit = {},
+    onStoryClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -118,6 +119,12 @@ fun HomeScreen(
                         IconButton(onClick = onBangumiClick) {
                             Icon(Icons.Filled.Movie, contentDescription = "番剧",
                                 tint = androidx.compose.ui.graphics.Color(0xFFB39DDB))
+                        }
+                        // 审核：恢复 Story（竖屏沉浸式推荐流）入口，修复远端 navigation
+                        // 传 onStoryClick 但 HomeScreen 无此参数导致的编译失败。
+                        IconButton(onClick = onStoryClick) {
+                            Icon(Icons.Filled.PlayCircleOutline, contentDescription = "推荐流",
+                                tint = androidx.compose.ui.graphics.Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
