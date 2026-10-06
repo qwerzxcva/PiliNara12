@@ -242,12 +242,16 @@ object AnimekoScraper {
         runCatching {
             val pattern = cfg.matchVideoUrl
             if (pattern.isBlank()) return ""
-            val re = Regex(pattern)
+            // 关键：25 个源用命名组 (?<v>...) 捕获视频地址，其余用 url= 或整条匹配。
+            // 不能简单取 groupValues[1]（第 1 组常是 http/https，非地址）。
+            // 也不可用 m.groups["v"]（API 26+，minSdk=24 会被 Lint 拦）。
+            // 方案：把 (?<v> 替换为普通 ( 得到同构正则，同时记住 v 组的序号。
+            val (re, vGroup) = compileWithNamedV(pattern)
             val m = re.find(html) ?: return ""
-            // 注意：不能用 m.groups["v"]（按命名组查找需 API 26，minSdk=24 会被 Lint 拦）。
-            // 改为按索引取：优先第 1 个捕获组（多数源把地址放组里），否则取整条匹配。
-            val g = m.groupValues
-            val raw = g.getOrNull(1)?.takeIf { it.isNotBlank() } ?: g.getOrNull(0) ?: ""
+            val raw = vGroup?.let { idx ->
+                m.groupValues.getOrNull(idx)?.takeIf { it.isNotBlank() }
+            } ?: m.groupValues.getOrNull(0) ?: ""
+            if (raw.isBlank()) return ""
             // url=xxx 形式需解码
             val decoded = if (raw.contains("url=", ignoreCase = true)) {
                 raw.substringAfter("url=", "").let {
@@ -256,6 +260,33 @@ object AnimekoScraper {
             } else raw
             if (decoded.startsWith("http")) decoded else ""
         }.getOrDefault("")
+
+    /**
+     * 把含命名组 (?<v>...) 的正则转换为普通正则，并返回 v 组的序号。
+     *
+     * 注意：这里不解析嵌套/转义，只处理 `(?<v>` 字面量替换 ——
+     * 实测 25 个源里命名组名都叫 v，且 `(?<v>` 仅出现在组开头。
+     */
+    private fun compileWithNamedV(pattern: String): Pair<Regex, Int?> {
+        val vIdx = pattern.indexOf("(?<v>")
+        if (vIdx < 0) return Regex(pattern) to null
+        // 计算 v 是第几个组：替换前数一下已有 '(' 的数量（忽略 (?: 非捕获组）
+        val prefix = pattern.substring(0, vIdx)
+        var groupNo = 1
+        var i = 0
+        while (i < prefix.length) {
+            val c = prefix[i]
+            if (c == '(') {
+                val isNonCapture = prefix.startsWith("(?:", i) ||
+                    prefix.startsWith("(?=", i) || prefix.startsWith("(?!", i) ||
+                    prefix.startsWith("(?<=", i) || prefix.startsWith("(?<!", i)
+                if (!isNonCapture) groupNo++
+            }
+            i++
+        }
+        val converted = pattern.replace("(?<v>", "(")
+        return Regex(converted) to groupNo
+    }
 
     /**
      * 从页内提取「嵌套播放页」链接（nestedUrl 二级跳）
