@@ -6,6 +6,7 @@ import com.example.pilinara.database.SubscribeSourceDao
 import com.example.pilinara.database.SubscribeSourceEntity
 import androidx.room.withTransaction
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
