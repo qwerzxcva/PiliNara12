@@ -64,3 +64,25 @@
   且 `$^`（永不匹配）占 15 个对应「无需嵌套」。
   **此语义未找到 Animeko 源码佐证，属推断，真机/真实抓取验证前不能确定。**
 - `searchUseOnlyFirstWord`：按「只取首词」实现（依据 63 源有此字段且多数站点搜索框只支持单关键词）。
+
+## 本地模拟验证结论（.simulate_scraper.py）
+
+用 Python 复刻刮削引擎核心算法 + 真实 all.json(70源) 验证，发现并修复：
+
+### 已验证正确的
+1. **命名组序号计算**：compileWithNamedGroup 对 (?<v>)/(?<ep>) 的组序号计算正确
+   （v 组可能是第 1 或第 12 组，取决于前置捕获组数量）
+2. **集数排序**：episodeNum 正确排序 第1集<第2集<第10集<EP03<SP
+3. **absUrl**：相对/绝对/协议相对 三种拼接正确（base 传 host 根）
+4. **63 源 matchVideoUrl 正则全部可编译**（0 失败）
+
+### 发现并修复的 bug
+1. **特征分支返回错误值（P0）**：matchVideoUrl 的 akamaized/bilivideo.com 分支
+   命中时 group(0) 只返回"akamaized"而非完整 URL → 已加 expandToUrl() 修复，
+   验证 46/63 源能正确提取 m3u8 完整 URL
+2. **url= 解码误判**：原用 raw.contains("url=") 判断，但 v 组捕获的是 url= 之后
+   的地址本身（不含 url= 前缀）→ 改为 startsWith("http") / 含%解码
+
+### 无法本地确证
+- 17 个无特征域源依赖 ^http 行首分支，需真机抓取确认站点 HTML 是否 URL 独立成行
+- JS 动态渲染站点 jsoup 拿不到内容（需 WebView/JS 引擎）
