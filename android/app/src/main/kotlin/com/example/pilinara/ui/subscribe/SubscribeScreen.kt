@@ -47,7 +47,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -201,6 +200,9 @@ fun SubscribeScreen(
                                     // 作品：进剧集列表
                                     item.sourceName == "subject" ->
                                         viewModel.openSubject(item.link, item.title)
+                                    // RSS 型 Animeko 源：link 是 searchUrl（.xml），
+                                    // 点开应弹关键词搜索（走 RSS 解析）
+                                    item.sourceName == "rss" -> searchTarget = item
                                     // 可直接播放的直链
                                     isLikelyPlayable(item.link) ->
                                         onPlay(item.link, item.title, item.cover)
@@ -240,8 +242,7 @@ fun SubscribeScreen(
             sourceName = target.title,
             onDismiss = { searchTarget = null },
             onSearch = { kw ->
-                // searchUrl 存于 link（rss 型）或 episode（网页型，供后续扩展），
-                // factoryId 存于 sourceName，避免从 desc 里字符串截取（脆弱）
+                // RSS 型：link 就是 searchUrl，sourceName 存 "rss"
                 viewModel.searchInSource(
                     searchUrl = target.link,
                     keyword = kw,
@@ -489,7 +490,7 @@ private fun AddSourceDialog(
 ) {
     var url by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
-    var type by remember { mutableIntStateOf(SubscribeSourceEntity.TYPE_BANGUMI) }
+    var type by remember { mutableStateOf(SubscribeSourceEntity.TYPE_BANGUMI) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
