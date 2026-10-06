@@ -27,9 +27,13 @@ jobs:
           java-version: '17'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: aarch64-linux-android
+          components: rustfmt, clippy
+
+      - name: Test quality gate
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
@@ -61,15 +65,16 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
           export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
           
-          cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release 2>&1
+          cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --locked --release 2>&1
           ls -la ../android/app/src/main/jniLibs/arm64-v8a/
 
       # 审核90：Rust 单元测试与 lint 门禁（此前 CI 从不校验，坏代码可直接合并）
       - name: Rust test & clippy
         run: |
           cd rust
-          cargo test --all-targets 2>&1
-          cargo clippy --all-targets -- -D warnings 2>&1
+          cargo fmt --all -- --check
+          cargo test --locked --all-targets 2>&1
+          cargo clippy --locked --all-targets -- -D warnings 2>&1
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v5
@@ -104,16 +109,9 @@ jobs:
           cd android
           ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1
 
-          # 审核90：Android Lint 门禁（0 error 0 warning 维持线；回归即构建失败）
-          ./gradlew :app:lintDebug --no-daemon 2>&1
-          LINT_REPORT=app/build/reports/lint-results-debug.txt
-          if [ -f "$LINT_REPORT" ]; then
-            cat "$LINT_REPORT"
-            if grep -qE "^[0-9]+ errors?, |[1-9][0-9]* errors" "$LINT_REPORT"; then
-              echo "::error::Lint regression detected"
-              exit 1
-            fi
-          fi
+          ./gradlew :app:testDebugUnitTest :app:lintDebug --no-daemon 2>&1
+          # buildDir 在根脚本重定向到仓库 build/，不可再猜 app/build。
+          python3 ../tests/check_lint_report.py ../build/app/reports/lint-results-debug.xml
           
           echo "=== Build complete ==="
           echo "Current dir: $(pwd)"
@@ -139,7 +137,7 @@ jobs:
           name: pilinara-debug
           path: apk_output/
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
 
   verify:
     name: Verify Build
