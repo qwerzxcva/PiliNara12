@@ -291,32 +291,41 @@ object AnimekoScraper {
      */
     fun extractVideoUrl(html: String, baseUrl: String, cfg: SearchConfig): String =
         runCatching {
-            val pattern = cfg.matchVideoUrl
-            if (pattern.isBlank()) return ""
-            // 关键：25 个源用命名组 (?<v>...) 捕获视频地址，其余用 url= 或整条匹配。
-            // 不能简单取 groupValues[1]（第 1 组常是 http/https，非地址）。
-            // 也不可用 m.groups["v"]（API 26+，minSdk=24 会被 Lint 拦）。
-            // 方案：把 (?<v> 替换为普通 ( 得到同构正则，同时记住 v 组的序号。
-            val (re, vGroup) = compileWithNamedV(pattern)
-            val m = re.find(html) ?: return ""
-            val raw = vGroup?.let { idx ->
-                m.groupValues.getOrNull(idx)?.takeIf { it.isNotBlank() }
-            } ?: m.groupValues.getOrNull(0) ?: ""
-            if (raw.isBlank()) return ""
-            // 审核（模拟验证发现的关键缺陷）：
-            // matchVideoUrl 是多分支正则，形如：
-            //   (^http...m3u8...)|(akamaized)|(bilivideo.com)|(url=(?<v>...))
-            // 当命中 "akamaized"/"bilivideo.com" 这类**域特征分支**时，
-            // group(0) 只返回特征词（如 "akamaized"），而非完整 URL。
-            // 真正要返回的是「含该特征的完整 http(s) URL」。
-            val decoded = when {
-                raw.startsWith("http", ignoreCase = true) -> raw
-                // 特征分支命中（akamaized/bilivideo.com 等非 URL 片段）：
-                // 从匹配位置向前/向后扫描，取回完整 URL
-                else -> expandToUrl(html, m.range.first)
+            if (cfg.matchVideoUrl.isBlank()) return ""
+            val (re, vGroup) = compileWithNamedV(cfg.matchVideoUrl)
+            // 先分离候选 URL，再用源规则判断。^http 是对 URL 的约束，
+            // 不能直接在 HTML 上 find，否则普通 CDN 的 JS 字符串永远不命中。
+            val normalized = html.replace("\\/", "/").replace("&amp;", "&")
+            val candidates = Regex("(?i)https?://[^\\s\"'<>\\\\]+")
+            for (candidate in candidates.findAll(normalized)) {
+                val url = candidate.value
+                val match = re.find(url) ?: continue
+                val captured = vGroup?.let { match.groupValues.getOrNull(it) }
+                    ?.takeIf { it.isNotBlank() }
+                val selected = captured ?: url
+                if (isHttpUrl(selected)) return selected
             }
-            if (decoded.startsWith("http", ignoreCase = true)) decoded else ""
+            // url=(?<v>...) 等规则可能捕获编码或协议相对地址。
+            // 不因首个特征词（例如说明文字中的 akamaized）而放弃后续匹配。
+            for (match in re.findAll(normalized)) {
+                val captured = vGroup?.let { match.groupValues.getOrNull(it) }
+                    ?.takeIf { it.isNotBlank() } ?: continue
+                val raw = if (captured.startsWith("http://", true) || captured.startsWith("https://", true)) {
+                    captured
+                } else {
+                    runCatching { java.net.URLDecoder.decode(captured, "UTF-8") }.getOrDefault(captured)
+                }
+                val resolved = resolveUrl(raw, baseUrl)
+                if (isHttpUrl(resolved)) return resolved
+            }
+            ""
         }.getOrDefault("")
+
+    private fun isHttpUrl(value: String): Boolean = runCatching {
+        val uri = java.net.URI(value)
+        (uri.scheme.equals("https", true) || uri.scheme.equals("http", true)) &&
+            !uri.host.isNullOrBlank() && uri.rawUserInfo == null
+    }.getOrDefault(false)
 
     /**
      * 从 HTML 里某个位置向前后扫描，取出以 http(s):// 开头的完整 URL。
@@ -343,7 +352,7 @@ object AnimekoScraper {
                 start = probe; break
             }
         }
-        if (!html.startsWith("http", start, ignoreCase = true)) return ""
+        if (!html.regionMatches(start, "http", 0, 4, ignoreCase = true)) return ""
         // 向后找结束符
         var end = start
         while (end < html.length) {
@@ -374,20 +383,33 @@ object AnimekoScraper {
         val marker = "(?<$name>"
         val idx = pattern.indexOf(marker)
         if (idx < 0) return Regex(pattern) to null
-        val prefix = pattern.substring(0, idx)
         var groupNo = 1
         var i = 0
-        while (i < prefix.length) {
-            val c = prefix[i]
-            if (c == '(') {
-                val isNonCapture = prefix.startsWith("(?:", i) || prefix.startsWith("(?=", i) ||
-                    prefix.startsWith("(?!", i) || prefix.startsWith("(?<=", i) ||
-                    prefix.startsWith("(?<!", i)
-                if (!isNonCapture) groupNo++
+        var inClass = false
+        var quoted = false
+        while (i < idx) {
+            val c = pattern[i]
+            if (c == '\\' && i + 1 < idx) {
+                val next = pattern[i + 1]
+                if (next == 'Q' && !inClass) quoted = true
+                if (next == 'E') quoted = false
+                i += 2
+                continue
+            }
+            if (!quoted) {
+                if (c == '[') inClass = true
+                if (c == ']') inClass = false
+                if (c == '(' && !inClass) {
+                    val special = pattern.getOrNull(i + 1) == '?'
+                    val named = pattern.startsWith("(?<", i) &&
+                        pattern.getOrNull(i + 3) !in listOf('=', '!')
+                    if (!special || named) groupNo++
+                }
             }
             i++
         }
-        return Regex(pattern.replace(marker, "(")) to groupNo
+        // 保留原表达式（包括反向引用）；仅以序号读命名组以兼容 API 24。
+        return Regex(pattern) to groupNo
     }
 
     /**
