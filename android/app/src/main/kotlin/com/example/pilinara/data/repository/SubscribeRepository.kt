@@ -576,6 +576,8 @@ class SubscribeRepository(
                     at = now,
                     err = null
                 )
+                // 审核：同步成功后使配置缓存失效，下次搜索用最新配置
+                invalidateConfigCache(source.url)
                 entities.size
             }.onFailure { e ->
                 runCatching {
@@ -599,15 +601,25 @@ class SubscribeRepository(
     // 每一步都用 runCatching 兜底：单源失败不崩溃，返回明确错误。
 
     /** 缓存已解析的源配置，避免每次搜索都重新下载/解析订阅配置文件 */
-    private val configCache = java.util.concurrent.ConcurrentHashMap<String, List<AnimekoScraper.SourceConfig>>()
+    // 审核：缓存必须能过期。原实现只增不减，订阅源配置（all.json）更新后
+    // App 会一直用旧缓存，违背「刷新」语义。加 TTL + 同步成功后主动失效。
+    private val configCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<AnimekoScraper.SourceConfig>>>()
+    private val configCacheTtlMs = 10 * 60 * 1000L   // 10 分钟
 
-    /** 按名字取一个源的完整配置（先查缓存，没有则重新拉取订阅配置 URL） */
+    /** 让指定订阅源配置缓存失效（同步成功后调用） */
+    fun invalidateConfigCache(sourceUrl: String) {
+        configCache.remove(sourceUrl)
+    }
+
     private suspend fun configsOf(sourceUrl: String): List<AnimekoScraper.SourceConfig> {
-        configCache[sourceUrl]?.let { return it }
+        val now = System.currentTimeMillis()
+        configCache[sourceUrl]?.let { (ts, cfgs) ->
+            if (now - ts < configCacheTtlMs) return cfgs
+        }
         return withContext(Dispatchers.IO) {
             val text = BiliHttpClient.client.get(sourceUrl).bodyAsText()
             val cfgs = AnimekoScraper.parseConfig(text)
-            if (cfgs.isNotEmpty()) configCache[sourceUrl] = cfgs
+            if (cfgs.isNotEmpty()) configCache[sourceUrl] = now to cfgs
             cfgs
         }
     }
