@@ -301,14 +301,56 @@ object AnimekoScraper {
                 m.groupValues.getOrNull(idx)?.takeIf { it.isNotBlank() }
             } ?: m.groupValues.getOrNull(0) ?: ""
             if (raw.isBlank()) return ""
-            // url=xxx 形式需解码
-            val decoded = if (raw.contains("url=", ignoreCase = true)) {
-                raw.substringAfter("url=", "").let {
-                    java.net.URLDecoder.decode(it, "UTF-8")
-                }
-            } else raw
-            if (decoded.startsWith("http")) decoded else ""
+            // 审核（模拟验证发现的关键缺陷）：
+            // matchVideoUrl 是多分支正则，形如：
+            //   (^http...m3u8...)|(akamaized)|(bilivideo.com)|(url=(?<v>...))
+            // 当命中 "akamaized"/"bilivideo.com" 这类**域特征分支**时，
+            // group(0) 只返回特征词（如 "akamaized"），而非完整 URL。
+            // 真正要返回的是「含该特征的完整 http(s) URL」。
+            val decoded = when {
+                raw.startsWith("http", ignoreCase = true) -> raw
+                // 特征分支命中（akamaized/bilivideo.com 等非 URL 片段）：
+                // 从匹配位置向前/向后扫描，取回完整 URL
+                else -> expandToUrl(html, m.range.first)
+            }
+            if (decoded.startsWith("http", ignoreCase = true)) decoded else ""
         }.getOrDefault("")
+
+    /**
+     * 从 HTML 里某个位置向前后扫描，取出以 http(s):// 开头的完整 URL。
+     *
+     * 场景：matchVideoUrl 的 "akamaized"/"bilivideo.com" 分支命中的是
+     * URL 中的域名片段，需要向前找到 "http"，向后找 URL 结束符（引号/空格/尖括号）。
+     */
+    private fun expandToUrl(html: String, hitIndex: Int): String {
+        if (hitIndex < 0 || hitIndex >= html.length) return ""
+        // 向前找最近的 http:// 或 https://（最多回溯 12 字符，URL scheme 短）
+        var start = hitIndex
+        var probe = start
+        while (probe > 0 && start - probe < 256) {
+            probe--
+            val ch = html[probe]
+            if (ch == '"' || ch == '\'' || ch == '<' || ch == '>' || ch == ' ' || ch == '\n') break
+            // 找到 scheme 前缀
+            if (probe + 8 <= html.length &&
+                html.regionMatches(probe, "https://", 0, 8, ignoreCase = true)) {
+                start = probe; break
+            }
+            if (probe + 7 <= html.length &&
+                html.regionMatches(probe, "http://", 0, 7, ignoreCase = true)) {
+                start = probe; break
+            }
+        }
+        if (!html.startsWith("http", start, ignoreCase = true)) return ""
+        // 向后找结束符
+        var end = start
+        while (end < html.length) {
+            val ch = html[end]
+            if (ch == '"' || ch == '\'' || ch == '<' || ch == '>' || ch == ' ' || ch == '\n' || ch == '\t') break
+            end++
+        }
+        return html.substring(start, end)
+    }
 
     /**
      * 把含命名组 (?<v>...) 的正则转换为普通正则，并返回 v 组的序号。
