@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pilinara.database.SubscribeItemEntity
 import com.example.pilinara.database.SubscribeSourceEntity
+import com.example.pilinara.data.repository.SubscribeParser
 import com.example.pilinara.data.repository.SubscribeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -203,7 +204,7 @@ class SubscribeViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
-                repository.searchAnimekoSource(searchUrl, keyword, factoryId)
+                SubscribeParser.searchAnimekoSource(searchUrl, keyword, factoryId)
                     .onSuccess { parsed ->
                         _searchResults.value = parsed.items.map { p ->
                             com.example.pilinara.database.SubscribeItemEntity(
