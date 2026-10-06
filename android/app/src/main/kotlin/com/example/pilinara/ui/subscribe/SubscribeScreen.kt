@@ -156,7 +156,7 @@ fun SubscribeScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(displayItems, key = { it.id }) { item ->
+                        items(displayItems, key = { it.id * 1000 + it.link.hashCode() }) { item ->
                             SubscribeItemCard(item = item) {
                                 // 审核轮8：不是所有条目都有可播放直链。
                                 // RSS 的 <link> 常是网页而非媒体；只有 enclosure/直链
