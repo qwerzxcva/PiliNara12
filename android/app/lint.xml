@@ -14,9 +14,12 @@
     <!-- NormalTheme 由系统在部分场景引用，静态分析判为 unused 属误报 -->
     <issue id="UnusedResources" severity="warning" />
     <!--
-      targetSdk 34 是本项目有意选择（跟随 B 站/Media3 兼容矩阵），
-      并非遗漏升级；"未用最新 target" 属策略提示而非缺陷。
-      若未来升级 targetSdk，应移除本条重新校验。
+      策略类提示（非缺陷）：AGP/Gradle 与 targetSdk 的“有新版本可用”属于升级提示，
+      本项目当前锁定 AGP 8.5.2 + targetSdk 34（与 Kotlin 2.0.21/Compose/KSP 对齐）。
+      升级 AGP/compileSdk 需同步升级 JDK 与 Compose 编译插件，风险高于收益，
+      因此在此基线忽略；真实代码问题（UnusedResources 等）仍会令门禁失败。
     -->
     <issue id="OldTargetApi" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="GradleDependency" severity="ignore" />
 </lint>
