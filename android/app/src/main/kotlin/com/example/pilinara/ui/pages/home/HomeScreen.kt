@@ -24,13 +24,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayCircleOutline
@@ -48,7 +43,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -71,8 +65,7 @@ import com.example.pilinara.utils.toHttpsUrl
 @Composable
 fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
-    onSearchClick: () -> Unit,
-    onStoryClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onRankClick: () -> Unit = {},
     onHotMoreClick: () -> Unit = {},
     onZoneClick: () -> Unit = {},
@@ -105,9 +98,6 @@ fun HomeScreen(
                 TopAppBar(
                     title = { Text("PiliNara", color = androidx.compose.ui.graphics.Color.White) },
                     actions = {
-                        IconButton(onClick = onStoryClick) {  // 审核轮207：竖屏流入口
-                            Icon(Icons.Default.Slideshow, contentDescription = "竖屏流")
-                        }
                         IconButton(onClick = onSearchClick) {
                             Icon(Icons.Filled.Search, contentDescription = "搜索",
                                 tint = androidx.compose.ui.graphics.Color.White)
@@ -233,58 +223,89 @@ private fun TopRcmdCard(item: com.example.pilinara.data.model.TopRcmdItem, onCli
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 private fun VideoCardItem(card: VideoItem, onClick: () -> Unit) {
-    // 审核轮139：长按卡片 → 加入稍后再看（对齐 BV/Flutter；API 原是死代码）
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // 审核（丑根因）：原标题 Text 用 Box 默认 TopStart 直接压在封面上，
+    // 无背景区分，既丑又难读。改为「封面 + 下方文字区」的标准卡片结构：
+    // 播放量/时长作为角标叠在图上，标题置于下方分层 surface（AMOLED 灰阶）。
     Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(
-            onClick = onClick,
-            onLongClick = {
-                if (card.aid > 0) scope.launch {
-                    val ok = com.example.pilinara.data.remote.BiliApiClient()
-                        .addToView(card.aid).getOrDefault(false)
-                    android.widget.Toast.makeText(
-                        ctx,
-                        if (ok) "已加入稍后再看" else "加入稍后再看失败（需登录）",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            },
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(
+            defaultElevation = 0.dp,
         ),
     ) {
-        Box {
-            AsyncImage(
-                model = card.pic.toHttpsUrl(),
-                contentDescription = card.title,
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-                contentScale = ContentScale.Crop,
-            )
-            Row(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.PlayCircleOutline,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
+        Column {
+            // 封面 + 角标（播放量、时长）
+            Box {
+                AsyncImage(
+                    model = card.pic.toHttpsUrl(),
+                    contentDescription = card.title,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                    contentScale = ContentScale.Crop,
                 )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "${card.viewCountText}播放",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
-                )
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.55f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.PlayCircleOutline,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = card.viewCountText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                    )
+                }
+                if (card.durationText.isNotBlank()) {
+                    Text(
+                        text = card.durationText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.55f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                    )
+                }
             }
-            Text(
-                text = card.title,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(8.dp),
-            )
+            // 下方文字区：标题 + UP 主/描述
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                Text(
+                    text = card.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (card.author.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = card.author,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
