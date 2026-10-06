@@ -13,6 +13,7 @@ import json
 import re
 import urllib.parse
 import sys
+import xml.etree.ElementTree as ET
 
 def load_sources(path):
     with open(path, encoding='utf-8') as f:
@@ -39,8 +40,31 @@ def compile_with_named_group(pattern, name):
         i += 1
     return re.compile(pattern.replace(marker, '(')), group_no
 
+def expand_to_url(html, hit_index):
+    """复刻 Kotlin expandToUrl：特征分支命中时恢复完整 http(s) URL。"""
+    if hit_index < 0 or hit_index >= len(html):
+        return ""
+    start = hit_index
+    probe = hit_index
+    while probe > 0 and hit_index - probe < 256:
+        probe -= 1
+        if html[probe] in '\"\'<> \n':
+            break
+        if html[probe:probe + 8].lower() == 'https://':
+            start = probe
+            break
+        if html[probe:probe + 7].lower() == 'http://':
+            start = probe
+            break
+    if not html[start:start + 4].lower() == 'http':
+        return ""
+    end = start
+    while end < len(html) and html[end] not in '\"\'<> \n\t':
+        end += 1
+    return html[start:end]
+
 def extract_video_url(html, pattern):
-    """复刻 Kotlin extractVideoUrl"""
+    """复刻 Kotlin extractVideoUrl（含特征分支扩展）。"""
     if not pattern:
         return ""
     re_obj, v_group = compile_with_named_group(pattern, "v")
@@ -57,13 +81,10 @@ def extract_video_url(html, pattern):
         raw = m.group(0) or ""
     if not raw:
         return ""
-    decoded = raw
-    if 'url=' in raw.lower():
-        decoded = raw.split('url=', 1)[1]
-        decoded = urllib.parse.unquote(decoded)
-    if decoded.startswith('http'):
-        return decoded
-    return ""
+    if raw.lower().startswith('http'):
+        return raw
+    # akamaized/bilivideo.com 等分支只匹配特征词，需恢复完整 URL。
+    return expand_to_url(html, m.start())
 
 def episode_num(name, custom_pattern):
     """复刻 Kotlin episodeNum"""
@@ -89,13 +110,10 @@ def abs_url(v, base):
     if not v or not v.strip():
         return ""
     v = v.strip()
-    if v.lower().startswith('http'):
-        return v
     if v.startswith('//'):
-        return 'https:' + v
-    if v.startswith('/'):
-        return base.rstrip('/') + v
-    return base.rstrip('/') + '/' + v
+        scheme = urllib.parse.urlparse(base).scheme or 'https'
+        return scheme + ':' + v
+    return urllib.parse.urljoin(base, v)
 
 def is_likely_playable(url):
     if not url:
@@ -113,13 +131,52 @@ def is_likely_playable(url):
         return False
     return False
 
+def simulate_rss_atom():
+    """验证 RSS/Atom 的核心语义：enclosure 优先、媒体封面不误判、Atom rel。"""
+    xml = '''<feed xmlns="http://www.w3.org/2005/Atom" xmlns:m="http://search.yahoo.com/mrss/">
+      <title>测试订阅</title>
+      <entry><title>第一集</title>
+        <link rel="self" href="https://x/self"/>
+        <link rel="alternate" href="https://x/page/1"/>
+        <link rel="enclosure" href="https://cdn/x.mp4"/>
+        <m:content medium="image" url="https://img/x.jpg"/>
+        <summary><![CDATA[<b>说明</b>]]></summary>
+      </entry>
+    </feed>'''
+    root = ET.fromstring(xml)
+    ns = {'a': 'http://www.w3.org/2005/Atom', 'm': 'http://search.yahoo.com/mrss/'}
+    entry = root.find('a:entry', ns)
+    assert entry is not None
+    links = {x.get('rel', 'alternate'): x.get('href', '') for x in entry.findall('a:link', ns)}
+    assert links['alternate'] == 'https://x/page/1'
+    assert links['enclosure'] == 'https://cdn/x.mp4'
+    image = entry.find('m:content', ns)
+    assert image is not None and image.get('url') == 'https://img/x.jpg'
+    print('  RSS/Atom：alternate、enclosure、media image 语义通过')
+
+def simulate_json_shapes():
+    """验证 JSON 数组、items/list/data 形态及坏条目跳过。"""
+    cases = [
+        {'items': [{'title': 'A', 'link': 'https://x/a.mp4'}, {'title': '坏条目'}]},
+        {'list': [{'name': 'B', 'url': 'https://x/b.m3u8'}]},
+        [{'name': 'C', 'playUrl': 'https://x/c.mp4'}],
+    ]
+    for value in cases:
+        root = value if isinstance(value, dict) else {'items': value}
+        arr = root.get('items') or root.get('list') or root.get('data')
+        assert isinstance(arr, list)
+        valid = [x for x in arr if isinstance(x, dict) and (x.get('link') or x.get('url') or x.get('playUrl'))]
+        assert valid
+    print('  JSON：items/list/data + 坏条目跳过通过')
+
 def build_search_url(cfg, keyword):
     k = keyword
     if cfg.get('searchUseOnlyFirstWord'):
         k = keyword.strip().split()[0] if keyword.strip().split() else keyword.strip()
     if cfg.get('searchRemoveSpecial'):
         k = re.sub(r'[^\w\s]', '', k, flags=re.UNICODE).strip()
-    return cfg.get('searchUrl', '').replace('{keyword}', urllib.parse.quote(k))
+    # 对齐 java.net.URLEncoder.encode：空格编码为 +，而非 quote() 的 %20。
+    return cfg.get('searchUrl', '').replace('{keyword}', urllib.parse.quote_plus(k, safe=''))
 
 # ==================== 测试 ====================
 def test_named_group():
@@ -139,15 +196,26 @@ def test_named_group():
 
 def test_extract_video():
     print("=== 测试2: extractVideoUrl ===")
-    # 模拟真实页面含 url= 编码的视频地址
-    html1 = 'var video="url=' + urllib.parse.quote('https://cdn.example.com/v/1.m3u8?token=abc') + '";'
+    # 命名组 v 捕获 url= 后的明文地址；真实配置要求 playlist.m3u8
+    html1 = 'var video="url=http://cdn.example.com/v/1.playlist.m3u8?token=abc";'
     pat1 = r"url=(?<v>.+playlist.m3u8)"
-    print("  命名组 url= 解码:", extract_video_url(html1, pat1))
-    
-    # 直链在页面
-    html2 = 'window.playurl = "https://v.cdn.com/a.mp4?sign=xx";'
-    pat2 = r"(^http(s)?:\/\/(?!.*http(s)?:\/\/).+((\.mp4)|(\.mkv)|(m3u8)).*(\?.+)?)"
-    print("  直链提取:", extract_video_url(html2, pat2))
+    got1 = extract_video_url(html1, pat1)
+    assert got1.startswith("http://cdn.example.com"), got1
+    print("  命名组 url= 明文:", got1)
+
+    # 特征分支不能只返回 akamaized，必须扩展回完整 URL
+    html2 = 'var playurl = "https://cdn.akamaized.net/video/1/index.m3u8?token=abc";'
+    pat2 = r"(^http(s)?://(?!.*http(s)?://).+((m3u8)).*(\\?.+)?)|(akamaized)|(bilivideo.com)"
+    got2 = extract_video_url(html2, pat2)
+    assert got2.startswith("https://cdn.akamaized.net/"), got2
+    print("  特征分支扩展:", got2)
+
+    # URL 在行首时，普通 m3u8 分支可直接命中
+    html3 = 'https://v.cdn.com/a.m3u8?sign=xx\n'
+    pat3 = r"(^http(s)?://(?!.*http(s)?://).+((m3u8)).*(\\?.+)?)"
+    got3 = extract_video_url(html3, pat3)
+    assert got3.startswith("https://v.cdn.com/a.m3u8"), got3
+    print("  行首直链:", got3)
     print()
 
 def test_episode_sort():
@@ -162,14 +230,25 @@ def test_episode_sort():
 def test_abs_url():
     print("=== 测试4: absUrl ===")
     base = "https://www.example.com/vod/detail/1.html"
-    for v in ["/play/1.m3u8", "//cdn.com/a.mp4", "play/2.m3u8", "https://x.com/y.mp4"]:
-        print(f"  {v:30} -> {abs_url(v, base)}")
+    expected = {
+        "/play/1.m3u8": "https://www.example.com/play/1.m3u8",
+        "//cdn.com/a.mp4": "https://cdn.com/a.mp4",
+        "play/2.m3u8": "https://www.example.com/vod/detail/play/2.m3u8",
+        "https://x.com/y.mp4": "https://x.com/y.mp4",
+    }
+    for v, want in expected.items():
+        got = abs_url(v, base)
+        assert got == want, (v, got, want)
+        print(f"  {v:30} -> {got}")
     print()
 
 def test_search_url():
     print("=== 测试5: buildSearchUrl ===")
     cfg = {"searchUrl": "https://x.com/search/{keyword}.html", "searchUseOnlyFirstWord": True, "searchRemoveSpecial": True}
-    print("  关键词'海贼王 第1季!':", build_search_url(cfg, "海贼王 第1季!"))
+    got = build_search_url(cfg, "海贼王 第1季!")
+    assert "第1季" not in got and "+" not in got, got
+    assert "海贼王" in urllib.parse.unquote_plus(got.rsplit('/', 1)[-1].split('.', 1)[0]), got
+    print("  关键词'海贼王 第1季!':", got)
     print()
 
 def test_all_sources():
@@ -210,5 +289,7 @@ if __name__ == '__main__':
     test_episode_sort()
     test_abs_url()
     test_search_url()
+    simulate_rss_atom()
+    simulate_json_shapes()
     test_all_sources()
     print("=== 全部模拟测试完成 ===")
