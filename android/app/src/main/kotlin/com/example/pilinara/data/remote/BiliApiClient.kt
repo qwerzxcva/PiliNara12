@@ -163,6 +163,14 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         )
     }
 
+    /** 审核轮206：用户经验/等级信息（PiliPlus exp_log 对齐；x/web-interface/acc/info 需登录） */
+    suspend fun getUserExpInfo(): Result<org.json.JSONObject> = runCatching {
+        val resp: String = client.get("$API_BASE/x/web-interface/acc/info") {
+            header("Referer", "https://www.bilibili.com")
+        }.bodyAsText()
+        org.json.JSONObject(resp)
+    }
+
     /** 审核轮205：投币记录（PiliPlus coin_log；需登录） */
     suspend fun getCoinLog(pn: Int = 1, ps: Int = 20): Result<org.json.JSONObject> = runCatching {
         val resp: String = client.get("$API_BASE/x/web-interface/coin/log") {
