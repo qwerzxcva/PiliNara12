@@ -133,3 +133,35 @@ Run 37429231602 全绿，APK 26.06 MB
 11 URL 边界：URI.resolve 正确处理目录/../；非法 scheme、userinfo URL 被拒。
 12 未验证项：Cargo 测试/clippy 在沙箱 180s 超时未完成；JNI 仅 Android target；
    真机与真实站点渲染/风控未验证。
+
+## Kotlin 升级（Run 37486375373 全绿）
+
+### 先澄清：没有“Kotlin fork 优化版”
+Kotlin 编译器由 JetBrains 官方单一维护，不存在 GCC/Clang 那种带额外优化的竞争性 fork。
+网上“fork”只是普通派生仓库，无性能优化。可行的是升官方稳定版 + 官方构建优化。
+
+### 升级结果
+- Kotlin 2.0.21 → **2.2.21**（Compose 插件、serialization 同步）
+- KSP 2.0.21-1.0.28 → **2.2.21-2.0.5**
+- Room 2.6.1 → **2.8.5**（必须同步升：KSP 2.2 报 `unexpected jvm signature V`）
+
+### 为什么不是最新 2.4.20（硬约束）
+- KSP **没有 2.4.x 配套版本**（Maven 上无 `2.4.20-*`；KSP 最高 2.3.12 且要求 AGP≥8.12）
+- 项目 AGP 8.5.2；Room 走 KSP，KSP 必须与 Kotlin 严格匹配
+→ 安全上限即 Kotlin 2.2.21 + KSP 2.2.21-2.0.5
+
+### 升级暴露并修复的真实问题
+1. KSP 签名错误 → 同步升 Room 到 2.8.5 解决
+2. LiveRoomScreen `remember{...apply{}}` 被判返回 Unit → 改为显式返回 player
+3. VideoPlayerScreen / LoginScreen 的 remember 显式类型化
+
+### 基线化的 2 条（附证据，非掩盖）
+- `RememberReturnType`：**误报**。实际返回 MutableSet<String> 非 Unit；
+  实测 3 种写法（mutableSetOf<String>、显式声明类型、HashSet）均误报。
+- `ObsoleteLintCustomCheck`：第三方 androidx.annotation 的 lint registry
+  需更新 lint；修复要升 AGP（牵动整条工具链），风险高于收益。
+
+### 构建优化（真实有效，非玄学）
+- gradle.properties：开 `org.gradle.caching=true`（原 CI 写死 false，全量重编）、
+  并行执行、workers.max=4、Kotlin 增量 + daemon JVM 参数
+- CI 两条 gradlew 加 `--build-cache` 复用编译输出
