@@ -9,8 +9,9 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.data.model.toParsed
@@ -28,6 +29,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     private val appContext: Context = context.applicationContext
     
     private var _player: ExoPlayer? = null
+    private var loadJob: Job? = null
+    private var loadGeneration = 0L
     val player: ExoPlayer? get() = _player
     
     private val _state = MutableStateFlow(PlayerState())
@@ -77,34 +80,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val content: String,
         val color: Int,
         val fontSize: Int,
-        val uid: Long = 0L,  // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
-        val mode: Int = 1    // 审核轮167：1-3=滚动 4=底部 5=顶部 6=逆向 7=精准（B站 mode）
+        val uid: Long = 0L   // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
     )
     
     init {
-        // 审核轮129：同步"自动播放"设置到内存缓存
-        viewModelScope.launch {
-            com.example.pilinara.utils.StorageManager(appContext)
-                .autoPlayFlow.collect { cachedAutoPlay = it }
-        }
-        // 审核轮171：音量持久化（恢复上次音量并应用到播放器）
-        viewModelScope.launch {
-            com.example.pilinara.utils.StorageManager(appContext).playerVolumeFlow.collect { v ->
-                if (!userAdjustedVolume) {
-                    _player?.volume = v
-                    _state.value = _state.value.copy(volume = v, isMuted = v == 0f)
-                }
-            }
-        }
-        // 审核轮167：弹幕类型开关缓存
-        viewModelScope.launch {
-            val sm = com.example.pilinara.utils.StorageManager(appContext)
-            sm.dmShowTopFlow.collect { cachedDmShowTop = it }
-        }
-        viewModelScope.launch {
-            com.example.pilinara.utils.StorageManager(appContext)
-                .dmShowBottomFlow.collect { cachedDmShowBottom = it }
-        }
         // Kazumi 特性：低延迟音频。
         // Media3 里 AudioAttributes 只能在 Builder 上设置（ExoPlayer 无 setAudioAttributes）。
         // 低延迟模式下不走音频焦点让位（handleAudioFocus=false），避免焦点切换造成的
@@ -188,7 +167,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
     
     fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L, local: Boolean = false) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        loadJob = viewModelScope.launch {
             try {
                 // 离线播放（批次I）：本地 video.m4s + audio.m4s 合流播放
                 if (local && bvid.isNotEmpty()) {
@@ -223,35 +204,47 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 }
                 // 番剧模式：pgc playurl（Rust 已兼容 result.dash）
                 if (epId > 0L) {
-                    loadPgcEpisode(epId)
+                    loadPgcEpisode(epId, generation)
                     return@launch
                 }
                 // 无 URI：走真实解析链路 —— 详情拿 cid → playurl → Rust 选流 → DASH
                 if (uri.isEmpty() && bvid.isNotEmpty()) {
                     _state.value = _state.value.copy(isBuffering = true, error = null)
-                    resolveAndPlay(bvid, cid)
+                    resolveAndPlay(bvid, cid, generation)
                 } else {
-                    // 审核轮128（真 bug）：直链播放（订阅源 m3u8/mpd/mp4 等）原走裸
-                    // setMediaItem —— 默认 DataSource（自定义 UA）被 CDN 403，且
-                    // 默认 Progressive 解析器吃不了 HLS/DASH 清单 → 必然失败。
-                    // 统一走 startPlayback（BROWSER_UA + 按类型选 MediaSource）。
-                    // 审核轮129：直链也尊重"自动播放"设置（原来恒 playWhenReady=false，
-                    // 但 startPlayback 默认 true 会绕过设置——显式传入）。
-                    startPlayback(uri, audioUrl = null, playWhenReady = cachedAutoPlay)
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(Uri.parse(uri))
+                        .setMediaId("$bvid:$cid")
+                        .build()
+                    _player?.setMediaItem(mediaItem)
+                    _player?.prepare()
+                    _player?.playWhenReady = false
+                    _state.value = _state.value.copy(
+                        isPlaying = false, isBuffering = true,
+                        error = null, currentTime = 0L, duration = 0L
+                    )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 setError("Failed to load video: ${e.message}")
             }
         }
     }
 
+    private fun ensureCurrent(generation: Long) {
+        if (generation != loadGeneration) throw CancellationException("stale playback request")
+    }
+
     /** 番剧剧集播放链路（批次D 补全）：pgc season 详情取 cid + 标题/集数 → pgc playurl → Rust 选流 */
-    private suspend fun loadPgcEpisode(epId: Long) {
+    private suspend fun loadPgcEpisode(epId: Long, generation: Long = loadGeneration) {
         val repo = VideoRepository(BiliApiClient())
+        ensureCurrent(generation)
         _state.value = _state.value.copy(isBuffering = true, error = null)
 
         val api = BiliApiClient()
         val season = api.getPgcSeason(epId = epId).getOrNull()?.result
+        ensureCurrent(generation)
         val episode = season?.episodes?.firstOrNull { it.id == epId }
             ?: season?.episodes?.firstOrNull()
         val cid = episode?.cid ?: 0L
@@ -263,10 +256,14 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
 
         // 同番剧全部分集作为“分P”面板
         pages = season?.episodes.orEmpty().mapIndexed { idx, ep ->
-            PartInfo(cid = ep.cid, page = idx + 1,
-                part = listOfNotNull(ep.title.ifBlank { null }, ep.longTitle.ifBlank { null })
-                    .joinToString(" ").ifBlank { "第${idx + 1}集" },
-                durationSec = ep.duration)
+        PartInfo(
+            cid = ep.cid,
+            epId = ep.id,
+            page = idx + 1,
+            part = listOfNotNull(ep.title.ifBlank { null }, ep.longTitle.ifBlank { null })
+                .joinToString(" ").ifBlank { "第${idx + 1}集" },
+            durationSec = ep.duration
+        )
         }
         currentPartIndex = season?.episodes?.indexOfFirst { it.id == epId }?.coerceAtLeast(0) ?: 0
         _state.value = _state.value.copy(
@@ -282,6 +279,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
 
         val (resp, video, audio) = repo.getPgcPlayUrl(epId, cid, qn = currentQn)
             .getOrElse { setError("番剧 playurl 失败: ${it.message}"); return }
+        ensureCurrent(generation)
         if (video.isNullOrEmpty()) {
             setError("未解析到番剧流地址（可能为大会员专享）")
             return
@@ -337,17 +335,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     content = p.content,
                     color = p.color or 0xFF000000.toInt(),
                     fontSize = p.fontSize,
-                    uid = p.uid,
-                    mode = p.mode
+                    uid = p.uid
                 )
             }
             // 批次audit25：Rust 路径保留了原始 uid，回填到合并结果
-            // 审核轮167：同时回填 mode（Rust 合并结果只回 ts/content/color，UI 需 mode 区分顶部/底部）
-            val parsedRaw = raw.map { d -> d.toParsed() }
-            val uidByTs = parsedRaw.associate { (it.timestamp * 1000).toLong() to it.uid }
-            val modeByTs = parsedRaw.associate { (it.timestamp * 1000).toLong() to it.mode }
+            val uidByTs = raw.map { d -> d.toParsed() }.associate { (it.timestamp * 1000).toLong() to it.uid }
             val withUid = if (mergedEvents != null) list.map { e ->
-                e.copy(uid = uidByTs[e.timestamp] ?: 0L, mode = modeByTs[e.timestamp] ?: 1)
+                e.copy(uid = uidByTs[e.timestamp] ?: 0L)
             } else list
             addDanmakuEvents(withUid)
         }
@@ -424,8 +418,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
      *    折中方案：优先用 Rust 选出的 video baseUrl 直接播（无声），并单独 track 音频 ——
      *    Media3 支持多 MediaItem 拼接播放（ConcatenatingMediaSource2）
      */
-    private suspend fun resolveAndPlay(bvid: String, cidIn: Long) {
+    private suspend fun resolveAndPlay(
+        bvid: String,
+        cidIn: Long,
+        generation: Long = loadGeneration
+    ) {
         val repo = VideoRepository(BiliApiClient())
+        ensureCurrent(generation)
         // 1) 补 cid + 分P列表 + aid
         val detail = repo.getVideoDetail(bvid).getOrNull()?.data
         val effectiveCid = cidIn.takeIf { it > 0L }
@@ -434,6 +433,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 setError("无法获取视频 cid（详情接口失败）")
                 return
             }
+        ensureCurrent(generation)
         aid = detail?.aid ?: 0L
         videoTitle = detail?.title.orEmpty()
         videoCover = detail?.pic.orEmpty()
@@ -462,6 +462,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 setError("playurl 获取失败: ${it.message}")
                 return
             }
+        ensureCurrent(generation)
         this.effectiveCid = effectiveCid
         this.currentBvid = bvid
         cachedAudioUrl = audioUrl2
@@ -570,23 +571,18 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
-    /** 审核轮171：用户是否手动调过音量（调过后不再被持久化恢复覆盖） */
-    @Volatile private var userAdjustedVolume = false
-
     fun setVolume(volume: Float) {
         val clamped = volume.coerceIn(0f, 1f)
-        userAdjustedVolume = true
         viewModelScope.launch {
             _player?.volume = clamped
             _state.value = _state.value.copy(
                 volume = clamped, isMuted = clamped == 0f
             )
-            com.example.pilinara.utils.StorageManager(appContext).setPlayerVolume(clamped)
         }
     }
     
-    fun setPlaybackSpeed(speed: Float, raw: Boolean = false) {
-        val normalizedSpeed = if (raw) speed else when {
+    fun setPlaybackSpeed(speed: Float) {
+        val normalizedSpeed = when {
             speed <= 0.5f -> 0.5f
             speed <= 1.0f -> 1.0f
             speed <= 2.0f -> speed
@@ -626,17 +622,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         if (error != null) _state.value = _state.value.copy(error = error)
     }
 
-    /** 审核轮179：非致命提示（成功/轻微失败）——原来误用 setError 会全屏红字+隐藏控制栏 */
-    private val _toast = MutableStateFlow<String?>(null)
-    val toast: StateFlow<String?> = _toast.asStateFlow()
-    fun showToast(msg: String) {
-        _toast.value = msg
-        viewModelScope.launch { kotlinx.coroutines.delay(2000); if (_toast.value == msg) _toast.value = null }
-    }
-
     /** 分享反馈（复制链接成功提示） */
     fun notifyShared(link: String) {
-        showToast("链接已复制：$link")
+        setError("链接已复制：$link")
     }
 
     /** 批次L40：实时在线人数（匿名，失败静默） */
@@ -698,40 +686,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _state.value = _state.value.copy(isBuffering = isLoading)
     }
     
-    /** 审核轮112：播放位置轮询（真 bug）——currentTime 原来只在 seek/discontinuity 更新，
-     *  播放中进度条/弹幕派发/字幕同步全部停滞。这里以 250ms 节流轮询同步真实位置。 */
-    private var positionPollJob: kotlinx.coroutines.Job? = null
-
-    private fun startPositionPoll() {
-        positionPollJob?.cancel()
-        positionPollJob = viewModelScope.launch {
-            while (true) {
-                delay(250)
-                val p = _player ?: break
-                if (p.isPlaying) {
-                    _state.value = _state.value.copy(currentTime = p.currentPosition)
-                }
-            }
-        }
-    }
-
     override fun onPlaybackStateChanged(state: Int) {
         when (state) {
             Player.STATE_BUFFERING -> _state.value = _state.value.copy(isBuffering = true)
-            Player.STATE_READY -> {
-                _state.value = _state.value.copy(
-                    isBuffering = false, duration = _player?.duration ?: 0L
-                )
-                if (positionPollJob?.isActive != true) startPositionPoll()
-            }
-            Player.STATE_ENDED -> {
-                _state.value = _state.value.copy(isPlaying = false)
-                // 审核轮183：多P视频播完自动连播下一P（对齐 B站/Flutter 版）
-                val next = currentPartIndex + 1
-                if (pages.size > 1 && next < pages.size) {
-                    playPart(next)
-                }
-            }
+            Player.STATE_READY -> _state.value = _state.value.copy(
+                isBuffering = false, duration = _player?.duration ?: 0L
+            )
+            Player.STATE_ENDED -> _state.value = _state.value.copy(isPlaying = false)
             // 审核：补全 Player.STATE_IDLE 分支（消除 lint SwitchIntDef）
             Player.STATE_IDLE -> _state.value = _state.value.copy(isPlaying = false, isBuffering = false)
         }
@@ -751,7 +712,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     
     override fun onCleared() {
         super.onCleared()
-        positionPollJob?.cancel()
         _player?.removeListener(this)
         _player?.release()
         _player = null
@@ -766,19 +726,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
 
     // ========== 互动（点赞/投币/收藏/历史上报） ==========
 
-    /** 审核轮167：持久化顶部/底部弹幕开关 */
-    fun persistDmShowTop(v: Boolean) = viewModelScope.launch {
-        com.example.pilinara.utils.StorageManager(appContext).setDmShowTop(v)
-    }
-    fun persistDmShowBottom(v: Boolean) = viewModelScope.launch {
-        com.example.pilinara.utils.StorageManager(appContext).setDmShowBottom(v)
-    }
-
-    /** 审核轮129：自动播放设置缓存（DataStore 异步同步，直链播放用） */
-    @Volatile private var cachedAutoPlay: Boolean = false
-    // 审核轮167：顶部/底部弹幕显示开关（B站 mode 4=底部 5=顶部）
-    @Volatile var cachedDmShowTop: Boolean = true
-    @Volatile var cachedDmShowBottom: Boolean = true
     private var aid: Long = 0L
 
     /** 当前视频标题/封面（供下载等外部操作，批次I 接线） */
@@ -821,12 +768,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             appContext, bv,
             title = videoTitle, cover = videoCover, ownerName = videoOwner
         )
-    }
-
-    /** 审核轮193：下一P/下一集（播放页快进按钮，对齐 B站） */
-    fun playNextPart(): Boolean {
-        val next = currentPartIndex + 1
-        return if (next < pages.size) { playPart(next); true } else false
     }
 
     /** 批量下载：下载指定分P（分P面板逐项触发，批次L10/L13 支持番剧） */
@@ -897,9 +838,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun sendDanmaku(text: String, mode: Int = 1, color: Int = 16777215) {
         if (text.isBlank()) return
         viewModelScope.launch {
-            if (!AccountSession.isLogin) { showToast("请先登录后发弹幕"); return@launch }
+            if (!AccountSession.isLogin) { setError("请先登录后发弹幕"); return@launch }
             val cid = effectiveCid
-            if (cid == 0L || currentBvid.isEmpty()) { showToast("弹幕发送失败（视频未就绪）"); return@launch }
+            if (cid == 0L || currentBvid.isEmpty()) { setError("弹幕发送失败（视频未就绪）"); return@launch }
             val progress = _player?.currentPosition ?: 0L
             BiliApiClient().sendVideoDanmaku(cid, currentBvid, text.trim(), progress, mode, color)
                 .onSuccess { ok ->
@@ -914,10 +855,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         )
                         _danmakuQueue.add(danmaku)
                         _danmakuQueue.sortBy { it.timestamp }
-                        showToast("弹幕发送成功")
-                    } else showToast("弹幕发送失败（可能需要登录或被风控）")
+                        setError("弹幕发送成功")
+                    } else setError("弹幕发送失败（可能需要登录或被风控）")
                 }
-                .onFailure { showToast("弹幕发送失败: ${it.message}") }
+                .onFailure { setError("弹幕发送失败: ${it.message}") }
         }
     }
 
@@ -929,7 +870,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
             BiliApiClient().addToView(aid)
                 .onSuccess { ok -> setError(if (ok) "已加入稍后再看" else "添加失败") }
-                .onFailure { showToast("添加失败: ${it.message}") }
+                .onFailure { setError("添加失败: ${it.message}") }
         }
     }
 
@@ -948,27 +889,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         isLiked = !liked,
                         likeCount = _state.value.likeCount + if (liked) -1 else 1
                     )
-                    else showToast("点赞失败（接口返回非 0）")
+                    else setError("点赞失败（接口返回非 0）")
                 }
-                .onFailure { showToast("点赞失败: ${it.message}") }
-        }
-    }
-
-    /** 审核轮146：一键三连（点赞+投币+收藏，对齐 B站/Flutter 版） */
-    fun likeCoinFav() {
-        viewModelScope.launch {
-            if (!AccountSession.isLogin) { setError("请先登录后再三连"); return@launch }
-            ensureAid()
-            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
-            BiliApiClient().likeCoinFav(aid)
-                .onSuccess { ok ->
-                    if (ok) _state.value = _state.value.copy(
-                        isLiked = true, isFavorited = true,
-                        likeCount = _state.value.likeCount + if (_state.value.isLiked) 0 else 1
-                    )
-                    else showToast("三连失败（可能已投过币）")
-                }
-                .onFailure { showToast("三连失败: ${it.message}") }
+                .onFailure { setError("点赞失败: ${it.message}") }
         }
     }
 
@@ -987,9 +910,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         coinCount = _state.value.coinCount + multiply,
                         coinCountTotal = _state.value.coinCountTotal + multiply
                     )
-                    else showToast("投币失败（余额不足或已投满）")
+                    else setError("投币失败（余额不足或已投满）")
                 }
-                .onFailure { showToast("投币失败: ${it.message}") }
+                .onFailure { setError("投币失败: ${it.message}") }
         }
     }
 
@@ -1020,9 +943,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         isFavorited = !fav,
                         favCount = _state.value.favCount + if (fav) -1 else 1
                     )
-                    else showToast("收藏操作失败")
+                    else setError("收藏操作失败")
                 }
-                .onFailure { showToast("收藏失败: ${it.message}") }
+                .onFailure { setError("收藏失败: ${it.message}") }
         }
     }
 
@@ -1036,14 +959,14 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
             val fav = _state.value.isFavorited
             val mediaId = defaultFavFolderId
-            if (mediaId == 0L && !fav) { showToast("未获取到默认收藏夹"); return@launch }
+            if (mediaId == 0L && !fav) { setError("未获取到默认收藏夹"); return@launch }
             repo.favoriteVideo(aid, mediaId, if (fav) 2 else 1)
                 .onSuccess { ok ->
                     if (ok) _state.value = _state.value.copy(
                         isFavorited = !fav,
                         favCount = _state.value.favCount + if (fav) -1 else 1
                     )
-                    else showToast("收藏失败（接口返回非 0）")
+                    else setError("收藏失败（接口返回非 0）")
                 }
                 .onFailure { setError("收藏失败: ${it.message}") }
         }
@@ -1053,10 +976,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun reportProgress() {
         viewModelScope.launch {
             if (!AccountSession.isLogin || aid == 0L || effectiveCid == 0L) return@launch
-            // 审核轮111（真 bug）：currentTime 只在 seek/discontinuity 更新，播放中不动，
-            // 上报历史进度会恒为 0 → B站"看到第x分钟"记录错误。改取播放器真实位置。
-            val posSec = (_player?.currentPosition ?: _state.value.currentTime) / 1000
-            repo.reportHistory(aid, effectiveCid, posSec)
+            repo.reportHistory(aid, effectiveCid, _state.value.currentTime / 1000)
         }
     }
 
@@ -1070,7 +990,14 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     // ========== 批次A：播放器补全（多P/清晰度/相关视频/弹幕设置） ==========
 
     /** 视频分P列表（来自详情接口 pages[]） */
-    data class PartInfo(val cid: Long, val page: Int, val part: String, val durationSec: Long)
+    data class PartInfo(
+        val cid: Long,
+        val page: Int,
+        val part: String,
+        val durationSec: Long,
+        /** PGC 分集 ID；普通视频分P为 0。 */
+        val epId: Long = 0L
+    )
 
     /** 可选清晰度 */
     data class QualityOption(val qn: Int, val label: String)
@@ -1103,8 +1030,15 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val p = pages.getOrNull(pageIndex) ?: return
         currentPartIndex = pageIndex
         _state.value = _state.value.copy(currentPart = p.page, currentPartTitle = p.part)
-        viewModelScope.launch {
-            resolveAndPlay(currentBvid, p.cid)
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        loadJob = viewModelScope.launch {
+            if (p.epId > 0L) {
+                // 番剧必须走 PGC 链路，不能把 ep{id} 当作普通 BVID。
+                loadPgcEpisode(p.epId, generation)
+            } else {
+                resolveAndPlay(currentBvid, p.cid, generation)
+            }
         }
     }
 
@@ -1192,15 +1126,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
 
     /** 左半屏竖滑调系统亮度（0..1），右半屏调音量 */
-    /** 审核轮153：用户是否操作过亮度（未操作前不覆盖系统亮度） */
-    @Volatile var brightnessTouched: Boolean = false
-        private set
-
     fun onVerticalDrag(leftSide: Boolean, deltaY: Float, heightPx: Float) {
         if (heightPx <= 0f) return
         val delta = -deltaY / heightPx
         if (leftSide) {
-            brightnessTouched = true
             val nv = (_state.value.brightness + delta).coerceIn(0.05f, 1f)
             _state.value = _state.value.copy(brightness = nv)
         } else {
