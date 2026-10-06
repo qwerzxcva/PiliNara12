@@ -346,6 +346,31 @@ object AnimekoScraper {
             found.toList()
         }.getOrDefault(emptyList())
 
+    /**
+     * 诊断：判断页面是否疑似「JS 动态渲染」（jsoup 拿不到真正内容）
+     *
+     * 启发式：
+     * - 页面几乎没有可见文本（body 文本长度极小），但含 <script>
+     * - 或含常见 SPA 框架的挂载点（#app / #root）且无实际内容
+     *
+     * 返回 null 表示「无法判断」，非 null 为诊断信息。
+     */
+    fun diagnoseJsRendered(html: String): String? {
+        if (html.isBlank()) return "页面为空（可能被风控拦截或无权限）"
+        return runCatching {
+            val doc = org.jsoup.Jsoup.parse(html)
+            val text = doc.body()?.text()?.trim().orEmpty()
+            val scripts = doc.select("script").size
+            val hasAppMount = doc.select("#app, #root, #__next, #app-root").isNotEmpty()
+            // body 文本极少 + 有 script + 有 SPA 挂载点 → 极可能是 JS 渲染
+            if (text.length < 40 && scripts > 0 && hasAppMount) {
+                "该站点疑似 JS 动态渲染（jsoup 无法执行脚本，需 WebView/JS 引擎）"
+            } else if (text.length < 40 && scripts > 3) {
+                "该站点疑似 JS 动态渲染"
+            } else null
+        }.getOrNull()
+    }
+
     /** 从元素取绝对 URL（jsoup 的 absUrl 需要 baseUri；这里显式兜底） */
     private fun absUrl(el: org.jsoup.nodes.Element, attr: String, base: String): String {
         val v = el.attr(attr).trim()
