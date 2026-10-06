@@ -323,45 +323,11 @@ object AnimekoScraper {
 
     private fun isHttpUrl(value: String): Boolean = runCatching {
         val uri = java.net.URI(value)
+        // rawUserInfo 非空说明含 user:pass@——这通常不是 CDN 直链，
+        // 而是 mailto/邮箱等被误判为 URL 的解析产物，应拒绝。
         (uri.scheme.equals("https", true) || uri.scheme.equals("http", true)) &&
             !uri.host.isNullOrBlank() && uri.rawUserInfo == null
     }.getOrDefault(false)
-
-    /**
-     * 从 HTML 里某个位置向前后扫描，取出以 http(s):// 开头的完整 URL。
-     *
-     * 场景：matchVideoUrl 的 "akamaized"/"bilivideo.com" 分支命中的是
-     * URL 中的域名片段，需要向前找到 "http"，向后找 URL 结束符（引号/空格/尖括号）。
-     */
-    private fun expandToUrl(html: String, hitIndex: Int): String {
-        if (hitIndex < 0 || hitIndex >= html.length) return ""
-        // 向前找最近的 http:// 或 https://（最多回溯 12 字符，URL scheme 短）
-        var start = hitIndex
-        var probe = start
-        while (probe > 0 && start - probe < 256) {
-            probe--
-            val ch = html[probe]
-            if (ch == '"' || ch == '\'' || ch == '<' || ch == '>' || ch == ' ' || ch == '\n') break
-            // 找到 scheme 前缀
-            if (probe + 8 <= html.length &&
-                html.regionMatches(probe, "https://", 0, 8, ignoreCase = true)) {
-                start = probe; break
-            }
-            if (probe + 7 <= html.length &&
-                html.regionMatches(probe, "http://", 0, 7, ignoreCase = true)) {
-                start = probe; break
-            }
-        }
-        if (!html.regionMatches(start, "http", 0, 4, ignoreCase = true)) return ""
-        // 向后找结束符
-        var end = start
-        while (end < html.length) {
-            val ch = html[end]
-            if (ch == '"' || ch == '\'' || ch == '<' || ch == '>' || ch == ' ' || ch == '\n' || ch == '\t') break
-            end++
-        }
-        return html.substring(start, end)
-    }
 
     /**
      * 把含命名组 (?<v>...) 的正则转换为普通正则，并返回 v 组的序号。
