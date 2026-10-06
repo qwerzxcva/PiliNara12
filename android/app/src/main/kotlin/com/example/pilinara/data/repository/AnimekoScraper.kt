@@ -165,13 +165,14 @@ object AnimekoScraper {
      */
     fun parseSubjects(html: String, baseUrl: String, cfg: SearchConfig): List<Subject> =
         runCatching {
-            val doc = org.jsoup.Jsoup.parse(html, baseUrl)
+            val effectiveBase = cfg.rawBaseUrl.trim().ifBlank { baseUrl }
+            val doc = org.jsoup.Jsoup.parse(html, effectiveBase)
             when (cfg.subjectFormatId) {
                 "a" -> {
                     if (cfg.selectLists.isBlank()) return emptyList()
                     doc.select(cfg.selectLists).mapNotNull { el ->
                         val name = el.text().trim()
-                        val url = absUrl(el, "href", baseUrl)
+                        val url = absUrl(el, "href", effectiveBase)
                         if (name.isBlank() || url.isBlank()) null else Subject(name, url)
                     }.distinctBy { it.url }
                 }
@@ -179,7 +180,7 @@ object AnimekoScraper {
                     if (cfg.selectNames.isBlank() || cfg.selectLinks.isBlank()) return emptyList()
                     val names = doc.select(cfg.selectNames).map { it.text().trim() }
                     val links = doc.select(cfg.selectLinks).mapNotNull {
-                        absUrl(it, "href", baseUrl).ifBlank { null }
+                        absUrl(it, "href", effectiveBase).ifBlank { null }
                     }
                     names.zip(links) { n, l -> if (n.isBlank()) null else Subject(n, l) }
                         .filterNotNull().distinctBy { it.url }
@@ -196,15 +197,16 @@ object AnimekoScraper {
      */
     fun parseEpisodes(html: String, baseUrl: String, cfg: SearchConfig): List<Episode> =
         runCatching {
-            val doc = org.jsoup.Jsoup.parse(html, baseUrl)
+            val effectiveBase = cfg.rawBaseUrl.trim().ifBlank { baseUrl }
+            val doc = org.jsoup.Jsoup.parse(html, effectiveBase)
             val out = mutableListOf<Episode>()
             when (cfg.channelFormatId) {
                 "no-channel" -> {
                     if (cfg.selectEpisodes.isBlank()) return emptyList()
                     doc.select(cfg.selectEpisodes).forEach { el ->
                         val name = el.text().trim().ifBlank { el.attr("title") }
-                        val url = absUrl(el, "href", baseUrl)
-                            .ifBlank { absUrl(el, "data-href", baseUrl) }
+                        val url = absUrl(el, "href", effectiveBase)
+                            .ifBlank { absUrl(el, "data-href", effectiveBase) }
                         if (name.isNotBlank() && url.isNotBlank()) out.add(Episode(name, url))
                     }
                 }
@@ -216,8 +218,8 @@ object AnimekoScraper {
                     val eps = doc.select(cfg.selectEpisodes)
                     eps.forEach { el ->
                         val name = el.text().trim().ifBlank { el.attr("title") }
-                        val url = absUrl(el, "href", baseUrl)
-                            .ifBlank { absUrl(el, "data-href", baseUrl) }
+                        val url = absUrl(el, "href", effectiveBase)
+                            .ifBlank { absUrl(el, "data-href", effectiveBase) }
                         if (name.isNotBlank() && url.isNotBlank()) {
                             out.add(Episode(name, url, channels.firstOrNull() ?: ""))
                         }
@@ -228,7 +230,7 @@ object AnimekoScraper {
                     if (cfg.selectEpisodes.isBlank()) return emptyList()
                     doc.select(cfg.selectEpisodes).forEach { el ->
                         val name = el.text().trim()
-                        val url = absUrl(el, "href", baseUrl)
+                        val url = absUrl(el, "href", effectiveBase)
                         if (name.isNotBlank() && url.isNotBlank()) out.add(Episode(name, url))
                     }
                 }
@@ -454,12 +456,20 @@ object AnimekoScraper {
     private fun absUrl(el: org.jsoup.nodes.Element, attr: String, base: String): String {
         val v = el.attr(attr).trim()
         if (v.isBlank()) return ""
+        return resolveUrl(v, base)
+    }
+
+    /** 标准 URI resolve：正确处理 /、相对目录、../、协议相对链接。 */
+    private fun resolveUrl(value: String, base: String): String {
+        val v = value.trim()
+        if (v.isBlank()) return ""
         return runCatching {
             when {
-                v.startsWith("http", true) -> v
-                v.startsWith("//") -> "https:$v"
-                v.startsWith("/") -> base.trimEnd('/') + v
-                else -> base.trimEnd('/') + "/" + v
+                v.startsWith("//") -> {
+                    val scheme = java.net.URI(base).scheme ?: "https"
+                    "$scheme:$v"
+                }
+                else -> java.net.URI(base).resolve(v).toString()
             }
         }.getOrDefault(v)
     }
@@ -479,9 +489,7 @@ object AnimekoScraper {
         return cfg.searchUrl.replace("{keyword}", java.net.URLEncoder.encode(cleaned, "UTF-8"))
     }
 
-    /** 主页 base（用于拼相对链接） */
-    fun baseOf(url: String): String = runCatching {
-        val u = java.net.URL(url)
-        "${u.protocol}://${u.host}" + if (u.port != -1) ":${u.port}" else ""
-    }.getOrDefault(url)
+    /**
+     * 已废弃：调用方应传入完整页面 URL，由 URI.resolve 保留目录上下文。
+     */
 }
