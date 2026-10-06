@@ -13,6 +13,8 @@ import json
 import re
 import urllib.parse
 import sys
+import argparse
+from pathlib import Path
 import xml.etree.ElementTree as ET
 
 def load_sources(path):
@@ -189,40 +191,29 @@ def test_named_group():
         (r"第\s*(?<ep>.+)\s*[话集]", "ep"),
         (r"(第\s*(?<ep>.+)\s*[话集])|1080P", "ep"),
     ]
-    for pat, name in cases:
+    for (pat, name), expected in zip(cases, [12, 1, 1, 2]):
         re_obj, idx = compile_with_named_group(pat, name)
+        assert idx == expected, (name, idx, expected)
         print(f"  组 {name}: 序号={idx}  转换后={re_obj.pattern[:60]}")
     print()
 
 def test_extract_video():
-    print("=== 测试2: extractVideoUrl ===")
-    # 命名组 v 捕获 url= 后的明文地址；真实配置要求 playlist.m3u8
-    html1 = 'var video="url=http://cdn.example.com/v/1.playlist.m3u8?token=abc";'
-    pat1 = r"url=(?<v>.+playlist.m3u8)"
-    got1 = extract_video_url(html1, pat1)
-    assert got1.startswith("http://cdn.example.com"), got1
-    print("  命名组 url= 明文:", got1)
-
-    # 特征分支不能只返回 akamaized，必须扩展回完整 URL
-    html2 = 'var playurl = "https://cdn.akamaized.net/video/1/index.m3u8?token=abc";'
-    pat2 = r"(^http(s)?://(?!.*http(s)?://).+((m3u8)).*(\\?.+)?)|(akamaized)|(bilivideo.com)"
-    got2 = extract_video_url(html2, pat2)
-    assert got2.startswith("https://cdn.akamaized.net/"), got2
-    print("  特征分支扩展:", got2)
-
-    # URL 在行首时，普通 m3u8 分支可直接命中
-    html3 = 'https://v.cdn.com/a.m3u8?sign=xx\n'
-    pat3 = r"(^http(s)?://(?!.*http(s)?://).+((m3u8)).*(\\?.+)?)"
-    got3 = extract_video_url(html3, pat3)
-    assert got3.startswith("https://v.cdn.com/a.m3u8"), got3
-    print("  行首直链:", got3)
-    print()
+    print("=== 模拟视频提取（生产实现另有 Kotlin 回归） ===")
+    url = "https://cdn.akamaized.net/video/index.m3u8?sig=a%2Bb"
+    html = '<script>var u="' + url + '";</script>'
+    got = extract_video_url(html, r"(akamaized)")
+    assert got == url, (got, url)
+    direct = "https://ordinary.cdn.test/a.m3u8"
+    assert extract_video_url(direct, r"^https?://.+m3u8$") == direct
+    assert extract_video_url('text only', r"(akamaized)") == ""
+    print("PASS exact URL assertions")
 
 def test_episode_sort():
     print("=== 测试3: episodeNum 集数排序 ===")
     custom = r"第\s*(?<ep>.+)\s*[话集]"
     names = ["第1集", "第10集", "第2集", "SP特别篇", "EP03", "P5"]
     sorted_names = sorted(names, key=lambda n: episode_num(n, custom))
+    assert sorted_names == ['第1集', '第2集', 'EP03', 'P5', '第10集', 'SP特别篇'], sorted_names
     print("  排序前:", names)
     print("  排序后:", sorted_names)
     print()
@@ -251,13 +242,9 @@ def test_search_url():
     print("  关键词'海贼王 第1季!':", got)
     print()
 
-def test_all_sources():
-    print("=== 测试6: 用真实 all.json 跑通 70 源配置 ===")
-    try:
-        ms = load_sources('/workspace/tmp/all.json')
-    except Exception as e:
-        print("  (无法读 all.json，跳过):", e)
-        return
+def test_all_sources(config):
+    print("=== 配置正则编译检查（不代表源可播放） ===")
+    ms = load_sources(config)
     ok = 0; fail = 0
     web = [m for m in ms if m.get('factoryId')=='web-selector']
     for m in web:
@@ -280,6 +267,8 @@ def test_all_sources():
             except re.error as e:
                 fail += 1
                 print(f"  集数正则失败: {m['arguments']['name']}: {e}")
+    assert web, 'No web-selector sources in supplied configuration'
+    assert ok == len(web) and fail == 0, (ok, len(web), fail)
     print(f"  web-selector 源: {len(web)} 个，matchVideoUrl 正则编译通过 {ok} 个，失败 {fail} 个")
     print()
 
@@ -291,5 +280,11 @@ if __name__ == '__main__':
     test_search_url()
     simulate_rss_atom()
     simulate_json_shapes()
-    test_all_sources()
-    print("=== 全部模拟测试完成 ===")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=Path, help='Explicit source JSON; missing/bad config fails')
+    args = parser.parse_args()
+    if args.config is not None:
+        test_all_sources(args.config)
+    else:
+        print('NOT RUN: external source configuration (supply --config PATH)')
+    print("=== 已选择的模拟检查完成；不等同 Kotlin/设备验证 ===")
