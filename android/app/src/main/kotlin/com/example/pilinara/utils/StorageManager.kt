@@ -20,24 +20,12 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class StorageManager(private val context: Context) {
+    
     companion object {
-        // 审核轮130：DataStore 单例——原来 DownloadManager 等处每次 new StorageManager
-        // 会各自创建 DataStore 实例（多实例同文件会抛 IllegalStateException / 浪费 IO）
-        @Volatile private var instance: StorageManager? = null
-        fun getInstance(ctx: Context): StorageManager =
-            instance ?: synchronized(this) {
-                instance ?: StorageManager(ctx.applicationContext).also { instance = it }
-            }
-        
         private val THEME_MODE_KEY = stringPreferencesKey("themeMode")
         private val ACCENT_COLOR_KEY = stringPreferencesKey("accentColor")
         private val VIDEO_QUALITY_KEY = stringPreferencesKey("defaultVideoQa")
         private val AUTO_PLAY_KEY = booleanPreferencesKey("autoPlayEnable")
-        // 审核轮167：弹幕类型显示开关（B站播放器标配）
-        private val DM_SHOW_TOP_KEY = booleanPreferencesKey("dmShowTop")
-        private val DM_SHOW_BOTTOM_KEY = booleanPreferencesKey("dmShowBottom")
-        // 审核轮171：播放器音量持久化
-        private val PLAYER_VOLUME_KEY = androidx.datastore.preferences.core.floatPreferencesKey("playerVolume")
         private val FULLSCREEN_MODE_KEY = stringPreferencesKey("fullScreenMode")
         private val UI_SCALE_KEY = floatPreferencesKey("uiScale")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
@@ -61,6 +49,8 @@ class StorageManager(private val context: Context) {
         private val DANMAKU_SCALE_KEY = floatPreferencesKey("danmakuScale")
         private val DANMAKU_FONT_SIZE_KEY = intPreferencesKey("danmakuFontSize")
         private val DANMAKU_SPEED_KEY = floatPreferencesKey("danmakuSpeed")
+        private val DANMAKU_SHOW_TOP_KEY = booleanPreferencesKey("danmakuShowTop")
+        private val DANMAKU_SHOW_BOTTOM_KEY = booleanPreferencesKey("danmakuShowBottom")
         
         // Account settings
         private val IS_LOGGED_IN_KEY = booleanPreferencesKey("isLoggedIn")
@@ -95,20 +85,6 @@ class StorageManager(private val context: Context) {
     
     val autoPlayFlow: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[AUTO_PLAY_KEY] ?: false }
-
-    // 审核轮171：播放器音量（默认 1.0）
-    val playerVolumeFlow: Flow<Float> = context.dataStore.data
-        .map { preferences -> preferences[PLAYER_VOLUME_KEY] ?: 1.0f }
-    suspend fun setPlayerVolume(v: Float) = context.dataStore.edit { it[PLAYER_VOLUME_KEY] = v }
-
-    // 审核轮167：弹幕类型开关（顶部/底部弹幕，默认显示）
-    val dmShowTopFlow: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[DM_SHOW_TOP_KEY] ?: true }
-    val dmShowBottomFlow: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[DM_SHOW_BOTTOM_KEY] ?: true }
-
-    suspend fun setDmShowTop(v: Boolean) = context.dataStore.edit { it[DM_SHOW_TOP_KEY] = v }
-    suspend fun setDmShowBottom(v: Boolean) = context.dataStore.edit { it[DM_SHOW_BOTTOM_KEY] = v }
     
     // Video playback
     val playbackSpeedFlow: Flow<Float> = context.dataStore.data
@@ -231,6 +207,20 @@ class StorageManager(private val context: Context) {
 
     suspend fun setDanmakuSpeed(speed: Float) {
         context.dataStore.edit { preferences -> preferences[DANMAKU_SPEED_KEY] = speed }
+    }
+
+    val danmakuShowTopFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[DANMAKU_SHOW_TOP_KEY] ?: true }
+
+    suspend fun setDanmakuShowTop(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[DANMAKU_SHOW_TOP_KEY] = enabled }
+    }
+
+    val danmakuShowBottomFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[DANMAKU_SHOW_BOTTOM_KEY] ?: true }
+
+    suspend fun setDanmakuShowBottom(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[DANMAKU_SHOW_BOTTOM_KEY] = enabled }
     }
 
     suspend fun setSubtitleFontSize(size: Int) {
