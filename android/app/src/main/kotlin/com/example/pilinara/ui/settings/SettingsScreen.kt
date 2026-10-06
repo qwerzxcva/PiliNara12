@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewQuilt
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -91,7 +92,7 @@ fun SettingsScreen(
                 SettingRow(
                     title = "视频渲染器",
                     subtitle = if (state.renderer == 1) "TextureView（可合成动画）" else "SurfaceView（性能最佳）",
-                    icon = Icons.Default.ViewQuilt,
+                    icon = Icons.AutoMirrored.Filled.ViewQuilt,
                     onClick = { showRendererDialog = true }
                 )
             }
