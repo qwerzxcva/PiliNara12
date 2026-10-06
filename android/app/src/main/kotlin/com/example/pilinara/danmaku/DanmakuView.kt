@@ -92,17 +92,21 @@ class DanmakuView @JvmOverloads constructor(
         lastFrame = if (running) now else lastFrame
         val baseTextSize = active.firstOrNull()?.fontSizePx ?: (40f * scaleFactor)
         val rowH = baseTextSize * 1.4f
+        var needInvalidate = running && active.isNotEmpty()
         val it2 = active.iterator()
         while (it2.hasNext()) {
             val d = it2.next()
             if (running) d.x -= d.speed * dt
             if (d.x + d.width < 0) { it2.remove(); continue }
-            paint.textSize = d.fontSizePx
+            // 审核轮194：textSize 变化才赋值（反复 set 触发内部 measure，弱机掉帧）
+            if (paint.textSize != d.fontSizePx) paint.textSize = d.fontSizePx
             paint.color = d.color
             paint.alpha = (alphaFactor * 255).toInt().coerceIn(0, 255)
             canvas.drawText(d.text, d.x, rowH * (d.row + 1), paint)
+            // 审核轮194：暂停时弹幕尚未滚出屏，仍需持续绘制（否则一帧后消失）
+            if (!running) needInvalidate = true
         }
-        if (active.isNotEmpty() && running) invalidate()
+        if (needInvalidate) invalidate()
     }
 
     /** 暂停/恢复（跟随播放器） */

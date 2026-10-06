@@ -54,9 +54,10 @@ impl CompiledRules {
         if self.uids.contains(&uid) {
             return true;
         }
-        // 关键词：先做精确 contains（B 站关键词屏蔽语义）
+        // 审核轮198：关键词不区分大小写（与 Kotlin shouldBlock 对齐；"hhh" 挡不住 "HHH"）
+        let lower = content.to_lowercase();
         for k in &self.keywords {
-            if !k.is_empty() && content.contains(k.as_str()) {
+            if !k.is_empty() && lower.contains(&k.to_lowercase()) {
                 return true;
             }
         }

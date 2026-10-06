@@ -426,3 +426,42 @@
 - **104**：AddSourceDialog type State→mutableIntStateOf（lint AutoboxingStateCreation，保持 lint 0/0/0）。
 - 用户并行提交 29e0f02（订阅源移植 Animeko，SubscribeParser/SubscribeRepository/BangumiSession）核查：解析健壮性良好（MAX_ITEMS_PER_SOURCE 截断、事务删+写、URL scheme 白名单、坏标签容错）。
 - 构建 0w0e、lint "No issues found."、cargo test 16/16。
+
+## r24（2026-10-06，审核轮105-190：86轮审核/优化/功能移植）
+
+### 真 bug 修复
+- **105**：MemberScreen `info!!` 条件与断言非原子竞态 NPE → 安全访问。
+- **106/108**：SettingsViewModel/DanmakuBlockViewModel factory 捕获 Activity context（旋转重建泄漏）→ `AppContext.get()`。
+- **111（真 bug）**：`currentTime` 只在 seek/discontinuity 更新 → 观看历史进度恒错 → reportProgress 直读 `player.currentPosition`。
+- **112-113**：播放进度条/弹幕派发依赖不更新的 currentTime（进度条冻结、弹幕不滚动）→ 250ms 轮询驱动。
+- **122（内存泄漏）**：弹幕去重集合 dispatchedIds 无界增长 → 10s 窗口淘汰。
+- **125**：暂停时发弹幕被 `!running` 静默丢弃 → 入列不滚动。
+- **128（真 bug）**：直链播放（订阅源 m3u8/mpd）走裸 setMediaItem：自定义 UA 被 CDN 403 + Progressive 解析 HLS 失败 → 统一 startPlayback。
+- **153（死功能）**：亮度手势更新 state.brightness 但 UI 从未消费 → window.attributes 应用 + 离页恢复 + 未触摸不覆盖。
+- **179（UX bug）**：弹幕"发送成功"误走 setError → 全屏红字 "Error: 弹幕发送成功" + 隐藏控制栏 → 新增 toast 通道，16 处非致命提示改道。
+- **189（真 bug，Rust）**：should_skip mode 语义错误（把 B站 4=底部 5=顶部 当字幕/高级）→ 默认配置整类静默丢弃用户顶部/底部弹幕 → 语义对齐 + 默认不过滤（UI 开关控制，见167）。
+- **190（真 bug，Rust）**：merge_similar 合并后 content 带 ×N 后缀导致 is_similar 永不匹配（只能合并2条）+ 硬编码计数 → is_similar_raw 剥后缀 + run 累积计数。
+
+### 性能/健壮性
+- **126**：DanmakuBlock warmup 单 scope + 快照原子发布。
+- **130**：StorageManager DataStore 单例（多实例同文件风险）。
+- **149**：直播多 CDN 线路优先 https host。
+- lint 0/0/0 全程保持；cargo test 16/16、clippy -D warnings 0。
+
+### 功能移植（Flutter PiliNara / BV / B站原生交互）
+- **129**：直链播放尊重自动播放设置（DataStore → cachedAutoPlay）。
+- **134**：搜索历史持久化 Room local_cache（重启不清零，上限20条）。
+- **139**：首页视频卡片长按 → 稍后再看（接通死代码 addToView API）。
+- **141**：直播弹幕接入屏蔽规则（shouldBlock：关键词/正则/UID）。
+- **146**：一键三连 API（/archive/like/triple）+ 长按点赞触发。
+- **152**：长按 3x 倍速快进（松手恢复，BV 标志交互）+ 浮标。
+- **156**：音量/亮度手势浮标提示。
+- **167**：顶部/底部弹幕显示开关（弹幕设置面板 Switch + DanmakuEvent.mode 全链路回填，Rust 合并结果也回填 mode）。
+- **171**：播放器音量持久化（userAdjustedVolume 防恢复覆盖）。
+- **173**：横屏/全屏切换按钮（requestedOrientation）。
+- **175**：横屏返回键先回竖屏（BackHandler）+ 离页恢复。
+- **183**：多P视频播完自动连播下一P。
+
+### 验证与提交
+- 构建 `:app:packageDebug` 多轮通过；lint "No issues found."；cargo test 16/16；clippy 0。
+- 提交：4f05eef(105-158) → 7497d35 PUSH_OK → c04cbc1(167-188) → 740e37e(189-190 Rust)。

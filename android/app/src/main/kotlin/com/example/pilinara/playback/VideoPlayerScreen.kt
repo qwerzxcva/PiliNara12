@@ -267,6 +267,12 @@ fun VideoPlayerScreen(
                                     .padding(horizontal = 8.dp, vertical = 6.dp)
                             )
                         }
+                        // 审核轮193：下一P（多P时显示）
+                        if (state.partCount > 1 && state.currentPart < state.partCount) {
+                            IconButton(onClick = { viewModel.playNextPart() }) {
+                                Icon(Icons.Default.SkipNext, "下一P", tint = Color.White)
+                            }
+                        }
                         IconButton(onClick = { showSpeedMenu = !showSpeedMenu }) {
                             Icon(Icons.Default.Speed, "Speed", tint = Color.White)
                         }

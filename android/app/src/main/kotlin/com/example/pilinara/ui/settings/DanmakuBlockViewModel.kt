@@ -109,7 +109,9 @@ class DanmakuBlockViewModel(context: android.content.Context) : ViewModel() {
         /** 弹幕过滤入口：返回 true = 该条应被屏蔽 */
         fun shouldBlock(text: String, uid: Long): Boolean {
             if (uid in cachedUids) return true
-            if (cachedKeywords.any { text.contains(it) }) return true
+            // 审核轮198：关键词不区分大小写（原来 "hhh" 屏蔽不了 "HHH"）
+            val lower = text.lowercase()
+            if (cachedKeywords.any { lower.contains(it.lowercase()) }) return true
             if (cachedRegexes.any { it.containsMatchIn(text) }) return true
             return false
         }

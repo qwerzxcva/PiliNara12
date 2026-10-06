@@ -823,6 +823,12 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         )
     }
 
+    /** 审核轮193：下一P/下一集（播放页快进按钮，对齐 B站） */
+    fun playNextPart(): Boolean {
+        val next = currentPartIndex + 1
+        return if (next < pages.size) { playPart(next); true } else false
+    }
+
     /** 批量下载：下载指定分P（分P面板逐项触发，批次L10/L13 支持番剧） */
     fun downloadPart(appContext: android.content.Context, partIndex: Int) {
         val p = pages.getOrNull(partIndex) ?: return
