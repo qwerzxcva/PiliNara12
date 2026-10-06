@@ -95,7 +95,10 @@ fun SubscribeScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    var searchTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val displayItems = if (searchResults.isNotEmpty()) searchResults else state.items
     var showAddDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
     var showBangumiLoginDialog by remember { mutableStateOf(false) }
@@ -142,7 +145,7 @@ fun SubscribeScreen(
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             when {
-                state.items.isEmpty() && !state.isRefreshing -> {
+                displayItems.isEmpty() && !state.isRefreshing -> {
                     EmptySubscribeHint(onAdd = { showAddDialog = true })
                 }
                 else -> {
@@ -153,17 +156,21 @@ fun SubscribeScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(state.items, key = { it.id }) { item ->
+                        items(displayItems, key = { it.id }) { item ->
                             SubscribeItemCard(item = item) {
                                 // 审核轮8：不是所有条目都有可播放直链。
                                 // RSS 的 <link> 常是网页而非媒体；只有 enclosure/直链
                                 // 才能直接交给 ExoPlayer。这里先判定可否播放，
                                 // 不能播放时给出明确提示，而不是把网页 URL 丢给播放器
                                 // 导致「点了没反应/一直转圈」。
-                                if (isLikelyPlayable(item.link)) {
-                                    onPlay(item.link, item.title, item.cover)
-                                } else {
-                                    viewModel.reportNotPlayable(item.title)
+                                when {
+                                    isLikelyPlayable(item.link) ->
+                                        onPlay(item.link, item.title, item.cover)
+                                    item.link.isBlank() ->
+                                        // Animeko 网页刮削源：没有直链，
+                                        // 改为弹出关键词搜索（仅 RSS 型可用）
+                                        searchTarget = item
+                                    else -> viewModel.reportNotPlayable(item.title)
                                 }
                             }
                         }
@@ -192,6 +199,23 @@ fun SubscribeScreen(
         )
     }
 
+    searchTarget?.let { target ->
+        SearchInSourceDialog(
+            sourceName = target.title,
+            onDismiss = { searchTarget = null },
+            onSearch = { kw ->
+                // searchUrl 存于 link（rss 型）或 episode（网页型，供后续扩展），
+                // factoryId 存于 sourceName，避免从 desc 里字符串截取（脆弱）
+                viewModel.searchInSource(
+                    searchUrl = target.link,
+                    keyword = kw,
+                    factoryId = target.sourceName
+                )
+                searchTarget = null
+            }
+        )
+    }
+
     if (showBangumiLoginDialog) {
         BangumiLoginDialog(
             onDismiss = { showBangumiLoginDialog = false },
@@ -205,6 +229,47 @@ fun SubscribeScreen(
             }
         )
     }
+}
+
+/**
+ * 在 Animeko 数据源内按关键词搜索
+ *
+ * 说明（诚实）：只有 **RSS 型**源能真正搜出可播条目；
+ * 网页刮削型（web-selector）需要 CSS 选择器引擎，当前未实现，
+ * 搜索会返回明确失败提示，而不是假结果。
+ */
+@Composable
+private fun SearchInSourceDialog(
+    sourceName: String,
+    onDismiss: () -> Unit,
+    onSearch: (String) -> Unit
+) {
+    var kw by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("在「$sourceName」中搜索") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = kw,
+                    onValueChange = { kw = it },
+                    label = { Text("关键词") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "仅 RSS 型数据源支持自动搜索；网页刮削型需 CSS 引擎，暂不支持",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSearch(kw) }, enabled = kw.isNotBlank()) { Text("搜索") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 /**
@@ -283,6 +348,8 @@ private fun BangumiLoginDialog(
 private fun isLikelyPlayable(url: String): Boolean {
     if (url.isBlank()) return false
     val lower = url.lowercase()
+    // 磁力/种子：ExoPlayer 不能直接播（需 BT 下载器），明确排除
+    if (lower.startsWith("magnet:") || lower.endsWith(".torrent")) return false
     // HLS / DASH 清单
     if (lower.contains(".m3u8") || lower.contains(".mpd")) return true
     // 常见媒体直链后缀
