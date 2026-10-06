@@ -52,14 +52,22 @@ class StorageManager(private val context: Context) {
         private val DANMAKU_SHOW_TOP_KEY = booleanPreferencesKey("danmakuShowTop")
         private val DANMAKU_SHOW_BOTTOM_KEY = booleanPreferencesKey("danmakuShowBottom")
         
+        @Volatile
+        private var instance: StorageManager? = null
+
+        /** 兼容旧调用点：全局单例（进程内复用同一个 DataStore）。 */
+        fun getInstance(context: android.content.Context): StorageManager =
+            instance ?: synchronized(this) {
+                instance ?: StorageManager(context.applicationContext).also { instance = it }
+            }
+    }
+
         // Account settings
         private val IS_LOGGED_IN_KEY = booleanPreferencesKey("isLoggedIn")
         private val USER_MID_KEY = longPreferencesKey("userMid")
         private val USER_NAME_KEY = stringPreferencesKey("userName")
         private val ACCESS_TOKEN_KEY = stringPreferencesKey("accessToken")
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refreshToken")
-    }
-    
     // Theme
     val themeModeFlow: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[THEME_MODE_KEY] ?: "system" }
