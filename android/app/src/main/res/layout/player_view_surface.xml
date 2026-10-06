@@ -2,7 +2,7 @@
 <!--
   Kazumi 特性：默认 SurfaceView 渲染器布局（性能最佳、功耗最低）。
 
-  注意：Media3 1.5.1 的 PlayerView 未公开 setSurfaceType（javap 已核实），
+  注意：Media3 1.3.1 的 PlayerView 未公开 setSurfaceType（javap 已核实），
   surface_type 只能在 inflate 时通过 XML 属性生效，故提供两份布局按偏好选择。
   controller_auto_show / controller_show_timeout_ms 是运行时属性（非 XML attr），
   已在 createPlayerView 里用代码设置，此处不写。
