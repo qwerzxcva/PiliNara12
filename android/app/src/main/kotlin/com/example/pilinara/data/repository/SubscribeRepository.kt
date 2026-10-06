@@ -46,7 +46,9 @@ object SubscribeParser {
         val link: String,
         val desc: String,
         val pubAt: Long,
-        val episode: String
+        val episode: String,
+        /** Animeko 源类型（"rss"/"web-selector"）；普通源为 "" */
+        val factoryId: String = ""
     )
 
     /** 解析结果：源名 + 封面 + 条目列表 */
@@ -55,6 +57,29 @@ object SubscribeParser {
         val cover: String,
         val items: List<ParsedItem>
     )
+
+    /**
+     * Animeko 媒体源配置里的一个「数据源」（调研实测格式，见
+     * docs/animeko-source-format.md）
+     *
+     * 这类文件是**抓取器配置**，不是条目列表：每个源给出 name/iconUrl/
+     * searchConfig，播放地址需运行时再按关键词搜索 + 选择器刮削。
+     */
+    data class AnimekoSource(
+        val name: String,
+        val iconUrl: String,
+        val description: String,
+        val factoryId: String,          // "web-selector" | "rss"
+        val searchUrl: String           // 含 {keyword} 占位；空=不支持搜索
+    ) {
+        /** rss 类型的源可直接用标准 RSS 解析出条目（其余需 CSS 引擎） */
+        val isRss: Boolean
+            get() = factoryId.equals("rss", ignoreCase = true)
+
+        /** 是否支持关键词搜索（有 searchUrl 模板） */
+        val canSearch: Boolean
+            get() = searchUrl.isNotBlank()
+    }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -74,6 +99,38 @@ object SubscribeParser {
         runCatching {
             val text = BiliHttpClient.client.get(url).bodyAsText()
             if (text.isBlank()) error("订阅源返回为空")
+
+            // Animeko 媒体源配置：优先识别。
+            // 这类文件不是条目列表而是「数据源清单」，无法用下面的
+            // RSS/JSON 条目解析路径处理，必须单独走 parseAnimekoSourceConfig。
+            if (isAnimekoSourceConfig(text)) {
+                val sources = parseAnimekoSourceConfig(text)
+                if (sources.isEmpty()) error("Animeko 源配置为空或格式不符")
+                // 转成条目：每个数据源作为一张卡片展示（名称+icon 封面+描述）
+                // 链接用其 searchUrl（rss 源可用；web-selector 源无直链，
+                // 故 link 留空并由 UI 标注"需搜索"）。
+                val items = sources.map { s ->
+                    ParsedItem(
+                        title = s.name,
+                        cover = s.iconUrl,
+                        // link 存 searchUrl（rss 型可直接用；网页型留空→UI 引导搜索）
+                        link = if (s.isRss) s.searchUrl else "",
+                        desc = buildString {
+                            append(if (s.isRss) "RSS 源" else "网页刮削源")
+                            if (s.description.isNotBlank()) append(" · ${s.description}")
+                            if (!s.isRss) append(" · 需关键词搜索（暂不支持自动刮削）")
+                        },
+                        pubAt = 0L,
+                        episode = "",
+                        factoryId = s.factoryId
+                    )
+                }
+                return@runCatching ParsedSource(
+                    name = "Animeko 媒体源",
+                    cover = "",
+                    items = items
+                )
+            }
 
             // 先按类型走，失败再自动嗅探，提升对野生源的兼容性
             val candidates = mutableListOf(hintType)
@@ -222,6 +279,59 @@ object SubscribeParser {
                 items.sortedByDescending { it.pubAt }.take(MAX_ITEMS_PER_SOURCE)
             } else items
         )
+    }
+
+    /**
+     * 解析 Animeko 媒体源配置文件（用户给的 all.json / css.json / css1.json 均为此格式）
+     *
+     * 实测结构：
+     * ```
+     * { "exportedMediaSourceDataList": { "mediaSources": [
+     *     { "factoryId":"web-selector"|"rss", "version":2,
+     *       "arguments": { "name":..., "iconUrl":..., "description":...,
+     *                      "searchConfig": { "searchUrl":"...{keyword}..." } } } ] } }
+     * ```
+     *
+     * 重要：这里**没有可播放条目**。每个 mediaSources 元素是一个「数据源」，
+     * 播放地址要运行时用关键词请求 searchUrl 再按选择器刮削。
+     * 因此本函数返回的是源清单，不是 ParsedItem 列表。
+     */
+    fun parseAnimekoSourceConfig(text: String): List<AnimekoSource> {
+        return runCatching {
+            val root = json.parseToJsonElement(text).jsonObject
+            val list = root["exportedMediaSourceDataList"]
+                ?.jsonObject?.get("mediaSources")?.jsonArray
+                ?: return@runCatching emptyList()
+
+            list.mapNotNull { el ->
+                val o = runCatching { el.jsonObject }.getOrNull() ?: return@mapNotNull null
+                val factoryId = o["factoryId"]?.jsonPrimitive?.content ?: ""
+                val args = runCatching { o["arguments"]?.jsonObject }.getOrNull()
+                    ?: return@mapNotNull null
+                val name = args["name"]?.jsonPrimitive?.content?.trim()
+                    ?: return@mapNotNull null
+                val icon = args["iconUrl"]?.jsonPrimitive?.content ?: ""
+                val desc = args["description"]?.jsonPrimitive?.content ?: ""
+                // searchUrl 在 searchConfig 内，且含 {keyword} 占位
+                val searchUrl = runCatching {
+                    args["searchConfig"]?.jsonObject?.get("searchUrl")?.jsonPrimitive?.content
+                }.getOrNull() ?: ""
+                AnimekoSource(
+                    name = name,
+                    iconUrl = icon,
+                    description = desc,
+                    factoryId = factoryId,
+                    searchUrl = searchUrl
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /** 判断文本是否为 Animeko 媒体源配置（用于类型嗅探时优先识别） */
+    fun isAnimekoSourceConfig(text: String): Boolean {
+        val s = text.trimStart()
+        // 不整篇 parse（大文件慢），先看特征串
+        return s.contains("exportedMediaSourceDataList") && s.contains("mediaSources")
     }
 
     /** 自定义 JSON 源：兼容 {items:[...]} / [ ... ] 两种形态 */
@@ -384,7 +494,9 @@ class SubscribeRepository(
                         desc = p.desc,
                         pubAt = p.pubAt,
                         episode = p.episode,
-                        sourceName = parsed.name.ifBlank { source.name },
+                        // Animeko 源：sourceName 存 factoryId（供搜索时判定类型）；
+                        // 普通源：存源名（UI 展示用）
+                        sourceName = p.factoryId.ifBlank { parsed.name.ifBlank { source.name } },
                         updatedAt = now
                     )
                 }
@@ -424,6 +536,32 @@ class SubscribeRepository(
     /** 观察全部条目（Flow，UI 自动刷新） */
     fun observeItems(): kotlinx.coroutines.flow.Flow<List<SubscribeItemEntity>> =
         itemDao.observeAll()
+
+    /**
+     * 按关键词搜索一个 Animeko 数据源（调研后实现）
+     *
+     * 仅对 **rss 类型**的源可用：其 searchConfig.searchUrl 就是标准 RSS
+     * （如 `https://share.dmhy.org/topics/rss/rss.xml?keyword={keyword}`），
+     * 直接取回走 RSS 解析即可得到可播放条目（磁力/直链）。
+     *
+     * web-selector 类型的源需要 CSS 选择器引擎 + 视频地址提取器，
+     * 本版本**未实现**，直接返回明确失败（不做假结果）。
+     */
+    suspend fun searchAnimekoSource(
+        searchUrl: String,
+        keyword: String,
+        factoryId: String
+    ): Result<ParsedSource> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!factoryId.equals("rss", ignoreCase = true)) {
+                error("该源为网页刮削型（$factoryId），需要 CSS 选择器引擎，当前版本暂不支持自动搜索")
+            }
+            val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
+            val text = BiliHttpClient.client.get(url).bodyAsText()
+            if (text.isBlank()) error("搜索返回为空")
+            parseRss(text)
+        }
+    }
 
     suspend fun removeSource(id: Long) = withContext(Dispatchers.IO) {
         runCatching {
