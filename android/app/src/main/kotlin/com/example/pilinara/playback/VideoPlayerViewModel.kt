@@ -77,7 +77,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val content: String,
         val color: Int,
         val fontSize: Int,
-        val uid: Long = 0L   // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
+        val uid: Long = 0L,  // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
+        val mode: Int = 1    // 审核轮167：1-3=滚动 4=底部 5=顶部 6=逆向 7=精准（B站 mode）
     )
     
     init {
@@ -85,6 +86,24 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         viewModelScope.launch {
             com.example.pilinara.utils.StorageManager(appContext)
                 .autoPlayFlow.collect { cachedAutoPlay = it }
+        }
+        // 审核轮171：音量持久化（恢复上次音量并应用到播放器）
+        viewModelScope.launch {
+            com.example.pilinara.utils.StorageManager(appContext).playerVolumeFlow.collect { v ->
+                if (!userAdjustedVolume) {
+                    _player?.volume = v
+                    _state.value = _state.value.copy(volume = v, isMuted = v == 0f)
+                }
+            }
+        }
+        // 审核轮167：弹幕类型开关缓存
+        viewModelScope.launch {
+            val sm = com.example.pilinara.utils.StorageManager(appContext)
+            sm.dmShowTopFlow.collect { cachedDmShowTop = it }
+        }
+        viewModelScope.launch {
+            com.example.pilinara.utils.StorageManager(appContext)
+                .dmShowBottomFlow.collect { cachedDmShowBottom = it }
         }
         // Kazumi 特性：低延迟音频。
         // Media3 里 AudioAttributes 只能在 Builder 上设置（ExoPlayer 无 setAudioAttributes）。
@@ -318,13 +337,17 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     content = p.content,
                     color = p.color or 0xFF000000.toInt(),
                     fontSize = p.fontSize,
-                    uid = p.uid
+                    uid = p.uid,
+                    mode = p.mode
                 )
             }
             // 批次audit25：Rust 路径保留了原始 uid，回填到合并结果
-            val uidByTs = raw.map { d -> d.toParsed() }.associate { (it.timestamp * 1000).toLong() to it.uid }
+            // 审核轮167：同时回填 mode（Rust 合并结果只回 ts/content/color，UI 需 mode 区分顶部/底部）
+            val parsedRaw = raw.map { d -> d.toParsed() }
+            val uidByTs = parsedRaw.associate { (it.timestamp * 1000).toLong() to it.uid }
+            val modeByTs = parsedRaw.associate { (it.timestamp * 1000).toLong() to it.mode }
             val withUid = if (mergedEvents != null) list.map { e ->
-                e.copy(uid = uidByTs[e.timestamp] ?: 0L)
+                e.copy(uid = uidByTs[e.timestamp] ?: 0L, mode = modeByTs[e.timestamp] ?: 1)
             } else list
             addDanmakuEvents(withUid)
         }
@@ -547,13 +570,18 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
+    /** 审核轮171：用户是否手动调过音量（调过后不再被持久化恢复覆盖） */
+    @Volatile private var userAdjustedVolume = false
+
     fun setVolume(volume: Float) {
         val clamped = volume.coerceIn(0f, 1f)
+        userAdjustedVolume = true
         viewModelScope.launch {
             _player?.volume = clamped
             _state.value = _state.value.copy(
                 volume = clamped, isMuted = clamped == 0f
             )
+            com.example.pilinara.utils.StorageManager(appContext).setPlayerVolume(clamped)
         }
     }
     
@@ -598,9 +626,17 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         if (error != null) _state.value = _state.value.copy(error = error)
     }
 
+    /** 审核轮179：非致命提示（成功/轻微失败）——原来误用 setError 会全屏红字+隐藏控制栏 */
+    private val _toast = MutableStateFlow<String?>(null)
+    val toast: StateFlow<String?> = _toast.asStateFlow()
+    fun showToast(msg: String) {
+        _toast.value = msg
+        viewModelScope.launch { kotlinx.coroutines.delay(2000); if (_toast.value == msg) _toast.value = null }
+    }
+
     /** 分享反馈（复制链接成功提示） */
     fun notifyShared(link: String) {
-        setError("链接已复制：$link")
+        showToast("链接已复制：$link")
     }
 
     /** 批次L40：实时在线人数（匿名，失败静默） */
@@ -688,7 +724,14 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 )
                 if (positionPollJob?.isActive != true) startPositionPoll()
             }
-            Player.STATE_ENDED -> _state.value = _state.value.copy(isPlaying = false)
+            Player.STATE_ENDED -> {
+                _state.value = _state.value.copy(isPlaying = false)
+                // 审核轮183：多P视频播完自动连播下一P（对齐 B站/Flutter 版）
+                val next = currentPartIndex + 1
+                if (pages.size > 1 && next < pages.size) {
+                    playPart(next)
+                }
+            }
             // 审核：补全 Player.STATE_IDLE 分支（消除 lint SwitchIntDef）
             Player.STATE_IDLE -> _state.value = _state.value.copy(isPlaying = false, isBuffering = false)
         }
@@ -723,8 +766,19 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
 
     // ========== 互动（点赞/投币/收藏/历史上报） ==========
 
+    /** 审核轮167：持久化顶部/底部弹幕开关 */
+    fun persistDmShowTop(v: Boolean) = viewModelScope.launch {
+        com.example.pilinara.utils.StorageManager(appContext).setDmShowTop(v)
+    }
+    fun persistDmShowBottom(v: Boolean) = viewModelScope.launch {
+        com.example.pilinara.utils.StorageManager(appContext).setDmShowBottom(v)
+    }
+
     /** 审核轮129：自动播放设置缓存（DataStore 异步同步，直链播放用） */
     @Volatile private var cachedAutoPlay: Boolean = false
+    // 审核轮167：顶部/底部弹幕显示开关（B站 mode 4=底部 5=顶部）
+    @Volatile var cachedDmShowTop: Boolean = true
+    @Volatile var cachedDmShowBottom: Boolean = true
     private var aid: Long = 0L
 
     /** 当前视频标题/封面（供下载等外部操作，批次I 接线） */
@@ -837,9 +891,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun sendDanmaku(text: String, mode: Int = 1, color: Int = 16777215) {
         if (text.isBlank()) return
         viewModelScope.launch {
-            if (!AccountSession.isLogin) { setError("请先登录后发弹幕"); return@launch }
+            if (!AccountSession.isLogin) { showToast("请先登录后发弹幕"); return@launch }
             val cid = effectiveCid
-            if (cid == 0L || currentBvid.isEmpty()) { setError("弹幕发送失败（视频未就绪）"); return@launch }
+            if (cid == 0L || currentBvid.isEmpty()) { showToast("弹幕发送失败（视频未就绪）"); return@launch }
             val progress = _player?.currentPosition ?: 0L
             BiliApiClient().sendVideoDanmaku(cid, currentBvid, text.trim(), progress, mode, color)
                 .onSuccess { ok ->
@@ -854,10 +908,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         )
                         _danmakuQueue.add(danmaku)
                         _danmakuQueue.sortBy { it.timestamp }
-                        setError("弹幕发送成功")
-                    } else setError("弹幕发送失败（可能需要登录或被风控）")
+                        showToast("弹幕发送成功")
+                    } else showToast("弹幕发送失败（可能需要登录或被风控）")
                 }
-                .onFailure { setError("弹幕发送失败: ${it.message}") }
+                .onFailure { showToast("弹幕发送失败: ${it.message}") }
         }
     }
 
@@ -869,7 +923,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
             BiliApiClient().addToView(aid)
                 .onSuccess { ok -> setError(if (ok) "已加入稍后再看" else "添加失败") }
-                .onFailure { setError("添加失败: ${it.message}") }
+                .onFailure { showToast("添加失败: ${it.message}") }
         }
     }
 
@@ -888,9 +942,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         isLiked = !liked,
                         likeCount = _state.value.likeCount + if (liked) -1 else 1
                     )
-                    else setError("点赞失败（接口返回非 0）")
+                    else showToast("点赞失败（接口返回非 0）")
                 }
-                .onFailure { setError("点赞失败: ${it.message}") }
+                .onFailure { showToast("点赞失败: ${it.message}") }
         }
     }
 
@@ -906,9 +960,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         isLiked = true, isFavorited = true,
                         likeCount = _state.value.likeCount + if (_state.value.isLiked) 0 else 1
                     )
-                    else setError("三连失败（可能已投过币）")
+                    else showToast("三连失败（可能已投过币）")
                 }
-                .onFailure { setError("三连失败: ${it.message}") }
+                .onFailure { showToast("三连失败: ${it.message}") }
         }
     }
 
@@ -927,9 +981,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         coinCount = _state.value.coinCount + multiply,
                         coinCountTotal = _state.value.coinCountTotal + multiply
                     )
-                    else setError("投币失败（余额不足或已投满）")
+                    else showToast("投币失败（余额不足或已投满）")
                 }
-                .onFailure { setError("投币失败: ${it.message}") }
+                .onFailure { showToast("投币失败: ${it.message}") }
         }
     }
 
@@ -960,9 +1014,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         isFavorited = !fav,
                         favCount = _state.value.favCount + if (fav) -1 else 1
                     )
-                    else setError("收藏操作失败")
+                    else showToast("收藏操作失败")
                 }
-                .onFailure { setError("收藏失败: ${it.message}") }
+                .onFailure { showToast("收藏失败: ${it.message}") }
         }
     }
 
@@ -976,14 +1030,14 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
             val fav = _state.value.isFavorited
             val mediaId = defaultFavFolderId
-            if (mediaId == 0L && !fav) { setError("未获取到默认收藏夹"); return@launch }
+            if (mediaId == 0L && !fav) { showToast("未获取到默认收藏夹"); return@launch }
             repo.favoriteVideo(aid, mediaId, if (fav) 2 else 1)
                 .onSuccess { ok ->
                     if (ok) _state.value = _state.value.copy(
                         isFavorited = !fav,
                         favCount = _state.value.favCount + if (fav) -1 else 1
                     )
-                    else setError("收藏失败（接口返回非 0）")
+                    else showToast("收藏失败（接口返回非 0）")
                 }
                 .onFailure { setError("收藏失败: ${it.message}") }
         }

@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -490,7 +491,7 @@ private fun AddSourceDialog(
 ) {
     var url by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf(SubscribeSourceEntity.TYPE_BANGUMI) }
+    var type by remember { mutableIntStateOf(SubscribeSourceEntity.TYPE_BANGUMI) }
 
     AlertDialog(
         onDismissRequest = onDismiss,

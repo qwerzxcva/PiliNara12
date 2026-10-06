@@ -47,6 +47,7 @@ import com.example.pilinara.utils.toHttpsUrl
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
+@android.annotation.SuppressLint("SourceLockedOrientationActivity") // 审核轮175：播放器全屏切换需运行时切横竖屏，非清单锁定
 @Composable
 fun VideoPlayerScreen(
     videoUrl: String,
@@ -87,7 +88,17 @@ fun VideoPlayerScreen(
                 attrs.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
                 activity.window.attributes = attrs
             }
+            // 审核轮175：离开播放页恢复竖屏，避免整个 App 卡在横屏
+            activity?.requestedOrientation =
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
+    }
+    // 审核轮175：横屏时按返回键先回竖屏（B站行为），再按才退出
+    androidx.activity.compose.BackHandler(
+        enabled = activity?.resources?.configuration?.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    ) {
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
     var showVolumeSlider by remember { mutableStateOf(false) }
     var isInPiP by remember { mutableStateOf(false) }
@@ -159,8 +170,10 @@ fun VideoPlayerScreen(
             // 弹幕只在其时间戳后 3 秒窗口内分发，故 10 秒前的 id 可安全丢弃。
             val cutoff = state.currentTime - 10_000L
             dispatchedIds.removeAll { tsOf(it) < cutoff }
-            // 窗口内未分发的弹幕 → add
+            // 窗口内未分发的弹幕 → add（审核轮167：按类型开关过滤顶部/底部弹幕）
             for (e in viewModel.getDanmakuAtTime(state.currentTime)) {
+                if (e.mode == 4 && !viewModel.cachedDmShowBottom) continue
+                if (e.mode == 5 && !viewModel.cachedDmShowTop) continue
                 val key = e.id.ifEmpty { "${e.timestamp}_${e.content}" }
                 if (dispatchedIds.add(key)) {
                     v.add(e.content, e.color, e.fontSize)
@@ -269,6 +282,19 @@ fun VideoPlayerScreen(
                                 else Icons.AutoMirrored.Filled.VolumeUp,
                                 "Volume", tint = Color.White
                             )
+                        }
+                        // 审核轮173：横屏/全屏切换（B站播放器核心交互）
+                        IconButton(onClick = {
+                            val act = context.findActivity() ?: return@IconButton
+                            val target = if (act.resources.configuration.orientation ==
+                                android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            } else {
+                                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                            }
+                            act.requestedOrientation = target
+                        }) {
+                            Icon(Icons.Default.ScreenRotation, "全屏", tint = Color.White)
                         }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             IconButton(onClick = {
@@ -581,6 +607,24 @@ fun VideoPlayerScreen(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
+                    // 审核轮167：顶部/底部弹幕开关（B站播放器标配）
+                    var dmTop by remember { mutableStateOf(viewModel.cachedDmShowTop) }
+                    var dmBottom by remember { mutableStateOf(viewModel.cachedDmShowBottom) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("显示顶部弹幕", modifier = Modifier.weight(1f))
+                        Switch(checked = dmTop, onCheckedChange = { on ->
+                            dmTop = on; viewModel.cachedDmShowTop = on
+                            viewModel.persistDmShowTop(on)
+                        })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("显示底部弹幕", modifier = Modifier.weight(1f))
+                        Switch(checked = dmBottom, onCheckedChange = { on ->
+                            dmBottom = on; viewModel.cachedDmShowBottom = on
+                            viewModel.persistDmShowBottom(on)
+                        })
+                    }
+                    Spacer(Modifier.height(8.dp))
                     Text("透明度 ${(state.danmakuAlpha * 100).toInt()}%")
                     Slider(
                         value = state.danmakuAlpha,
@@ -822,6 +866,21 @@ fun VideoPlayerScreen(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .background(Color.Black.copy(0.6f), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        // 审核轮179：toast 提示（弹幕发送成功等），替代原来的全屏红字
+        val toastMsg by viewModel.toast.collectAsStateWithLifecycle()
+        toastMsg?.let { msg ->
+            Text(
+                msg,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 96.dp)
+                    .background(Color.Black.copy(0.7f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }

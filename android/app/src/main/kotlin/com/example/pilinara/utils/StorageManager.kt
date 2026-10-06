@@ -33,6 +33,11 @@ class StorageManager(private val context: Context) {
         private val ACCENT_COLOR_KEY = stringPreferencesKey("accentColor")
         private val VIDEO_QUALITY_KEY = stringPreferencesKey("defaultVideoQa")
         private val AUTO_PLAY_KEY = booleanPreferencesKey("autoPlayEnable")
+        // 审核轮167：弹幕类型显示开关（B站播放器标配）
+        private val DM_SHOW_TOP_KEY = booleanPreferencesKey("dmShowTop")
+        private val DM_SHOW_BOTTOM_KEY = booleanPreferencesKey("dmShowBottom")
+        // 审核轮171：播放器音量持久化
+        private val PLAYER_VOLUME_KEY = androidx.datastore.preferences.core.floatPreferencesKey("playerVolume")
         private val FULLSCREEN_MODE_KEY = stringPreferencesKey("fullScreenMode")
         private val UI_SCALE_KEY = floatPreferencesKey("uiScale")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
@@ -90,6 +95,20 @@ class StorageManager(private val context: Context) {
     
     val autoPlayFlow: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[AUTO_PLAY_KEY] ?: false }
+
+    // 审核轮171：播放器音量（默认 1.0）
+    val playerVolumeFlow: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[PLAYER_VOLUME_KEY] ?: 1.0f }
+    suspend fun setPlayerVolume(v: Float) = context.dataStore.edit { it[PLAYER_VOLUME_KEY] = v }
+
+    // 审核轮167：弹幕类型开关（顶部/底部弹幕，默认显示）
+    val dmShowTopFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[DM_SHOW_TOP_KEY] ?: true }
+    val dmShowBottomFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[DM_SHOW_BOTTOM_KEY] ?: true }
+
+    suspend fun setDmShowTop(v: Boolean) = context.dataStore.edit { it[DM_SHOW_TOP_KEY] = v }
+    suspend fun setDmShowBottom(v: Boolean) = context.dataStore.edit { it[DM_SHOW_BOTTOM_KEY] = v }
     
     // Video playback
     val playbackSpeedFlow: Flow<Float> = context.dataStore.data
