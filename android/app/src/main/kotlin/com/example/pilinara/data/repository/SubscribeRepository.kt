@@ -1,7 +1,6 @@
 package com.example.pilinara.data.repository
 
 import com.example.pilinara.data.remote.BiliHttpClient
-import com.example.pilinara.data.remote.withBangumiAuth
 import com.example.pilinara.database.SubscribeItemEntity
 import com.example.pilinara.database.SubscribeSourceDao
 import com.example.pilinara.database.SubscribeSourceEntity
@@ -99,10 +98,7 @@ object SubscribeParser {
         hintType: Int = SubscribeSourceEntity.TYPE_BANGUMI
     ): Result<ParsedSource> = withContext(Dispatchers.IO) {
         runCatching {
-            // 审核轮102：带 Bangumi 授权头（私有订阅源需要；未登录只加 UA）
-            val text = BiliHttpClient.client.get(url) {
-                withBangumiAuth()
-            }.bodyAsText()
+            val text = BiliHttpClient.client.get(url).bodyAsText()
             if (text.isBlank()) error("订阅源返回为空")
 
             // Animeko 媒体源配置：优先识别。
@@ -188,70 +184,101 @@ object SubscribeParser {
 
         var event = parser.eventType
         var inEntry = false
-        var depth = 0
+        var entryDepth = -1
+        var sourceImageDepth = -1
+        var isAtomEntry = false
+
+        // Namespace-aware parsers expose local names, regardless of the chosen prefix.
+        val mediaNamespace = "http://search.yahoo.com/mrss/"
+        val itunesNamespace = "http://www.itunes.com/dtds/podcast-1.0.dtd"
+        val atomNamespace = "http://www.w3.org/2005/Atom"
 
         while (event != XmlPullParser.END_DOCUMENT) {
             when (event) {
                 XmlPullParser.START_TAG -> {
-                    depth++
                     val tag = parser.name ?: ""
+                    val namespace = parser.namespace ?: ""
+                    val isCore = namespace.isEmpty() || namespace == atomNamespace ||
+                        namespace == "http://purl.org/rss/1.0/"
                     when {
-                        tag.equals("item", true) || tag.equals("entry", true) -> {
+                        isCore && !inEntry && (tag.equals("item", true) || tag.equals("entry", true)) -> {
                             inEntry = true
+                            entryDepth = parser.depth
+                            isAtomEntry = tag.equals("entry", true)
                             title = ""; link = ""; desc = ""
                             cover = ""; pubAt = 0L; episode = ""
                             enclosureUrl = ""
                         }
-                        inEntry && tag.equals("title", true) -> title = readText(parser)
-                        inEntry && tag.equals("link", true) -> {
-                            // Atom 的 link 在属性 href 上
+                        inEntry && isCore && tag.equals("title", true) -> title = readText(parser)
+                        inEntry && isCore && tag.equals("link", true) -> {
                             val href = parser.getAttributeValue(null, "href")
-                            link = href ?: readText(parser)
+                            if (href != null) {
+                                when (parser.getAttributeValue(null, "rel")?.trim()?.lowercase() ?: "alternate") {
+                                    "enclosure" -> if (href.isNotBlank()) enclosureUrl = href
+                                    "alternate" -> if (href.isNotBlank()) link = href
+                                    // self/edit/related links must not replace the entry URL.
+                                }
+                            } else if (!isAtomEntry) {
+                                link = readText(parser)
+                            }
                         }
-                        inEntry && (tag.equals("description", true) ||
+                        inEntry && isCore && (tag.equals("description", true) ||
                             tag.equals("summary", true) ||
                             tag.equals("content", true)) -> desc = readText(parser)
-                        inEntry && (tag.equals("pubDate", true) ||
+                        inEntry && isCore && (tag.equals("pubDate", true) ||
                             tag.equals("published", true) ||
                             tag.equals("updated", true)) -> pubAt = parseDate(readText(parser))
-                        inEntry && tag.equals("enclosure", true) -> {
-                            cover = parser.getAttributeValue(null, "url") ?: ""
-                            enclosureUrl = parser.getAttributeValue(null, "url") ?: ""
+                        inEntry && isCore && tag.equals("enclosure", true) -> {
+                            val url = parser.getAttributeValue(null, "url").orEmpty()
+                            if (url.isNotBlank()) enclosureUrl = url
+                            // Only an explicitly image-typed enclosure is a cover.
+                            if (parser.getAttributeValue(null, "type").orEmpty().startsWith("image/", true) &&
+                                cover.isBlank()) cover = url
                         }
-                        inEntry && tag.equals("media:thumbnail", true) -> {
-                            parser.getAttributeValue(null, "url")?.let { if (it.isNotBlank()) cover = it }
+                        namespace == mediaNamespace && tag.equals("thumbnail", true) -> {
+                            val url = parser.getAttributeValue(null, "url").orEmpty()
+                            if (inEntry) {
+                                if (url.isNotBlank()) cover = url
+                            } else if (sourceCover.isBlank()) sourceCover = url
                         }
-                        inEntry && tag.equals("media:content", true) -> {
-                            if (cover.isBlank()) {
-                                parser.getAttributeValue(null, "url")?.let { if (it.isNotBlank()) cover = it }
+                        namespace == mediaNamespace && tag.equals("content", true) -> {
+                            val isImage = parser.getAttributeValue(null, "medium").equals("image", true) ||
+                                parser.getAttributeValue(null, "type").orEmpty().startsWith("image/", true)
+                            if (isImage) {
+                                val url = parser.getAttributeValue(null, "url").orEmpty()
+                                if (inEntry && cover.isBlank()) cover = url
+                                else if (!inEntry && sourceCover.isBlank()) sourceCover = url
                             }
                         }
-                        inEntry && tag.equals("guid", true) -> {
-                            if (link.isBlank()) link = readText(parser)
+                        namespace == itunesNamespace && tag.equals("image", true) -> {
+                            val url = parser.getAttributeValue(null, "href")
+                                ?: parser.getAttributeValue(null, "url") ?: ""
+                            if (inEntry && cover.isBlank()) cover = url
+                            else if (!inEntry && sourceCover.isBlank()) sourceCover = url
                         }
-                        !inEntry && tag.equals("title", true) -> {
-                            if (sourceTitle.isBlank()) sourceTitle = readText(parser)
+                        inEntry && isCore && tag.equals("guid", true) -> {
+                            val guid = readText(parser)
+                            if (link.isBlank()) link = guid
                         }
-                        !inEntry && tag.equals("image", true) -> {
-                            // RSS <image><url>
+                        !inEntry && isCore && tag.equals("title", true) -> {
+                            val value = readText(parser)
+                            if (sourceTitle.isBlank()) sourceTitle = value
                         }
-                        !inEntry && tag.equals("url", true) -> {
-                            if (sourceTitle.isNotBlank() && sourceCover.isBlank()) sourceCover = readText(parser)
+                        !inEntry && isCore && tag.equals("image", true) -> {
+                            sourceImageDepth = parser.depth
                         }
-                        !inEntry && tag.equals("media:thumbnail", true) -> {
-                            if (sourceCover.isBlank()) {
-                                parser.getAttributeValue(null, "url")?.let { sourceCover = it }
-                            }
-                        }
-                        !inEntry && tag.equals("itunes:image", true) -> {
-                            parser.getAttributeValue(null, "url")?.let { if (sourceCover.isBlank()) sourceCover = it }
+                        !inEntry && isCore && tag.equals("url", true) &&
+                            sourceImageDepth >= 0 && parser.depth == sourceImageDepth + 1 -> {
+                            val url = readText(parser)
+                            if (sourceCover.isBlank()) sourceCover = url
                         }
                     }
                 }
                 XmlPullParser.END_TAG -> {
                     val tag = parser.name ?: ""
-                    depth--
-                    if (inEntry && (tag.equals("item", true) || tag.equals("entry", true))) {
+                    if (parser.depth == sourceImageDepth) sourceImageDepth = -1
+                    if (inEntry && parser.depth == entryDepth &&
+                        (tag.equals("item", true) || tag.equals("entry", true))) {
                         inEntry = false
                         val t = title.trim()
                         // 链接兜底：优先 enclosure（直链媒体），其次 link
@@ -388,22 +415,21 @@ object SubscribeParser {
     }
 
     /**
-     * 读取当前标签的文本内容。
-     *
-     * 审核轮21：原实现直接 `parser.nextTag()`，遇到非 tag 节点（如 CDATA 后的
-     * 空白、注释、或畸形 XML）会抛 XmlPullParserException，
-     * 导致整个订阅源解析失败 —— 一个坏标签毁掉整个源。
-     * 这里改为：吞掉解析异常，返回已读到的文本，让解析继续。
+     * Consume the entire current element, including nested XHTML text and CDATA.
+     * Leave the parser on its matching END_TAG so sibling fields remain intact.
+     * Malformed XML is propagated to the caller's Result, not silently accepted.
      */
     private fun readText(parser: XmlPullParser): String {
-        return runCatching {
-            var text = ""
-            if (parser.next() == XmlPullParser.TEXT) {
-                text = parser.text ?: ""
-                parser.nextTag()
+        val startDepth = parser.depth
+        val text = StringBuilder()
+        while (true) {
+            when (parser.next()) {
+                XmlPullParser.TEXT, XmlPullParser.CDSECT, XmlPullParser.ENTITY_REF ->
+                    text.append(parser.text.orEmpty())
+                XmlPullParser.END_TAG -> if (parser.depth == startDepth) return text.toString()
+                XmlPullParser.END_DOCUMENT -> error("订阅源 XML 标签未闭合")
             }
-            text
-        }.getOrDefault("")
+        }
     }
 
     /** RSS/Atom 常见日期 → 毫秒；失败返回 0（不抛异常，避免坏源整体失败） */
@@ -456,9 +482,7 @@ object SubscribeParser {
         runCatching {
             if (factoryId.equals("rss", ignoreCase = true)) {
                 val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
-                val text = BiliHttpClient.client.get(url) {
-                    withBangumiAuth()
-                }.bodyAsText()
+                val text = BiliHttpClient.client.get(url).bodyAsText()
                 if (text.isBlank()) error("搜索返回为空")
                 parseRss(text)
             } else if (factoryId.equals("web-selector", ignoreCase = true)) {
@@ -608,7 +632,8 @@ class SubscribeRepository(
                 error("该源使用 JSON 路径格式（json-path-indexed），暂不支持")
             }
             val url = AnimekoScraper.buildSearchUrl(cfg.cfg, keyword)
-            val base = AnimekoScraper.baseOf(url)
+            // 传入完整搜索页 URL，让 URI.resolve 正确处理目录相对链接。
+            val base = url
             val html = BiliHttpClient.client.get(url) {
                 if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
                 if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
@@ -633,7 +658,8 @@ class SubscribeRepository(
         runCatching {
             val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
                 ?: error("未找到源「$sourceName」的配置")
-            val base = AnimekoScraper.baseOf(subjectUrl)
+            // 传入完整作品页 URL，保留目录上下文。
+            val base = subjectUrl
             val html = BiliHttpClient.client.get(subjectUrl) {
                 if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
                 if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
@@ -660,7 +686,7 @@ class SubscribeRepository(
 
             // 先取剧集页
             var html = fetch(episodeUrl, cfg)
-            val base = AnimekoScraper.baseOf(episodeUrl)
+            val base = episodeUrl
 
             // 先试本页直链
             var v = AnimekoScraper.extractVideoUrl(html, base, cfg.cfg)
@@ -670,7 +696,7 @@ class SubscribeRepository(
             val nested = AnimekoScraper.extractNestedUrls(html, base, cfg.cfg)
             for (n in nested.take(3)) {   // 最多跳 3 次，防死循环
                 val nHtml = fetch(n, cfg)
-                v = AnimekoScraper.extractVideoUrl(nHtml, AnimekoScraper.baseOf(n), cfg.cfg)
+                v = AnimekoScraper.extractVideoUrl(nHtml, n, cfg.cfg)
                 if (v.isNotBlank()) return@runCatching v
             }
             val diag = AnimekoScraper.diagnoseJsRendered(html)
