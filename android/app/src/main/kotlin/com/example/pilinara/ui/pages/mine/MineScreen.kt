@@ -180,7 +180,8 @@ fun UserContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { UserCard(nav = nav) }
-        item { QuickActions(onHistory = onHistoryClick, onFavorites = onFavoritesClick, onDownloads = onDownloadsClick) }
+        item { QuickActions(onHistory = onHistoryClick, onFavorites = onFavoritesClick,
+            onDownloads = onDownloadsClick, onToView = onToViewClick) }
         item { HorizontalDivider() }
         item { MenuItemRow(MenuItemData("历史观看", Icons.Default.History, onHistoryClick)) }
         item { MenuItemRow(MenuItemData("稍后再看", Icons.Default.PlayArrow, onToViewClick)) }
@@ -243,13 +244,14 @@ fun UserCard(nav: NavData) {
 fun QuickActions(
     onHistory: () -> Unit = {},
     onFavorites: () -> Unit = {},
-    onDownloads: () -> Unit = {}
+    onDownloads: () -> Unit = {},
+    onToView: () -> Unit = {}   // 审核轮201：原来该项写死空 lambda，点击无响应
 ) {
     val actions = listOf(
         Triple("历史", Icons.Default.History, onHistory),
         Triple("收藏", Icons.Default.Favorite, onFavorites),
         Triple("离线缓存", Icons.Default.Download, onDownloads),
-        Triple("稍后再看", Icons.Default.PlayArrow, {} as () -> Unit)
+        Triple("稍后再看", Icons.Default.PlayArrow, onToView)
     )
 
     Row(
