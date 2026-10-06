@@ -52,6 +52,8 @@ class SubscribeViewModel(
     val searchResults: StateFlow<List<SubscribeItemEntity>> = _searchResults.asStateFlow()
 
     private var refreshJob: Job? = null
+    /** 审核轮103：搜索防重入（快速连点搜索按钮会并发打出多个请求） */
+    private var searchJob: Job? = null
 
     init {
         // 源列表
@@ -202,7 +204,8 @@ class SubscribeViewModel(
      * 结果写入 _searchResults，由 UI 展示；不落库（搜索是临时视图）。
      */
     fun searchInSource(searchUrl: String, keyword: String, factoryId: String) {
-        viewModelScope.launch {
+        if (searchJob?.isActive == true) return
+        searchJob = viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
                 SubscribeParser.searchAnimekoSource(searchUrl, keyword, factoryId)

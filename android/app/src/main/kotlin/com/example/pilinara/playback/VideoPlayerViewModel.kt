@@ -500,16 +500,25 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else Uri.parse(videoUrl)
         val videoItem = MediaItem.Builder().setUri(videoUri).build()
         val localFactory = androidx.media3.datasource.DefaultDataSource.Factory(appContext)
-        val videoSource: androidx.media3.exoplayer.source.MediaSource =
-            if (isLocal) {
-                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(localFactory)
-                    .createMediaSource(videoItem)
-            } else {
-                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(videoItem)
-            }
+        // 审核轮101（重构）：订阅源/外部直链可能是 HLS(m3u8)/DASH(mpd) 清单，
+        // ProgressiveMediaSource 只支持渐进式流——清单会解析失败。
+        // 按媒体类型选 MediaSource；B站 DASH（video+audio 两路）仍走 Progressive+Merging。
+        val vLower = videoUrl.lowercase()
+        val isHls = vLower.contains(".m3u8")
+        val isDash = vLower.contains(".mpd")
+        val videoSource: androidx.media3.exoplayer.source.MediaSource = when {
+            isHls -> androidx.media3.exoplayer.hls.HlsMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(videoItem)
+            isDash -> androidx.media3.exoplayer.dash.DashMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(videoItem)
+            isLocal -> androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(localFactory)
+                .createMediaSource(videoItem)
+            else -> androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(videoItem)
+        }
 
-        val merged = if (!audioUrl.isNullOrEmpty()) {
+        // HLS/DASH 清单自带音视频轨，不允许再 merge 第二路（audioUrl 为 B站专用）
+        val merged = if (!audioUrl.isNullOrEmpty() && !isHls && !isDash) {
             val audioUri = if (audioUrl.startsWith("/")) Uri.fromFile(java.io.File(audioUrl)) else Uri.parse(audioUrl)
             val audioItem = MediaItem.Builder().setUri(audioUri).build()
             val audioSource: androidx.media3.exoplayer.source.MediaSource =

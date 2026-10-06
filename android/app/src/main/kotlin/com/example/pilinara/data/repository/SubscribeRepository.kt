@@ -1,6 +1,7 @@
 package com.example.pilinara.data.repository
 
 import com.example.pilinara.data.remote.BiliHttpClient
+import com.example.pilinara.data.remote.withBangumiAuth
 import com.example.pilinara.database.SubscribeItemEntity
 import com.example.pilinara.database.SubscribeSourceDao
 import com.example.pilinara.database.SubscribeSourceEntity
@@ -98,7 +99,10 @@ object SubscribeParser {
         hintType: Int = SubscribeSourceEntity.TYPE_BANGUMI
     ): Result<ParsedSource> = withContext(Dispatchers.IO) {
         runCatching {
-            val text = BiliHttpClient.client.get(url).bodyAsText()
+            // 审核轮102：带 Bangumi 授权头（私有订阅源需要；未登录只加 UA）
+            val text = BiliHttpClient.client.get(url) {
+                withBangumiAuth()
+            }.bodyAsText()
             if (text.isBlank()) error("订阅源返回为空")
 
             // Animeko 媒体源配置：优先识别。
@@ -452,7 +456,9 @@ object SubscribeParser {
         runCatching {
             if (factoryId.equals("rss", ignoreCase = true)) {
                 val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
-                val text = BiliHttpClient.client.get(url).bodyAsText()
+                val text = BiliHttpClient.client.get(url) {
+                    withBangumiAuth()
+                }.bodyAsText()
                 if (text.isBlank()) error("搜索返回为空")
                 parseRss(text)
             } else if (factoryId.equals("web-selector", ignoreCase = true)) {

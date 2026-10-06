@@ -417,3 +417,12 @@
 - 审核99-100（703f729）：修复 rebase 遗留——room 插件与 ksp schemaLocation 冲突（KSP BUILD FAILED→统一 room{} 扩展）、SearchScreen 重复 import、补完 Json 共享单例。
 - 用户 P0 修复核查（82101e8/2e41d8e）：Rust JNI 符号名与 Kotlin 包路径不匹配（弹幕 JNI 全崩）——11/11 符号逐一比对通过，cargo build+test 16/16。
 - 推送 PUSH_OK 42adc62，远端=本地。
+
+
+## r23（2026-10-06，审核轮101-104：订阅模块专项重构）
+- **101（真 bug）**：订阅源直链 m3u8/mpd 走 ProgressiveMediaSource 必然解析失败 → 按媒体类型选 HlsMediaSource/DashMediaSource/Progressive；清单类不再 merge audioUrl（B站专用两路）。
+- **102**：订阅源请求接入 `withBangumiAuth()`（原扩展定义后无人调用，私有源拿不到授权）——fetch + searchAnimekoSource 两处。
+- **103**：SubscribeViewModel.searchInSource 补 searchJob 防重入（refreshAll 有、搜索没有，快速连点会并发打请求）。
+- **104**：AddSourceDialog type State→mutableIntStateOf（lint AutoboxingStateCreation，保持 lint 0/0/0）。
+- 用户并行提交 29e0f02（订阅源移植 Animeko，SubscribeParser/SubscribeRepository/BangumiSession）核查：解析健壮性良好（MAX_ITEMS_PER_SOURCE 截断、事务删+写、URL scheme 白名单、坏标签容错）。
+- 构建 0w0e、lint "No issues found."、cargo test 16/16。
