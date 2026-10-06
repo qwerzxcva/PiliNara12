@@ -274,24 +274,8 @@ object AnimekoScraper {
     }
 
     /** 把含命名组 (?<ep>...) 的正则转换为普通正则并返回 ep 组序号 */
-    private fun compileWithNamedEp(pattern: String): Pair<Regex, Int?> {
-        val idx = pattern.indexOf("(?<ep>")
-        if (idx < 0) return Regex(pattern) to null
-        var groupNo = 1
-        val prefix = pattern.substring(0, idx)
-        var i = 0
-        while (i < prefix.length) {
-            val c = prefix[i]
-            if (c == '(') {
-                val nonCap = prefix.startsWith("(?:", i) || prefix.startsWith("(?=", i) ||
-                    prefix.startsWith("(?!", i) || prefix.startsWith("(?<=", i) ||
-                    prefix.startsWith("(?<!", i)
-                if (!nonCap) groupNo++
-            }
-            i++
-        }
-        return Regex(pattern.replace("(?<ep>", "(")) to groupNo
-    }
+    private fun compileWithNamedEp(pattern: String): Pair<Regex, Int?> =
+        compileWithNamedGroup(pattern, "ep")
 
     /**
      * 第三步：剧集页 → 视频地址
@@ -332,25 +316,34 @@ object AnimekoScraper {
      * 注意：这里不解析嵌套/转义，只处理 `(?<v>` 字面量替换 ——
      * 实测 25 个源里命名组名都叫 v，且 `(?<v>` 仅出现在组开头。
      */
-    private fun compileWithNamedV(pattern: String): Pair<Regex, Int?> {
-        val vIdx = pattern.indexOf("(?<v>")
-        if (vIdx < 0) return Regex(pattern) to null
-        // 计算 v 是第几个组：替换前数一下已有 '(' 的数量（忽略 (?: 非捕获组）
-        val prefix = pattern.substring(0, vIdx)
+    private fun compileWithNamedV(pattern: String): Pair<Regex, Int?> =
+        compileWithNamedGroup(pattern, "v")
+
+    /**
+     * 把含命名组 (?<name>...) 的正则转换为普通正则，并返回该组的序号。
+     *
+     * 注意：这里不解析嵌套/转义，只处理 `(?<name>` 字面量替换 ——
+     * 实测命名组名只有 v（视频地址）与 ep（集数），且 `(?<name>` 出现在组开头。
+     * 组序号计算：数 `(?<name>` 之前有多少个非捕获组之外的 '('。
+     */
+    private fun compileWithNamedGroup(pattern: String, name: String): Pair<Regex, Int?> {
+        val marker = "(?<$name>"
+        val idx = pattern.indexOf(marker)
+        if (idx < 0) return Regex(pattern) to null
+        val prefix = pattern.substring(0, idx)
         var groupNo = 1
         var i = 0
         while (i < prefix.length) {
             val c = prefix[i]
             if (c == '(') {
-                val isNonCapture = prefix.startsWith("(?:", i) ||
-                    prefix.startsWith("(?=", i) || prefix.startsWith("(?!", i) ||
-                    prefix.startsWith("(?<=", i) || prefix.startsWith("(?<!", i)
+                val isNonCapture = prefix.startsWith("(?:", i) || prefix.startsWith("(?=", i) ||
+                    prefix.startsWith("(?!", i) || prefix.startsWith("(?<=", i) ||
+                    prefix.startsWith("(?<!", i)
                 if (!isNonCapture) groupNo++
             }
             i++
         }
-        val converted = pattern.replace("(?<v>", "(")
-        return Regex(converted) to groupNo
+        return Regex(pattern.replace(marker, "(")) to groupNo
     }
 
     /**
