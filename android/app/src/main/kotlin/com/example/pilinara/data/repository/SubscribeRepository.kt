@@ -121,7 +121,8 @@ object SubscribeParser {
                             if (!s.isRss) append(" · 需关键词搜索（暂不支持自动刮削）")
                         },
                         pubAt = 0L,
-                        episode = "",
+                        // episode 存订阅配置文件 URL（后续两步要用它重取完整选择器配置）
+                        episode = url,
                         factoryId = s.factoryId
                     )
                 }
@@ -448,13 +449,18 @@ object SubscribeParser {
         factoryId: String
     ): Result<ParsedSource> = withContext(Dispatchers.IO) {
         runCatching {
-            if (!factoryId.equals("rss", ignoreCase = true)) {
-                error("该源为网页刮削型（$factoryId），需要 CSS 选择器引擎，当前版本暂不支持自动搜索")
+            if (factoryId.equals("rss", ignoreCase = true)) {
+                val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
+                val text = BiliHttpClient.client.get(url).bodyAsText()
+                if (text.isBlank()) error("搜索返回为空")
+                parseRss(text)
+            } else if (factoryId.equals("web-selector", ignoreCase = true)) {
+                // 需要完整配置（CSS 选择器），单靠 searchUrl 不够。
+                // 由 searchAnimekoWeb() 处理，这里给出明确指引，避免静默失败。
+                error("网页刮削源请使用 searchAnimekoWeb()（需要完整选择器配置）")
+            } else {
+                error("不支持的源类型：$factoryId")
             }
-            val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
-            val text = BiliHttpClient.client.get(url).bodyAsText()
-            if (text.isBlank()) error("搜索返回为空")
-            parseRss(text)
         }
     }
 }
@@ -553,7 +559,105 @@ class SubscribeRepository(
             }
         }
 
-    /** 观察源列表（Flow，UI 自动刷新） */
+    // ==================== Animeko 网页刮削（web-selector）====================
+    //
+    // 三步走（调研真实配置后实现，见 docs/animeko-source-format.md）：
+    //   1. 搜索页 --CSS--> 作品列表
+    //   2. 作品页 --CSS--> 剧集列表
+    //   3. 剧集页 --正则--> 视频直链
+    // 每一步都用 runCatching 兜底：单源失败不崩溃，返回明确错误。
+
+    /** 缓存已解析的源配置，避免每次搜索都重新下载/解析订阅配置文件 */
+    private val configCache = java.util.concurrent.ConcurrentHashMap<String, List<AnimekoScraper.SourceConfig>>()
+
+    /** 按名字取一个源的完整配置（先查缓存，没有则重新拉取订阅配置 URL） */
+    private suspend fun configsOf(sourceUrl: String): List<AnimekoScraper.SourceConfig> {
+        configCache[sourceUrl]?.let { return it }
+        return withContext(Dispatchers.IO) {
+            val text = BiliHttpClient.client.get(sourceUrl).bodyAsText()
+            val cfgs = AnimekoScraper.parseConfig(text)
+            if (cfgs.isNotEmpty()) configCache[sourceUrl] = cfgs
+            cfgs
+        }
+    }
+
+    /**
+     * 在网页刮削源里搜索（第一步：搜索页 → 作品列表）
+     *
+     * @param sourceUrl 订阅配置文件 URL（如 .../all.json）
+     * @param sourceName 源名（如"酱紫社(修复)"）
+     * @param keyword 搜索关键词
+     */
+    suspend fun searchAnimekoWeb(
+        sourceUrl: String,
+        sourceName: String,
+        keyword: String
+    ): Result<List<AnimekoScraper.Subject>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
+                ?: error("未找到源「$sourceName」的配置")
+            if (cfg.cfg.searchUrl.isBlank()) error("该源未配置 searchUrl，无法搜索")
+            if (cfg.cfg.subjectFormatId == "json-path-indexed") {
+                error("该源使用 JSON 路径格式（json-path-indexed），暂不支持")
+            }
+            val url = AnimekoScraper.buildSearchUrl(cfg.cfg, keyword)
+            val base = AnimekoScraper.baseOf(url)
+            val html = BiliHttpClient.client.get(url) {
+                if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
+                if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
+            }.bodyAsText()
+            if (html.isBlank()) error("搜索页返回为空")
+            val list = AnimekoScraper.parseSubjects(html, base, cfg.cfg)
+            if (list.isEmpty()) {
+                // 不伪造结果：明确告知可能是选择器失效或站点改版
+                error("未解析到作品（可能站点改版或选择器失效）")
+            }
+            list
+        }
+    }
+
+    /** 第二步：作品页 → 剧集列表 */
+    suspend fun fetchEpisodes(
+        sourceUrl: String,
+        sourceName: String,
+        subjectUrl: String
+    ): Result<List<AnimekoScraper.Episode>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
+                ?: error("未找到源「$sourceName」的配置")
+            val base = AnimekoScraper.baseOf(subjectUrl)
+            val html = BiliHttpClient.client.get(subjectUrl) {
+                if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
+                if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
+            }.bodyAsText()
+            if (html.isBlank()) error("作品页返回为空")
+            val list = AnimekoScraper.parseEpisodes(html, base, cfg.cfg)
+            if (list.isEmpty()) error("未解析到剧集（可能站点改版或需要登录）")
+            list
+        }
+    }
+
+    /** 第三步：剧集页 → 视频直链（返回空串表示未提取到） */
+    suspend fun fetchVideoUrl(
+        sourceUrl: String,
+        sourceName: String,
+        episodeUrl: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
+                ?: error("未找到源「$sourceName」的配置")
+            val base = AnimekoScraper.baseOf(episodeUrl)
+            val html = BiliHttpClient.client.get(episodeUrl) {
+                if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
+                if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
+            }.bodyAsText()
+            if (html.isBlank()) error("剧集页返回为空")
+            val v = AnimekoScraper.extractVideoUrl(html, base, cfg.cfg)
+            if (v.isBlank()) error("未提取到视频地址（可能站点改版或有风控）")
+            v
+        }
+    }
+
     fun observeSources(): kotlinx.coroutines.flow.Flow<List<SubscribeSourceEntity>> = dao.observeAll()
 
     /** 观察全部条目（Flow，UI 自动刷新） */
