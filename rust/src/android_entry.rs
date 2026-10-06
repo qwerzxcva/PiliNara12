@@ -4,9 +4,13 @@
 //! - WebP encoding
 //! - Audio normalization
 //! - Danmaku merging
+//!
+//! Handle guards reject null and the -1 failure sentinel only. Other handles
+//! must still refer to live instances returned by the matching create function;
+//! callers must prevent reuse after finalize/destroy and concurrent access.
 
 use jni::objects::{JByteArray, JClass, JObject, JString};
-use jni::sys::{jdouble, jint};
+use jni::sys::{jboolean, jdouble, jint};
 use jni::JNIEnv;
 
 // ============================================================================
@@ -37,6 +41,12 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_addFrame(
     x: jint,
     y: jint,
 ) -> jint {
+    if encoder_ptr == 0 || encoder_ptr == -1 {
+        return -1;
+    }
+
+    // TODO: This is a placeholder: frame data is not passed to add_frame,
+    // so returning 0 here does not mean that a frame was added.
     let _encoder = unsafe { &mut *(encoder_ptr as *mut crate::webp::AnimatedWebpEncoder) };
     let _ = duration_ms;
     let _ = x;
@@ -50,13 +60,19 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_finalize<'a>(
     _class: JClass<'_>,
     encoder_ptr: i64,
 ) -> JByteArray<'a> {
-    if encoder_ptr == 0 {
-        return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into());
+    if encoder_ptr == 0 || encoder_ptr == -1 {
+        return env
+            .new_byte_array(0)
+            .unwrap_or_else(|_| JObject::null().into());
     }
     let encoder = unsafe { Box::from_raw(encoder_ptr as *mut crate::webp::AnimatedWebpEncoder) };
     let bytes = match encoder.finalize() {
         Ok(b) => b,
-        Err(_) => return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into()),
+        Err(_) => {
+            return env
+                .new_byte_array(0)
+                .unwrap_or_else(|_| JObject::null().into())
+        }
     };
     let Ok(jbytes) = env.new_byte_array(bytes.len() as i32) else {
         return JObject::null().into();
@@ -83,12 +99,18 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
 
     let len = match env.get_array_length(&input) {
         Ok(l) if l > 0 => l as usize,
-        _ => return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into()),
+        _ => {
+            return env
+                .new_byte_array(0)
+                .unwrap_or_else(|_| JObject::null().into())
+        }
     };
 
     let mut buf = vec![0i8; len];
     if env.get_byte_array_region(&input, 0, &mut buf).is_err() {
-        return env.new_byte_array(0).unwrap_or_else(|_| JObject::null().into());
+        return env
+            .new_byte_array(0)
+            .unwrap_or_else(|_| JObject::null().into());
     }
 
     let input_samples: Vec<i16> = buf
@@ -109,7 +131,10 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
     let Ok(jbytes) = env.new_byte_array(output_bytes.len() as i32) else {
         return JObject::null().into();
     };
-    if env.set_byte_array_region(&jbytes, 0, &output_bytes).is_err() {
+    if env
+        .set_byte_array_region(&jbytes, 0, &output_bytes)
+        .is_err()
+    {
         return JObject::null().into();
     }
     jbytes
@@ -150,10 +175,11 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeDestr
     _class: JClass<'_>,
     merger_ptr: i64,
 ) {
-    if merger_ptr != 0 {
-        unsafe {
-            let _ = Box::from_raw(merger_ptr as *mut crate::danmaku::DanmakuMerger);
-        }
+    if merger_ptr == 0 || merger_ptr == -1 {
+        return;
+    }
+    unsafe {
+        let _ = Box::from_raw(merger_ptr as *mut crate::danmaku::DanmakuMerger);
     }
 }
 
@@ -165,6 +191,9 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeLoadP
     merger_ptr: i64,
     dict_data: JByteArray<'a>,
 ) -> jint {
+    if merger_ptr == 0 || merger_ptr == -1 {
+        return -1;
+    }
     let merger = unsafe { &mut *(merger_ptr as *mut crate::danmaku::DanmakuMerger) };
 
     let len = match env.get_array_length(&dict_data) {
@@ -173,7 +202,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeLoadP
     };
 
     let mut buf = vec![0; len];
-    if let Err(_) = env.get_byte_array_region(&dict_data, 0, &mut buf) {
+    if env.get_byte_array_region(&dict_data, 0, &mut buf).is_err() {
         return -1;
     }
 
@@ -183,10 +212,6 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeLoadP
         Err(_) => -1,
     }
 }
-
-// Helper type for boolean in JNI
-#[allow(non_camel_case_types)]
-type jboolean = i32;
 
 // ============================================================================
 // Playurl DASH stream selection (stage 5)
@@ -297,7 +322,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeMerge
         Ok(s) => s.into(),
         Err(_) => return JObject::null().into(),
     };
-    if merger_ptr == 0 {
+    if merger_ptr == 0 || merger_ptr == -1 {
         return JObject::null().into();
     }
     let merger = unsafe { &*(merger_ptr as *const crate::danmaku::DanmakuMerger) };
