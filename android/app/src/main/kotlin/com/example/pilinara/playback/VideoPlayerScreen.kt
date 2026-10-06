@@ -614,8 +614,8 @@ fun VideoPlayerScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     // 审核轮167：顶部/底部弹幕开关（B站播放器标配）
-                    var dmTop by remember { mutableStateOf(viewModel.cachedDmShowTop) }
-                    var dmBottom by remember { mutableStateOf(viewModel.cachedDmShowBottom) }
+                    var dmTop by remember { mutableStateOf<Boolean>(viewModel.cachedDmShowTop) }
+                    var dmBottom by remember { mutableStateOf<Boolean>(viewModel.cachedDmShowBottom) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("显示顶部弹幕", modifier = Modifier.weight(1f))
                         Switch(checked = dmTop, onCheckedChange = { on ->
