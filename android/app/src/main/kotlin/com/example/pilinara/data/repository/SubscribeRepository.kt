@@ -70,7 +70,7 @@ object SubscribeParser {
         val iconUrl: String,
         val description: String,
         val factoryId: String,          // "web-selector" | "rss"
-        val searchUrl: String           // 含 {keyword} 占位；空=不支持搜索
+        val searchUrl: String           // 含 keyword 占位符；空=不支持搜索
     ) {
         /** rss 类型的源可直接用标准 RSS 解析出条目（其余需 CSS 引擎） */
         val isRss: Boolean
@@ -312,7 +312,7 @@ object SubscribeParser {
                     ?: return@mapNotNull null
                 val icon = args["iconUrl"]?.jsonPrimitive?.content ?: ""
                 val desc = args["description"]?.jsonPrimitive?.content ?: ""
-                // searchUrl 在 searchConfig 内，且含 {keyword} 占位
+                // searchUrl 在 searchConfig 内，且含 keyword 占位符
                 val searchUrl = runCatching {
                     args["searchConfig"]?.jsonObject?.get("searchUrl")?.jsonPrimitive?.content
                 }.getOrNull() ?: ""
@@ -436,7 +436,7 @@ object SubscribeParser {
      * 按关键词搜索一个 Animeko 数据源（调研后实现）
      *
      * 仅对 **rss 类型**的源可用：其 searchConfig.searchUrl 就是标准 RSS
-     * （如 `https://share.dmhy.org/topics/rss/rss.xml?keyword={keyword}`），
+     * （如 `https://share.dmhy.org/topics/rss/rss.xml?keyword=KEYWORD`），
      * 直接取回走 RSS 解析即可得到条目（含磁力/直链）。
      *
      * web-selector 类型的源需要 CSS 选择器引擎 + 视频地址提取器，
@@ -451,16 +451,13 @@ object SubscribeParser {
             if (!factoryId.equals("rss", ignoreCase = true)) {
                 error("该源为网页刮削型（$factoryId），需要 CSS 选择器引擎，当前版本暂不支持自动搜索")
             }
-}
-
-/**
- * 订阅源仓库：源的增删改查 + 同步（拉取→解析→落库）
             val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
             val text = BiliHttpClient.client.get(url).bodyAsText()
             if (text.isBlank()) error("搜索返回为空")
             parseRss(text)
         }
     }
+}
 
 class SubscribeRepository(
     private val dao: SubscribeSourceDao,
