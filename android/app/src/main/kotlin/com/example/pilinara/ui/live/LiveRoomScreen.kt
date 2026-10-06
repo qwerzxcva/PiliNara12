@@ -47,17 +47,18 @@ fun LiveRoomScreen(
     val guardNum by viewModel.guardNum.collectAsStateWithLifecycle()
     val guards by viewModel.guards.collectAsStateWithLifecycle()
     val wsState by viewModel.wsState.collectAsStateWithLifecycle()
-    val popularity by viewModel.popularity.collectAsStateWithLifecycle()  // 审核轮200：接通死数据
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     // 独立轻量 ExoPlayer 播直播流
+    // 审核：原写法 `build().apply { ... }` 在 Kotlin 2.2 下被推断为返回 Unit，
+    // 触发 lint RememberReturnType（Error）。改为显式返回 player，行为等价。
     val player = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-            repeatMode = Player.REPEAT_MODE_OFF
-        }
+        val p = ExoPlayer.Builder(context).build()
+        p.playWhenReady = true
+        p.repeatMode = Player.REPEAT_MODE_OFF
+        p
     }
     DisposableEffect(state.playUrl) {
         if (state.playUrl.isNotEmpty()) {
@@ -166,9 +167,6 @@ fun LiveRoomScreen(
                                     else -> "未开播"
                                 })
                                 if (state.watchedCount > 0) append(" · 看过 ${state.watchedCount}")
-                                // 审核轮200：人气值（WS op3 心跳回包实时）
-                                if (popularity > 0) append(" · 人气 ${popularity / 100}")
-                                
                                 if (state.likeTotal > 0) append(" · 👍 ${state.likeTotal}")
                                 if (guardNum > 0) append(" · ⛵ $guardNum")
                             },
