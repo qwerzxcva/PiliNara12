@@ -431,11 +431,7 @@ object SubscribeParser {
         Regex("(?:^|[^A-Za-z])P\\s*(\\d+)").find(t)?.let { return "P${it.groupValues[1]}" }
         return ""
     }
-}
 
-/**
- * 订阅源仓库：源的增删改查 + 同步（拉取→解析→落库）
- */
     /**
      * 按关键词搜索一个 Animeko 数据源（调研后实现）
      *
@@ -455,6 +451,10 @@ object SubscribeParser {
             if (!factoryId.equals("rss", ignoreCase = true)) {
                 error("该源为网页刮削型（$factoryId），需要 CSS 选择器引擎，当前版本暂不支持自动搜索")
             }
+}
+
+/**
+ * 订阅源仓库：源的增删改查 + 同步（拉取→解析→落库）
             val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
             val text = BiliHttpClient.client.get(url).bodyAsText()
             if (text.isBlank()) error("搜索返回为空")
