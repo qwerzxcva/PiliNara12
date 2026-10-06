@@ -82,7 +82,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val content: String,
         val color: Int,
         val fontSize: Int,
-        val uid: Long = 0L   // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
+        val uid: Long = 0L,   // 批次audit25：携带发送者 uid 供 UID 屏蔽规则使用
+        /** 弹幕类型：1=滚动 4=底部 5=顶部（用于按类型开关过滤） */
+        val mode: Int = 1
     )
     
     init {
@@ -340,7 +342,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     content = p.content,
                     color = p.color or 0xFF000000.toInt(),
                     fontSize = p.fontSize,
-                    uid = p.uid
+                    uid = p.uid,
+                    mode = p.mode
                 )
             }
             // 批次audit25：Rust 路径保留了原始 uid，回填到合并结果
@@ -856,7 +859,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                             timestamp = progress,
                             content = text.trim(),
                             color = color,
-                            fontSize = 25
+                            fontSize = 25,
+                            mode = mode
                         )
                         _danmakuQueue.add(danmaku)
                         _danmakuQueue.sortBy { it.timestamp }
@@ -1115,6 +1119,72 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
 
+    /** 亮度是否被用户手动调整过（避免一进页面强设系统亮度） */
+    var brightnessTouched: Boolean = false
+        private set
+
+    /** 顶部弹幕开关（顶部弹幕可能被遮挡，用户可关闭） */
+    var cachedDmShowTop: Boolean = true
+
+    /** 底部弹幕开关 */
+    var cachedDmShowBottom: Boolean = true
+
+    fun persistDmShowTop(enabled: Boolean) {
+        cachedDmShowTop = enabled
+        viewModelScope.launch {
+            runCatching {
+                com.example.pilinara.utils.StorageManager(appContext).setDanmakuShowTop(enabled)
+            }
+        }
+    }
+
+    fun persistDmShowBottom(enabled: Boolean) {
+        cachedDmShowBottom = enabled
+        viewModelScope.launch {
+            runCatching {
+                com.example.pilinara.utils.StorageManager(appContext).setDanmakuShowBottom(enabled)
+            }
+        }
+    }
+
+    /** 播放下一 P（多P视频）；已是最后一 P 时提示。 */
+    fun playNextPart() {
+        val next = currentPartIndex + 1
+        if (next !in pages.indices) {
+            showToast("已经是最后一P")
+            return
+        }
+        playPart(next)
+    }
+
+    /** 一键三连（长按点赞）：点赞 + 投币 1 枚 + 收藏，需登录。 */
+    fun likeCoinFav() {
+        if (!AccountSession.isLogin) {
+            setError("请先登录后再一键三连")
+            return
+        }
+        // 未点赞时先点赞，避免重复点赞导致取消。
+        if (!_state.value.isLiked) toggleLike()
+        coinOnce(1)
+        toggleFavorite()
+        showToast("已一键三连")
+    }
+
+    /** 轻量提示（替代全屏红字错误） */
+    private val _toast = MutableStateFlow<String?>(null)
+    val toast: StateFlow<String?> = _toast.asStateFlow()
+
+    private var toastJob: Job? = null
+
+    fun showToast(message: String) {
+        _toast.value = message
+        toastJob?.cancel()
+        toastJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(2000L)
+            if (_toast.value == message) _toast.value = null
+        }
+    }
+
     /** 手势进度（UI 层渲染提示条用）：deltaX 横滑快进 */
     fun onGestureSeek(deltaX: Float, widthPx: Float) {
         if (widthPx <= 0f || duration() <= 0L) return
@@ -1138,6 +1208,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         if (leftSide) {
             val nv = (_state.value.brightness + delta).coerceIn(0.05f, 1f)
             _state.value = _state.value.copy(brightness = nv)
+            brightnessTouched = true
         } else {
             setVolume((_state.value.volume + delta).coerceIn(0f, 1f))
         }
