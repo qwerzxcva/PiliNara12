@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pilinara.database.SubscribeItemEntity
 import com.example.pilinara.database.SubscribeSourceEntity
+import com.example.pilinara.data.repository.AnimekoScraper
 import com.example.pilinara.data.repository.SubscribeParser
 import com.example.pilinara.data.repository.SubscribeRepository
 import kotlinx.coroutines.Dispatchers
@@ -236,6 +237,111 @@ class SubscribeViewModel(
     /** 清空搜索结果（返回订阅列表视图） */
     fun clearSearch() {
         _searchResults.value = emptyList()
+    }
+
+    // ==================== Animeko 网页刮削（第二步/第三步）====================
+
+    /** 当前正在浏览的作品（用于返回时恢复） */
+    private val _currentSubject = MutableStateFlow<String?>(null)
+    val currentSubject: StateFlow<String?> = _currentSubject.asStateFlow()
+
+    /** 当前剧集列表 */
+    private val _episodes = MutableStateFlow<List<AnimekoScraper.Episode>>(emptyList())
+    val episodes: StateFlow<List<AnimekoScraper.Episode>> = _episodes.asStateFlow()
+
+    /** 当前正在使用的源（配置 URL + 源名），供后续两步使用 */
+    private var activeSourceUrl: String = ""
+    private var activeSourceName: String = ""
+
+    /**
+     * 网页刮削搜索（第一步）
+     * @param sourceUrl 订阅配置文件 URL（all.json/css.json 等）
+     * @param sourceName 源名（如"酱紫社(修复)"）
+     */
+    fun searchWebSource(sourceUrl: String, sourceName: String, keyword: String) {
+        activeSourceUrl = sourceUrl
+        activeSourceName = sourceName
+        _currentSubject.value = null
+        _episodes.value = emptyList()
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            try {
+                repository.searchAnimekoWeb(sourceUrl, sourceName, keyword)
+                    .onSuccess { list ->
+                        _searchResults.value = list.map {
+                            com.example.pilinara.database.SubscribeItemEntity(
+                                sourceId = -1L,
+                                title = it.name,
+                                link = it.url,
+                                sourceName = "subject"   // 标记：这是作品，点击进剧集
+                            )
+                        }
+                    }
+                    .onFailure { e ->
+                        _state.value = _state.value.copy(errorMessage = e.message ?: "搜索失败")
+                    }
+            } finally {
+                if (_state.value.isRefreshing) {
+                    _state.value = _state.value.copy(isRefreshing = false)
+                }
+            }
+        }
+    }
+
+    /** 第二步：打开作品 → 取剧集 */
+    fun openSubject(subjectUrl: String, subjectName: String) {
+        if (activeSourceUrl.isBlank()) {
+            _state.value = _state.value.copy(errorMessage = "源信息丢失，请重新搜索")
+            return
+        }
+        _currentSubject.value = subjectName
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            try {
+                repository.fetchEpisodes(activeSourceUrl, activeSourceName, subjectUrl)
+                    .onSuccess { list -> _episodes.value = list }
+                    .onFailure { e ->
+                        _state.value = _state.value.copy(errorMessage = e.message ?: "获取剧集失败")
+                    }
+            } finally {
+                if (_state.value.isRefreshing) {
+                    _state.value = _state.value.copy(isRefreshing = false)
+                }
+            }
+        }
+    }
+
+    /** 第三步：播放某一集 → 取直链后交给播放器 */
+    fun playEpisode(episodeUrl: String, onReady: (String) -> Unit) {
+        if (activeSourceUrl.isBlank()) {
+            _state.value = _state.value.copy(errorMessage = "源信息丢失，请重新搜索")
+            return
+        }
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            try {
+                repository.fetchVideoUrl(activeSourceUrl, activeSourceName, episodeUrl)
+                    .onSuccess { url ->
+                        if (url.isNotBlank()) onReady(url)
+                        else _state.value = _state.value.copy(errorMessage = "未取到播放地址")
+                    }
+                    .onFailure { e ->
+                        _state.value = _state.value.copy(
+                            errorMessage = e.message ?: "提取播放地址失败"
+                        )
+                    }
+            } finally {
+                if (_state.value.isRefreshing) {
+                    _state.value = _state.value.copy(isRefreshing = false)
+                }
+            }
+        }
+    }
+
+    /** 返回到作品列表（清剧集） */
+    fun backToSubjects() {
+        _episodes.value = emptyList()
+        _currentSubject.value = null
     }
 
     fun clearError() {
