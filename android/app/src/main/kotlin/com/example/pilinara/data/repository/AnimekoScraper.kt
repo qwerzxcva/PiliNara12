@@ -234,19 +234,63 @@ object AnimekoScraper {
                 }
             }
             // 审核：filterByEpisodeSort=true（53 源）按集数排序，否则剧集乱序。
-            // 集数从名称里提取（"第3集"/"EP03"/"P2"/纯数字），提取不到排最后。
+            // 优先用源配置的 matchEpisodeSortFromName 正则（命名组 ep），
+            // 无配置时用通用启发式提取。
             val sorted = if (cfg.filterByEpisodeSort) {
-                out.sortedWith(compareBy({ episodeNum(it.name) }, { it.name }))
+                out.sortedWith(compareBy(
+                    { episodeNum(it.name, cfg.matchEpisodeSortFromName) },
+                    { it.name }
+                ))
             } else out
             sorted.distinctBy { it.url }
         }.getOrDefault(emptyList())
 
-    /** 从剧集名提取数字序号（用于排序）；提取不到返回 Int.MAX_VALUE 排最后 */
-    private fun episodeNum(name: String): Int {
+    /**
+     * 从剧集名提取数字序号（用于排序）；提取不到返回 Int.MAX_VALUE 排最后。
+     *
+     * 优先用源配置的 matchEpisodeSortFromName（含命名组 (?<ep>...)），
+     * 复用命名组转换逻辑（避免 groups["ep"] 的 API26 限制）。
+     */
+    private fun episodeNum(name: String, customPattern: String): Int {
+        // 1) 源配置的正则（如 第\s*(?<ep>.+)\s*[话集]）
+        if (customPattern.isNotBlank()) {
+            val (re, idx) = compileWithNamedEp(customPattern)
+            re.find(name)?.let { m ->
+                val raw = if (idx != null) m.groupValues.getOrNull(idx) else m.groupValues.getOrNull(0)
+                return raw?.let { epNumFrom(it) } ?: Int.MAX_VALUE
+            }
+        }
+        // 2) 通用启发式兜底
         Regex("第\\s*(\\d+)").find(name)?.let { return it.groupValues[1].toIntOrNull() ?: Int.MAX_VALUE }
         Regex("(?:EP|Ep|ep)\\s*(\\d+)").find(name)?.let { return it.groupValues[1].toIntOrNull() ?: Int.MAX_VALUE }
         Regex("(?:^|[^0-9])(\\d{1,4})(?:[^0-9]|$)").find(name)?.let { return it.groupValues[1].toIntOrNull() ?: Int.MAX_VALUE }
         return Int.MAX_VALUE
+    }
+
+    /** 把 "第3集" / "EP03" / "3.5" 等转成可比较的数值（用于排序） */
+    private fun epNumFrom(s: String): Int {
+        val n = s.trim().filter { it.isDigit() }
+        return n.toIntOrNull() ?: Int.MAX_VALUE
+    }
+
+    /** 把含命名组 (?<ep>...) 的正则转换为普通正则并返回 ep 组序号 */
+    private fun compileWithNamedEp(pattern: String): Pair<Regex, Int?> {
+        val idx = pattern.indexOf("(?<ep>")
+        if (idx < 0) return Regex(pattern) to null
+        var groupNo = 1
+        val prefix = pattern.substring(0, idx)
+        var i = 0
+        while (i < prefix.length) {
+            val c = prefix[i]
+            if (c == '(') {
+                val nonCap = prefix.startsWith("(?:", i) || prefix.startsWith("(?=", i) ||
+                    prefix.startsWith("(?!", i) || prefix.startsWith("(?<=", i) ||
+                    prefix.startsWith("(?<!", i)
+                if (!nonCap) groupNo++
+            }
+            i++
+        }
+        return Regex(pattern.replace("(?<ep>", "(")) to groupNo
     }
 
     /**
