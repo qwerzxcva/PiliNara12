@@ -22,12 +22,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     companion object {
         // 审核77：Gson 线程安全，全 VM 复用单实例
         private val GSON = com.google.gson.Gson()
-
-        /**
-         * 审核实测（Android 16 模拟器）：B站 DASH CDN 按 UA 白名单放行，
-         * 自定义 UA 会被 403。API 请求与媒体流请求统一使用完整浏览器 UA。
-         */
-        const val BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     }
     // 审核27：ViewModel 生命周期长于 Activity，持有 applicationContext 防内存泄漏
     private val appContext: Context = context.applicationContext
@@ -143,7 +137,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     /**
      * Kazumi 特性：低延迟音频开关。
      *
-     * 实现说明（诚实标注）：Media3 1.5.1 中 AudioAttributes 只能在
+     * 实现说明（诚实标注）：Media3 1.3.1 中 AudioAttributes 只能在
      * ExoPlayer.Builder 上设置（javap 已核实，ExoPlayer 本身无 setAudioAttributes），
      * 因此**无法对已创建的播放器热切换**。
      *
@@ -489,10 +483,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         resumePositionMs: Long = 0L,
         playWhenReady: Boolean = true
     ) {
-        // 审核实测（Android 16 模拟器）：B站 DASH CDN 对非标准 UA 返回 403（PiliNara UA → 403，
-        // 真实浏览器 UA → 206）。必须用完整浏览器 UA。
         val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent(BROWSER_UA)
+            .setUserAgent("Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
 
@@ -500,25 +492,16 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else Uri.parse(videoUrl)
         val videoItem = MediaItem.Builder().setUri(videoUri).build()
         val localFactory = androidx.media3.datasource.DefaultDataSource.Factory(appContext)
-        // 审核轮101（重构）：订阅源/外部直链可能是 HLS(m3u8)/DASH(mpd) 清单，
-        // ProgressiveMediaSource 只支持渐进式流——清单会解析失败。
-        // 按媒体类型选 MediaSource；B站 DASH（video+audio 两路）仍走 Progressive+Merging。
-        val vLower = videoUrl.lowercase()
-        val isHls = vLower.contains(".m3u8")
-        val isDash = vLower.contains(".mpd")
-        val videoSource: androidx.media3.exoplayer.source.MediaSource = when {
-            isHls -> androidx.media3.exoplayer.hls.HlsMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(videoItem)
-            isDash -> androidx.media3.exoplayer.dash.DashMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(videoItem)
-            isLocal -> androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(localFactory)
-                .createMediaSource(videoItem)
-            else -> androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(videoItem)
-        }
+        val videoSource: androidx.media3.exoplayer.source.MediaSource =
+            if (isLocal) {
+                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(localFactory)
+                    .createMediaSource(videoItem)
+            } else {
+                androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                    .createMediaSource(videoItem)
+            }
 
-        // HLS/DASH 清单自带音视频轨，不允许再 merge 第二路（audioUrl 为 B站专用）
-        val merged = if (!audioUrl.isNullOrEmpty() && !isHls && !isDash) {
+        val merged = if (!audioUrl.isNullOrEmpty()) {
             val audioUri = if (audioUrl.startsWith("/")) Uri.fromFile(java.io.File(audioUrl)) else Uri.parse(audioUrl)
             val audioItem = MediaItem.Builder().setUri(audioUri).build()
             val audioSource: androidx.media3.exoplayer.source.MediaSource =
