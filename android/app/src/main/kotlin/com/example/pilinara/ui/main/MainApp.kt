@@ -59,7 +59,13 @@ fun MainApp(viewModel: MainViewModel, onNavigateToSettings: () -> Unit = {}, onN
             NavHost(navController = navController, startDestination = "home") {
                 composable("home") { HomeScreen(onVideoClick = { bvid, cid -> navController.navigate("video/$bvid") }) }
                 composable("dynamics") { DynamicsScreen() }
-                composable("mine") { MineScreen(onSettingsClick = onNavigateToSettings, onLoginClick = onNavigateToLogin) }
+                composable("mine") {
+                    // 实测修复（Android 16 模拟器）：MainActivity 未传回调导致齿轮点击为空操作
+                    MineScreen(
+                        onSettingsClick = { navController.navigate("settings") },
+                        onLoginClick = { navController.navigate("login") }
+                    )
+                }
                 composable("video/{bvid}") { backStackEntry ->
                     val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
                     VideoPlayerScreen(videoUrl = "", bvid = bvid, onBack = { navController.popBackStack() })
