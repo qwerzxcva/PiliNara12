@@ -10,11 +10,13 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.data.model.toParsed
 import com.example.pilinara.data.model.AiConclusionResponse
@@ -301,9 +303,12 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         resp.result?.quality ?: currentQn
 
     private suspend fun loadDanmakuFor(cid: Long) {
-        val api = BiliApiClient()
-        api.getDanmaku(cid).getOrNull()?.let { resp ->
-            // 批次L15：Rust DanmakuMerger 去重合并（失败回退原始弹幕）
+        // 审核（卡顿根因）：GSON 序列化几千条弹幕 + JNI 调 Rust merge + JSONObject
+        // 解析都是重 CPU，原在主线程（viewModelScope 默认 Main）执行，进播放器卡。
+        // 挪到 Default；只有最终 addDanmakuEvents（写 UI 状态）需要回主线程。
+        val withUid = withContext(Dispatchers.Default) {
+            val api = BiliApiClient()
+            val resp = api.getDanmaku(cid).getOrNull() ?: return@withContext null
             val raw = resp.data.orEmpty()
             val mergedEvents = runCatching {
                 val lib = com.example.pilinara.danmaku.DanmakuNativeLib()
@@ -317,7 +322,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                             "pool" to p.pool, "content" to p.content, "uid" to p.uid
                         )
                     })
-                    val srcJson = GSON.toJson(sources)  // 审核77：复用 Gson 实例
+                    val srcJson = GSON.toJson(sources)
                     val out = lib.merge(ptr, srcJson) ?: return@runCatching null
                     val obj = org.json.JSONObject(out)
                     val arr = obj.getJSONArray("entries")
@@ -346,13 +351,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     mode = p.mode
                 )
             }
-            // 批次audit25：Rust 路径保留了原始 uid，回填到合并结果
             val uidByTs = raw.map { d -> d.toParsed() }.associate { (it.timestamp * 1000).toLong() to it.uid }
-            val withUid = if (mergedEvents != null) list.map { e ->
-                e.copy(uid = uidByTs[e.timestamp] ?: 0L)
-            } else list
-            addDanmakuEvents(withUid)
+            if (mergedEvents != null) list.map { e -> e.copy(uid = uidByTs[e.timestamp] ?: 0L) } else list
         }
+        withUid?.let { addDanmakuEvents(it) }
     }
 
     // ==================== 字幕（批次K） ====================
