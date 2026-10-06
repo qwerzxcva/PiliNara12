@@ -159,7 +159,9 @@ fun VideoPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
         // 已发送到渲染层的弹幕 id（避免重复 add）
-        val dispatchedIds = remember { mutableSetOf<String>() }
+        // 审核：Kotlin 2.2 下 lint 将无显式类型的 `remember { mutableSetOf() }`
+        // 判为 RememberReturnType(Error)，显式声明返回类型后消除，行为不变。
+        val dispatchedIds: MutableSet<String> = remember { mutableSetOf() }
         // 从去重键解析时间戳（键格式 "ts_content" 或纯 id）；解析失败返回 Long.MAX_VALUE（不淘汰）
         fun tsOf(key: String): Long =
             key.substringBefore('_').toLongOrNull() ?: Long.MAX_VALUE
