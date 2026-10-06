@@ -229,9 +229,12 @@ object AnimekoScraper {
     /**
      * 第三步：剧集页 → 视频地址
      *
-     * 1. 先在页面里找「嵌套播放页」链接（matchNestedUrl），若开启则进该页再取；
-     * 2. 用 matchVideoUrl 正则在页面文本中匹配视频直链（m3u8/mp4/mkv 等）；
-     * 3. 只返回第一个可播地址（多数源同一集只有一个）。
+     * 1. 先用 matchVideoUrl 在本页文本匹配直链；
+     * 2. 若本页没有、且启用 nestedUrl（60/63 源如此），则用 matchNestedUrl
+     *    在页内找出「嵌套播放页」链接，由调用方跳转后再取直链。
+     *
+     * 注意：本函数只返回「本页」能直接匹配到的直链；
+     * 嵌套跳转由 SubscribeRepository.fetchVideoUrl 循环处理。
      */
     fun extractVideoUrl(html: String, baseUrl: String, cfg: SearchConfig): String =
         runCatching {
@@ -251,6 +254,43 @@ object AnimekoScraper {
             } else raw
             if (decoded.startsWith("http")) decoded else ""
         }.getOrDefault("")
+
+    /**
+     * 从页内提取「嵌套播放页」链接（nestedUrl 二级跳）
+     *
+     * matchNestedUrl 的语义（调研 + Animeko 源码）：
+     * - `$^`：恒不匹配 → 表示「本页没有嵌套，直接用 matchVideoUrl」
+     * - 其它正则：在页面里匹配嵌套播放页的 URL 片段（如 `xigua.php`、
+     *   `vip`、`m3u8`），命中说明需要跳到该链接再取视频
+     *
+     * 这里返回：页面里所有符合 matchNestedUrl 的 http(s) 链接（去重）。
+     */
+    fun extractNestedUrls(html: String, baseUrl: String, cfg: SearchConfig): List<String> =
+        runCatching {
+            if (!cfg.enableNestedUrl) return emptyList()
+            val pat = cfg.matchNestedUrl
+            if (pat.isBlank() || pat == "$^") return emptyList()
+            val re = Regex(pat)
+            val doc = org.jsoup.Jsoup.parse(html, baseUrl)
+            // 在文本与所有链接里找匹配
+            val found = linkedSetOf<String>()
+            // 1) 链接属性里的 http(s) 且匹配
+            for (el in doc.select("a[href], iframe[src], script[src]")) {
+                val attr = when {
+                    el.hasAttr("href") -> "href"
+                    el.hasAttr("src") -> "src"
+                    else -> continue
+                }
+                val v = absUrl(el, attr, baseUrl)
+                if (v.startsWith("http") && re.containsMatchIn(v)) found.add(v)
+            }
+            // 2) 页面文本里内嵌的 http 链接（正则抓）
+            for (m in re.findAll(html)) {
+                val u = m.value
+                if (u.startsWith("http")) found.add(u)
+            }
+            found.toList()
+        }.getOrDefault(emptyList())
 
     /** 从元素取绝对 URL（jsoup 的 absUrl 需要 baseUri；这里显式兜底） */
     private fun absUrl(el: org.jsoup.nodes.Element, attr: String, base: String): String {
