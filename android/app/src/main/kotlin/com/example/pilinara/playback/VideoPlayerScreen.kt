@@ -6,6 +6,7 @@ import android.os.Build
 import android.content.Context
 import android.util.Rational
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -64,6 +65,30 @@ fun VideoPlayerScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showControls by remember { mutableStateOf(true) }
     var showSpeedMenu by remember { mutableStateOf(false) }
+    // 审核轮152：长按 3x 状态
+    var showSpeedBurst by remember { mutableStateOf(false) }
+    var savedSpeed by remember { mutableFloatStateOf(1.0f) }
+
+    // 审核轮153（真 bug）：亮度手势更新了 state.brightness 但 UI 从未消费——死功能。
+    // 仅在用户实际操作过（brightnessTouched）后才应用，避免一进播放页就把系统
+    // 亮度强设为 0.5；离开播放页恢复跟随系统（BRIGHTNESS_OVERRIDE_NONE）。
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    val brightnessTouched = viewModel.brightnessTouched
+    LaunchedEffect(brightnessTouched, state.brightness) {
+        if (!brightnessTouched) return@LaunchedEffect
+        activity?.window?.attributes?.let { attrs ->
+            attrs.screenBrightness = state.brightness.coerceIn(0.05f, 1f)
+            activity.window.attributes = attrs
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            activity?.window?.attributes?.let { attrs ->
+                attrs.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                activity.window.attributes = attrs
+            }
+        }
+    }
     var showVolumeSlider by remember { mutableStateOf(false) }
     var isInPiP by remember { mutableStateOf(false) }
     var showQualityMenu by remember { mutableStateOf(false) }
@@ -124,12 +149,20 @@ fun VideoPlayerScreen(
         )
         // 已发送到渲染层的弹幕 id（避免重复 add）
         val dispatchedIds = remember { mutableSetOf<String>() }
+        // 从去重键解析时间戳（键格式 "ts_content" 或纯 id）；解析失败返回 Long.MAX_VALUE（不淘汰）
+        fun tsOf(key: String): Long =
+            key.substringBefore('_').toLongOrNull() ?: Long.MAX_VALUE
         LaunchedEffect(state.isPlaying, state.currentTime, state.danmakuOn) {
             val v = dmViewRef ?: return@LaunchedEffect
             if (!state.danmakuOn) { v.clearAll(); return@LaunchedEffect }
+            // 审核轮122：去重集合按窗口淘汰，避免长视频（数小时）无界增长泄漏内存。
+            // 弹幕只在其时间戳后 3 秒窗口内分发，故 10 秒前的 id 可安全丢弃。
+            val cutoff = state.currentTime - 10_000L
+            dispatchedIds.removeAll { tsOf(it) < cutoff }
             // 窗口内未分发的弹幕 → add
             for (e in viewModel.getDanmakuAtTime(state.currentTime)) {
-                if (dispatchedIds.add(e.id.ifEmpty { "${e.timestamp}_${e.content}" })) {
+                val key = e.id.ifEmpty { "${e.timestamp}_${e.content}" }
+                if (dispatchedIds.add(key)) {
                     v.add(e.content, e.color, e.fontSize)
                 }
             }
@@ -353,7 +386,8 @@ fun VideoPlayerScreen(
                         label = "点赞",
                         count = formatCount(state.likeCount),
                         onClick = { viewModel.toggleLike() },
-                        tintColor = if (state.isLiked) Color(0xFF00A1D6) else Color.White
+                        tintColor = if (state.isLiked) Color(0xFF00A1D6) else Color.White,
+                        onLongClick = { viewModel.likeCoinFav() }
                     )
                     EngagementButton(
                         icon = Icons.Default.MonetizationOn,
@@ -774,6 +808,24 @@ fun VideoPlayerScreen(
             }
         }
 
+        // 审核轮156：音量/亮度调节浮标（右侧滑动手势时显示）
+        val gestureTip = when {
+            showSpeedBurst -> "3x 快进中 »"
+            showVolumeSlider -> if (state.volume > 0f) "音量 ${(state.volume * 100).toInt()}%" else "🔇 静音"
+            else -> null
+        }
+        if (gestureTip != null) {
+            Text(
+                gestureTip,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .background(Color.Black.copy(0.6f), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
         // Gesture handler
         Box(
             modifier = Modifier
@@ -787,6 +839,20 @@ fun VideoPlayerScreen(
                                 viewModel.seekRelative(-10_000L)
                             } else {
                                 viewModel.seekRelative(10_000L)
+                            }
+                        },
+                        // 审核轮152：长按 = 3x 倍速（松开恢复，BV/Flutter 版标志性交互）
+                        onLongPress = {
+                            savedSpeed = state.playbackSpeed
+                            viewModel.setPlaybackSpeed(3.0f, raw = true)
+                            showSpeedBurst = true
+                        },
+                        onPress = { release ->
+                            try { awaitRelease() } finally {
+                                if (showSpeedBurst) {
+                                    viewModel.setPlaybackSpeed(savedSpeed)
+                                    showSpeedBurst = false
+                                }
                             }
                         }
                     )
@@ -825,13 +891,16 @@ fun VideoPlayerScreen(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun EngagementButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     count: String = "",
     onClick: () -> Unit,
-    tintColor: Color
+    tintColor: Color,
+    // 审核轮146：长按 = 一键三连（B站官方交互）
+    onLongClick: (() -> Unit)? = null
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -840,6 +909,11 @@ private fun EngagementButton(
             modifier = Modifier
                 .background(Color.Black.copy(0.5f), CircleShape)
                 .padding(8.dp)
+                .then(
+                    if (onLongClick != null) Modifier.combinedClickable(
+                        onClick = onClick, onLongClick = onLongClick
+                    ) else Modifier
+                )
         ) {
             Icon(icon, label, tint = tintColor, modifier = Modifier.height(24.dp))
         }

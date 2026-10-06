@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -25,11 +24,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun DanmakuBlockScreen(
     onBack: () -> Unit = {},
-    context: android.content.Context = LocalContext.current,
     viewModel: DanmakuBlockViewModel = viewModel(factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            DanmakuBlockViewModel(context) as T
+            // 审核轮108：统一走全局 Application，不捕获 Activity Context
+            DanmakuBlockViewModel(com.example.pilinara.AppContext.get()) as T
     })
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()

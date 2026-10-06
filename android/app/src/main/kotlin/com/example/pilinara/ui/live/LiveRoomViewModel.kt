@@ -124,7 +124,10 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
         for (format in stream.format) {
             for (codec in format.codec) {
                 if (codec.codecName != "avc") continue  // ExoPlayer 兼容性优先 avc
-                val info = codec.url_info.firstOrNull() ?: continue
+                // 审核轮149：多 CDN 线路优先选 https host（http 流在 Android 9+ 明文受限，
+                // 虽然 usesCleartextTraffic 兜底，但 https 线路稳定性/速度更优）
+                val info = codec.url_info.firstOrNull { it.host.startsWith("https") }
+                    ?: codec.url_info.firstOrNull() ?: continue
                 return (info.host + codec.baseUrl + info.extra).toHttpsUrl()  // 审核19：直播流 host 常为 http
             }
         }
@@ -181,7 +184,11 @@ class LiveRoomViewModel(private val roomIdArg: Long) : ViewModel() {
                 }
                 launch {
                     client.chat.collect { msg ->
-                        _chatMessages.update { (it + msg).takeLast(80) }
+                        // 审核轮141：直播弹幕也走屏蔽规则（关键词/正则/UID，对齐视频弹幕）
+                        if (com.example.pilinara.ui.settings.DanmakuBlockViewModel
+                            .shouldBlock(msg.text, msg.uid).not()) {
+                            _chatMessages.update { (it + msg).takeLast(80) }
+                        }
                     }
                 }
                 launch {

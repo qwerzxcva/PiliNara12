@@ -1024,6 +1024,15 @@ class BiliApiClient(private val client: HttpClient = BiliHttpClient.client) {
         org.json.JSONObject(resp).optInt("code") == 0
     }
 
+    /** 审核轮146：一键三连（点赞+投币+收藏，需登录） */
+    suspend fun likeCoinFav(aid: Long): Result<Boolean> = runCatching {
+        val resp: String = BiliHttpClient.postAuthForm(
+            "$API_BASE/x/web-interface/archive/like/triple",
+            mapOf("aid" to aid.toString())
+        )
+        org.json.JSONObject(resp).optInt("code") == 0
+    }
+
     /** 删除单条历史（csrf）。kid = business:oid，如 archive:123456 */
     suspend fun delHistory(kid: String): Result<Boolean> = runCatching {
         val resp: String = BiliHttpClient.postAuthForm(

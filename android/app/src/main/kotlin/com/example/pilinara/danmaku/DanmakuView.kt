@@ -59,7 +59,9 @@ class DanmakuView @JvmOverloads constructor(
 
     /** 外部追加弹幕（播放到对应时间点 / 本地发送回显）。批次audit24：接通屏蔽规则 */
     fun add(text: String, color: Int, fontSizeSp: Int, uid: Long = 0L) {
-        if (text.isBlank() || measuredWidth <= 0 || !running) return
+        // 审核轮125：暂停时不再丢弃弹幕（暂停时发弹幕原来会静默丢失）——
+        // 仍入列，x 不滚动（onDraw 里 running=false 时不动），恢复后继续滚。
+        if (text.isBlank() || measuredWidth <= 0) return
         if (com.example.pilinara.ui.settings.DanmakuBlockViewModel.shouldBlock(text, uid)) return
         val fs = fontSizeSp * resources.displayMetrics.density * scaleFactor
         paint.textSize = fs

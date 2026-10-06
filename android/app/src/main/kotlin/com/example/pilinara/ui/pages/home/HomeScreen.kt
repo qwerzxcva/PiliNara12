@@ -24,6 +24,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Apps
@@ -43,6 +47,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -223,9 +228,26 @@ private fun TopRcmdCard(item: com.example.pilinara.data.model.TopRcmdItem, onCli
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 private fun VideoCardItem(card: VideoItem, onClick: () -> Unit) {
+    // 审核轮139：长按卡片 → 加入稍后再看（对齐 BV/Flutter；API 原是死代码）
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().combinedClickable(
+            onClick = onClick,
+            onLongClick = {
+                if (card.aid > 0) scope.launch {
+                    val ok = com.example.pilinara.data.remote.BiliApiClient()
+                        .addToView(card.aid).getOrDefault(false)
+                    android.widget.Toast.makeText(
+                        ctx,
+                        if (ok) "已加入稍后再看" else "加入稍后再看失败（需登录）",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+        ),
     ) {
         Box {
             AsyncImage(

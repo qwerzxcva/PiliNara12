@@ -264,7 +264,7 @@ fun PiliNaraTheme(
 ) {
     // DataStore 消费：themeMode（system/light/dark）+ accentColor 真实作用于全局主题
     val context = LocalContext.current
-    val storage = remember(context) { StorageManager(context) }
+    val storage = remember(context) { StorageManager.getInstance(context) }
     val themeMode by storage.themeModeFlow.collectAsStateWithLifecycle(initialValue = "system")
     val accentHex by storage.accentColorFlow.collectAsStateWithLifecycle(initialValue = "")
     val amoled by storage.amoledFlow.collectAsStateWithLifecycle(initialValue = false)

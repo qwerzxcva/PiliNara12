@@ -69,7 +69,7 @@ object DownloadManager {
                 val cid = detail.cid
                 val duration = detail.duration.toLong()
                 // 2) playurl + Rust 选流（清晰度跟随 DataStore 设置）
-                val qn = com.example.pilinara.utils.StorageManager(appCtx).videoQualityFlow.first()
+                val qn = com.example.pilinara.utils.StorageManager.getInstance(appCtx).videoQualityFlow.first()
                     .let { when (it) { "1080p" -> 80; "720p" -> 64; "480p" -> 32; else -> 64 } }
                 val play = repo.getPlayUrl(bvid, cid, qn = qn).getOrNull()
                     ?: throw IllegalStateException("playurl 获取失败")
@@ -176,7 +176,7 @@ object DownloadManager {
                     durationSec = durationSec, pageLabel = pageLabel,
                     state = DownloadItemEntity.STATE_RUNNING, error = null
                 ))
-                val qn = com.example.pilinara.utils.StorageManager(appCtx).videoQualityFlow.first()
+                val qn = com.example.pilinara.utils.StorageManager.getInstance(appCtx).videoQualityFlow.first()
                     .let { when (it) { "1080p" -> 80; "720p" -> 64; "480p" -> 32; else -> 64 } }
                 val play = VideoRepository(BiliApiClient()).getPlayUrl(bvid, cid, qn = qn).getOrNull()
                     ?: throw IllegalStateException("playurl 获取失败")
@@ -265,7 +265,7 @@ object DownloadManager {
                     durationSec = durationSec, pageLabel = pageLabel,
                     state = DownloadItemEntity.STATE_RUNNING, error = null
                 ))
-                val qn = com.example.pilinara.utils.StorageManager(appCtx).videoQualityFlow.first()
+                val qn = com.example.pilinara.utils.StorageManager.getInstance(appCtx).videoQualityFlow.first()
                     .let { when (it) { "1080p" -> 80; "720p" -> 64; "480p" -> 32; else -> 64 } }
                 val play = VideoRepository(BiliApiClient()).getPgcPlayUrl(epId, cid, qn = qn).getOrNull()
                     ?: throw IllegalStateException("番剧 playurl 获取失败")

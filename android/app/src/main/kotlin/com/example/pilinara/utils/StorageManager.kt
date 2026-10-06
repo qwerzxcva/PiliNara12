@@ -20,8 +20,15 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class StorageManager(private val context: Context) {
-    
     companion object {
+        // 审核轮130：DataStore 单例——原来 DownloadManager 等处每次 new StorageManager
+        // 会各自创建 DataStore 实例（多实例同文件会抛 IllegalStateException / 浪费 IO）
+        @Volatile private var instance: StorageManager? = null
+        fun getInstance(ctx: Context): StorageManager =
+            instance ?: synchronized(this) {
+                instance ?: StorageManager(ctx.applicationContext).also { instance = it }
+            }
+        
         private val THEME_MODE_KEY = stringPreferencesKey("themeMode")
         private val ACCENT_COLOR_KEY = stringPreferencesKey("accentColor")
         private val VIDEO_QUALITY_KEY = stringPreferencesKey("defaultVideoQa")

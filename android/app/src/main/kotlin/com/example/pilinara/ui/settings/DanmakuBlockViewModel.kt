@@ -114,17 +114,25 @@ class DanmakuBlockViewModel(context: android.content.Context) : ViewModel() {
             return false
         }
 
-        /** App 启动时加载缓存 */
+        // 审核轮126：单一共享 scope（原来每次 warmup 新建 CoroutineScope 不回收——泄漏）
+        private val warmupScope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + Dispatchers.IO
+        )
+
+        /** App 启动时加载缓存（先组快照再一次性发布，渲染线程不会看到半更新状态） */
         fun warmup(db: PiliNaraDatabase) {
             val dao = db.danmakuFilterRuleDao()
-            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            warmupScope.launch {
                 val e = dao.getByKey("danmakuFilterRules")
-                cachedKeywords = e?.dmFilterStrings?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
-                cachedRegexes = e?.dmRegExpPatterns?.split("\n")?.filter { it.isNotBlank() }
-                    ?.mapNotNull { runCatching { Regex(it) }.getOrNull() }.orEmpty()
-                cachedRegexStrings = e?.dmRegExpPatterns?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
-                cachedUids = e?.dmUids?.split("\n")?.filter { it.isNotBlank() }
+                val kw = e?.dmFilterStrings?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
+                val reStr = e?.dmRegExpPatterns?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
+                val re = reStr.mapNotNull { runCatching { Regex(it) }.getOrNull() }
+                val uids = e?.dmUids?.split("\n")?.filter { it.isNotBlank() }
                     ?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet()
+                cachedKeywords = kw
+                cachedRegexes = re
+                cachedRegexStrings = reStr
+                cachedUids = uids
             }
         }
 

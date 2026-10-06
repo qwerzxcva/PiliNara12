@@ -21,8 +21,40 @@ class SearchViewModel(
 
     private val api = BiliApiClient()
 
-    // 搜索历史（进程内持久；重启后清零，后续可挂 Room）
+    // 搜索历史（审核轮134：持久化到 Room local_cache，重启不再清零）
     private val history = mutableListOf<String>()
+    private val gson = com.google.gson.Gson()
+    private val historyDao =
+        com.example.pilinara.database.PiliNaraDatabase.getDatabase(
+            com.example.pilinara.AppContext.get()
+        ).localCacheDao()
+    private val scope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
+
+    init {
+        scope.launch {
+            runCatching {
+                val e = historyDao.getByKey("search_history")
+                val saved: List<String> = e?.valueJson
+                    ?.let { runCatching { gson.fromJson(it, Array<String>::class.java).toList() }.getOrDefault(emptyList()) }
+                    ?: emptyList()
+                history.addAll(saved)
+                _searchState.value = _searchState.value.copy(history = history.toList())
+            }
+        }
+    }
+
+    private fun persistHistory() {
+        scope.launch { runCatching {
+            historyDao.upsert(
+                com.example.pilinara.database.LocalCacheEntity(
+                    key = "search_history", valueJson = gson.toJson(history.toList()),
+                    valueType = "json"
+                )
+            )
+        } }
+    }
 
     data class SearchState(
         val keyword: String = "",
@@ -53,6 +85,7 @@ class SearchViewModel(
         history.remove(keyword)
         history.add(0, keyword)
         if (history.size > 20) history.removeAt(history.size - 1)
+        persistHistory()
 
         viewModelScope.launch {
             _searchState.value = _searchState.value.copy(
@@ -118,6 +151,7 @@ class SearchViewModel(
 
     fun clearHistory() {
         history.clear()
+        persistHistory()
         _searchState.value = _searchState.value.copy(history = emptyList())
     }
 

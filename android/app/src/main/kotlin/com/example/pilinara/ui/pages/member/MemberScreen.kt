@@ -106,10 +106,10 @@ fun MemberScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        if (!state.info?.sign.isNullOrEmpty()) {
+                        state.info?.sign?.takeIf { it.isNotBlank() }?.let { sign ->
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                state.info!!.sign,
+                                sign,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis

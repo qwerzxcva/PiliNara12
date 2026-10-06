@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.pilinara.data.model.formatCount
 import com.example.pilinara.data.model.toParsed
@@ -80,6 +81,11 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     )
     
     init {
+        // 审核轮129：同步"自动播放"设置到内存缓存
+        viewModelScope.launch {
+            com.example.pilinara.utils.StorageManager(appContext)
+                .autoPlayFlow.collect { cachedAutoPlay = it }
+        }
         // Kazumi 特性：低延迟音频。
         // Media3 里 AudioAttributes 只能在 Builder 上设置（ExoPlayer 无 setAudioAttributes）。
         // 低延迟模式下不走音频焦点让位（handleAudioFocus=false），避免焦点切换造成的
@@ -206,17 +212,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     _state.value = _state.value.copy(isBuffering = true, error = null)
                     resolveAndPlay(bvid, cid)
                 } else {
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(Uri.parse(uri))
-                        .setMediaId("$bvid:$cid")
-                        .build()
-                    _player?.setMediaItem(mediaItem)
-                    _player?.prepare()
-                    _player?.playWhenReady = false
-                    _state.value = _state.value.copy(
-                        isPlaying = false, isBuffering = true,
-                        error = null, currentTime = 0L, duration = 0L
-                    )
+                    // 审核轮128（真 bug）：直链播放（订阅源 m3u8/mpd/mp4 等）原走裸
+                    // setMediaItem —— 默认 DataSource（自定义 UA）被 CDN 403，且
+                    // 默认 Progressive 解析器吃不了 HLS/DASH 清单 → 必然失败。
+                    // 统一走 startPlayback（BROWSER_UA + 按类型选 MediaSource）。
+                    // 审核轮129：直链也尊重"自动播放"设置（原来恒 playWhenReady=false，
+                    // 但 startPlayback 默认 true 会绕过设置——显式传入）。
+                    startPlayback(uri, audioUrl = null, playWhenReady = cachedAutoPlay)
                 }
             } catch (e: Exception) {
                 setError("Failed to load video: ${e.message}")
@@ -555,8 +557,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
-    fun setPlaybackSpeed(speed: Float) {
-        val normalizedSpeed = when {
+    fun setPlaybackSpeed(speed: Float, raw: Boolean = false) {
+        val normalizedSpeed = if (raw) speed else when {
             speed <= 0.5f -> 0.5f
             speed <= 1.0f -> 1.0f
             speed <= 2.0f -> speed
@@ -660,12 +662,32 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _state.value = _state.value.copy(isBuffering = isLoading)
     }
     
+    /** 审核轮112：播放位置轮询（真 bug）——currentTime 原来只在 seek/discontinuity 更新，
+     *  播放中进度条/弹幕派发/字幕同步全部停滞。这里以 250ms 节流轮询同步真实位置。 */
+    private var positionPollJob: kotlinx.coroutines.Job? = null
+
+    private fun startPositionPoll() {
+        positionPollJob?.cancel()
+        positionPollJob = viewModelScope.launch {
+            while (true) {
+                delay(250)
+                val p = _player ?: break
+                if (p.isPlaying) {
+                    _state.value = _state.value.copy(currentTime = p.currentPosition)
+                }
+            }
+        }
+    }
+
     override fun onPlaybackStateChanged(state: Int) {
         when (state) {
             Player.STATE_BUFFERING -> _state.value = _state.value.copy(isBuffering = true)
-            Player.STATE_READY -> _state.value = _state.value.copy(
-                isBuffering = false, duration = _player?.duration ?: 0L
-            )
+            Player.STATE_READY -> {
+                _state.value = _state.value.copy(
+                    isBuffering = false, duration = _player?.duration ?: 0L
+                )
+                if (positionPollJob?.isActive != true) startPositionPoll()
+            }
             Player.STATE_ENDED -> _state.value = _state.value.copy(isPlaying = false)
             // 审核：补全 Player.STATE_IDLE 分支（消除 lint SwitchIntDef）
             Player.STATE_IDLE -> _state.value = _state.value.copy(isPlaying = false, isBuffering = false)
@@ -686,6 +708,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     
     override fun onCleared() {
         super.onCleared()
+        positionPollJob?.cancel()
         _player?.removeListener(this)
         _player?.release()
         _player = null
@@ -700,6 +723,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
 
     // ========== 互动（点赞/投币/收藏/历史上报） ==========
 
+    /** 审核轮129：自动播放设置缓存（DataStore 异步同步，直链播放用） */
+    @Volatile private var cachedAutoPlay: Boolean = false
     private var aid: Long = 0L
 
     /** 当前视频标题/封面（供下载等外部操作，批次I 接线） */
@@ -869,6 +894,24 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
 
+    /** 审核轮146：一键三连（点赞+投币+收藏，对齐 B站/Flutter 版） */
+    fun likeCoinFav() {
+        viewModelScope.launch {
+            if (!AccountSession.isLogin) { setError("请先登录后再三连"); return@launch }
+            ensureAid()
+            if (aid == 0L) { setError("无法获取视频 aid"); return@launch }
+            BiliApiClient().likeCoinFav(aid)
+                .onSuccess { ok ->
+                    if (ok) _state.value = _state.value.copy(
+                        isLiked = true, isFavorited = true,
+                        likeCount = _state.value.likeCount + if (_state.value.isLiked) 0 else 1
+                    )
+                    else setError("三连失败（可能已投过币）")
+                }
+                .onFailure { setError("三连失败: ${it.message}") }
+        }
+    }
+
     /** 投币（需登录，可指定枚数 1/2） */
     fun coinOnce(multiply: Int = 1) {
         viewModelScope.launch {
@@ -950,7 +993,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun reportProgress() {
         viewModelScope.launch {
             if (!AccountSession.isLogin || aid == 0L || effectiveCid == 0L) return@launch
-            repo.reportHistory(aid, effectiveCid, _state.value.currentTime / 1000)
+            // 审核轮111（真 bug）：currentTime 只在 seek/discontinuity 更新，播放中不动，
+            // 上报历史进度会恒为 0 → B站"看到第x分钟"记录错误。改取播放器真实位置。
+            val posSec = (_player?.currentPosition ?: _state.value.currentTime) / 1000
+            repo.reportHistory(aid, effectiveCid, posSec)
         }
     }
 
@@ -1086,10 +1132,15 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
 
     /** 左半屏竖滑调系统亮度（0..1），右半屏调音量 */
+    /** 审核轮153：用户是否操作过亮度（未操作前不覆盖系统亮度） */
+    @Volatile var brightnessTouched: Boolean = false
+        private set
+
     fun onVerticalDrag(leftSide: Boolean, deltaY: Float, heightPx: Float) {
         if (heightPx <= 0f) return
         val delta = -deltaY / heightPx
         if (leftSide) {
+            brightnessTouched = true
             val nv = (_state.value.brightness + delta).coerceIn(0.05f, 1f)
             _state.value = _state.value.copy(brightness = nv)
         } else {
