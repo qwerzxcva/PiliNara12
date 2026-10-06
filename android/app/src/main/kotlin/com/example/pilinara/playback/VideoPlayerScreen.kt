@@ -899,7 +899,7 @@ private fun createPlayerView(
 ): androidx.media3.ui.PlayerView {
     // Kazumi 特性：渲染器切换（SurfaceView 默认 / TextureView）
     //
-    // 注意：Media3 1.5.1 的 PlayerView 没有公开 setSurfaceType（javap 已核实），
+    // 注意：Media3（本项 1.3.1）的 PlayerView 没有公开 setSurfaceType（javap 已核实），
     // surface_type 只能在 inflate 时通过 XML 属性生效。
     // 因此这里按偏好选择对应布局 inflate。
     // DataStore 是异步的，故读 RendererPrefs 的进程内同步缓存，
