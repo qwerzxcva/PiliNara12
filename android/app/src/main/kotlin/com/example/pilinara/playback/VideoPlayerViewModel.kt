@@ -1089,15 +1089,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     /** 播放相关视频（重置状态换源） */
     fun playRelated(item: RelatedItem) {
         _state.value = _state.value.copy(related = _state.value.related, error = null)
-        viewModelScope.launch {
-            currentBvid = item.bvid
-            aid = item.bvid.let { repo.getVideoDetail(it).getOrNull()?.data?.aid ?: 0L }
-            loadEngagement(aid, item.bvid)
-            loadRelated(item.bvid)
         loadJob?.cancel()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
+            currentBvid = item.bvid
             resolveAndPlay(item.bvid, item.cid, generation)
+            loadEngagement(aid, item.bvid)
+            loadRelated(item.bvid)
         }
     }
 
