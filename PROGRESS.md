@@ -165,3 +165,22 @@ Kotlin 编译器由 JetBrains 官方单一维护，不存在 GCC/Clang 那种带
 - gradle.properties：开 `org.gradle.caching=true`（原 CI 写死 false，全量重编）、
   并行执行、workers.max=4、Kotlin 增量 + daemon JVM 参数
 - CI 两条 gradlew 加 `--build-cache` 复用编译输出
+
+## Bug 排查轮（Run 37491538746 全绿）
+
+### 确认并修复
+1. **nestedUrl 自引用循环（真 bug）**：原 `take(3)` 只限次数，
+   但嵌套页可能 A→A 或 A→B→A 自引用。改为 visited 集合 + 上限 4，
+   并支持两层嵌套（嵌套页里再指下一层）。
+2. **删除死代码 expandToUrl（43 行）**：重写 extractVideoUrl 后
+   该函数无人调用，清除。
+
+### 自我纠错
+- 曾放宽 isHttpUrl 去掉 rawUserInfo==null 检查（接受 user:pass@ URL），
+  被本地回归测试拦截。rawUserInfo 检查是**有意**防止 mailto/邮箱
+  被误判为 URL 的，已恢复——这次回归测试证明它有价值。
+
+### 本地回归全过
+- run_scraper_regression（3 组 PASS）
+- run_rss_regression（3 组 PASS）
+- lint gate 单测（7 例）
