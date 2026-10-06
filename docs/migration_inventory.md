@@ -473,3 +473,12 @@
 - **200**：直播间人气值 popularity 死数据接通 UI（WS op3 心跳回包实时显示）。
 - **201（真 bug）**：Mine 页 QuickActions"稍后再看"写死空 lambda 点击无响应 → 接 onToViewClick。
 - 提交链：740e37e(189-190) → f6c8e84(200) → ecbeb5c(201)；lint 0/0/0、cargo 16/16 保持。
+
+## r24c（2026-10-06，审核轮203-208）
+- 203 收藏夹内容排序（PiliPlus fav_sort）：order 参数全链路
+- 204 黑名单管理（PiliPlus blacklist）：modifyBlacklist/getBlacklist API + 设置页对话框
+- 205 投币记录 API（x/web-interface/coin/log）
+- 206 用户经验/等级 API（acc/info）
+- 207 BiliPai 竖屏沉浸式推荐流（feature/story 移植）：VerticalPager + 自动加载 + 首页入口
+- 208 修复用户 Animeko 提交回归：VM 丢失 r24 符号（mode/showToast/persistDmShow*/cachedDmShow*/brightnessTouched/playNextPart/likeCoinFav）从 f6c8e84 恢复
+- BiliPai 参照获取成功：codeload tarball（git clone 不可达）；已对照：批量下载✓/离线弹幕✓/视频取帧✓/AI总结✓/article·cast·screenshot 待评估
