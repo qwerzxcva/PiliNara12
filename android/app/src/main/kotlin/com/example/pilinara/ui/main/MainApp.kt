@@ -57,7 +57,7 @@ fun MainApp(viewModel: MainViewModel, onNavigateToSettings: () -> Unit = {}, onN
     ) { padding ->
         Box(Modifier.padding(padding)) {
             NavHost(navController = navController, startDestination = "home") {
-                composable("home") { HomeScreen(onVideoClick = { bvid, cid -> navController.navigate("video/$bvid") }) }
+                composable("home") { HomeScreen(onVideoClick = { bvid, cid -> navController.navigate("video/$bvid") }, onSearchClick = {}) }
                 composable("dynamics") { DynamicsScreen() }
                 composable("mine") {
                     // 实测修复（Android 16 模拟器）：MainActivity 未传回调导致齿轮点击为空操作

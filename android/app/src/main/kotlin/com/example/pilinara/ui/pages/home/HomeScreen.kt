@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayCircleOutline
@@ -70,7 +71,8 @@ import com.example.pilinara.utils.toHttpsUrl
 @Composable
 fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
-    onSearchClick: () -> Unit = {},
+    onSearchClick: () -> Unit,
+    onStoryClick: () -> Unit = {},
     onRankClick: () -> Unit = {},
     onHotMoreClick: () -> Unit = {},
     onZoneClick: () -> Unit = {},
@@ -103,6 +105,9 @@ fun HomeScreen(
                 TopAppBar(
                     title = { Text("PiliNara", color = androidx.compose.ui.graphics.Color.White) },
                     actions = {
+                        IconButton(onClick = onStoryClick) {  // 审核轮207：竖屏流入口
+                            Icon(Icons.Default.Slideshow, contentDescription = "竖屏流")
+                        }
                         IconButton(onClick = onSearchClick) {
                             Icon(Icons.Filled.Search, contentDescription = "搜索",
                                 tint = androidx.compose.ui.graphics.Color.White)

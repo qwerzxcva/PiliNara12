@@ -39,6 +39,7 @@ sealed class Screen(val route: String) {
         fun createRoute(mediaId: Long) = "favmedia/$mediaId"
     }
     object History : Screen("history")
+    object Story : Screen("story")  // 审核轮207：竖屏沉浸式推荐流（BiliPai story 移植）
     object Settings : Screen("settings")
     object VideoPlayer : Screen("video/{bvid}?cid={cid}&local={local}") {
         const val CID_ARG = "cid"
@@ -119,7 +120,8 @@ fun AppNavigation() {
                     navController.navigate(Screen.HotMore.route)
                 },
                 onZoneClick = { navController.navigate(Screen.Zone.route) },
-                onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) }
+                onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) },
+                onStoryClick = { navController.navigate(Screen.Story.route) }
             )
         }
         composable(Screen.Search.route) { backStackEntry ->
@@ -198,6 +200,14 @@ fun AppNavigation() {
                 mediaId = mediaId,
                 onBack = { navController.popBackStack() },
                 onOpenVideo = { bvid, cid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
+            )
+        }
+        composable(Screen.Story.route) {
+            com.example.pilinara.ui.story.StoryScreen(
+                onBack = { navController.popBackStack() },
+                onVideoClick = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
                 }
             )
