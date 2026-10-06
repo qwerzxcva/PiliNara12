@@ -97,8 +97,25 @@ fun SubscribeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
     var searchTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
+    val episodes by viewModel.episodes.collectAsStateWithLifecycle()
+    val currentSubject by viewModel.currentSubject.collectAsStateWithLifecycle()
+    // 网页刮削源：卡片记录所属源的配置 URL + 源名（存于 desc/sourceName）
+    var webTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val displayItems = if (searchResults.isNotEmpty()) searchResults else state.items
+    // 三级视图：0=订阅条目/搜索结果 1=剧集列表
+    val inEpisodeView = episodes.isNotEmpty()
+    val displayItems2 = if (inEpisodeView) {
+        episodes.map {
+            SubscribeItemEntity(
+                id = 0L,
+                title = it.name,
+                link = it.url,
+                desc = it.channel,
+                sourceName = "episode"
+            )
+        }
+    } else displayItems
     var showAddDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
     var showBangumiLoginDialog by remember { mutableStateOf(false) }
@@ -121,7 +138,17 @@ fun SubscribeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("订阅") },
+                title = { Text(if (currentSubject != null) currentSubject!! else "订阅") },
+                navigationIcon = {
+                    if (currentSubject != null || searchResults.isNotEmpty()) {
+                        IconButton(onClick = {
+                            if (currentSubject != null) viewModel.backToSubjects()
+                            else viewModel.clearSearch()
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = { viewModel.refreshAll() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")
@@ -145,7 +172,7 @@ fun SubscribeScreen(
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             when {
-                displayItems.isEmpty() && !state.isRefreshing -> {
+                displayItems2.isEmpty() && !state.isRefreshing -> {
                     EmptySubscribeHint(onAdd = { showAddDialog = true })
                 }
                 else -> {
@@ -156,7 +183,7 @@ fun SubscribeScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(displayItems, key = { it.id * 1000 + it.link.hashCode() }) { item ->
+                        items(displayItems2, key = { it.link.hashCode().toString() + it.title }) { item ->
                             SubscribeItemCard(item = item) {
                                 // 审核轮8：不是所有条目都有可播放直链。
                                 // RSS 的 <link> 常是网页而非媒体；只有 enclosure/直链
@@ -164,12 +191,19 @@ fun SubscribeScreen(
                                 // 不能播放时给出明确提示，而不是把网页 URL 丢给播放器
                                 // 导致「点了没反应/一直转圈」。
                                 when {
+                                    // 剧集：取直链后播放
+                                    item.sourceName == "episode" ->
+                                        viewModel.playEpisode(item.link) { url ->
+                                            onPlay(url, item.title, item.cover)
+                                        }
+                                    // 作品：进剧集列表
+                                    item.sourceName == "subject" ->
+                                        viewModel.openSubject(item.link, item.title)
+                                    // 可直接播放的直链
                                     isLikelyPlayable(item.link) ->
                                         onPlay(item.link, item.title, item.cover)
-                                    item.link.isBlank() ->
-                                        // Animeko 网页刮削源：没有直链，
-                                        // 改为弹出关键词搜索（仅 RSS 型可用）
-                                        searchTarget = item
+                                    // 无直链：网页刮削源 → 弹搜索框
+                                    item.link.isBlank() -> webTarget = item
                                     else -> viewModel.reportNotPlayable(item.title)
                                 }
                             }
@@ -212,6 +246,23 @@ fun SubscribeScreen(
                     factoryId = target.sourceName
                 )
                 searchTarget = null
+            }
+        )
+    }
+
+    webTarget?.let { target ->
+        SearchInSourceDialog(
+            sourceName = target.title,
+            onDismiss = { webTarget = null },
+            onSearch = { kw ->
+                // target.episode 存的是订阅配置文件 URL，
+                // target.sourceName 存的是 factoryId
+                if (target.sourceName.equals("rss", ignoreCase = true)) {
+                    viewModel.searchInSource(target.episode, kw, target.sourceName)
+                } else {
+                    viewModel.searchWebSource(target.episode, target.title, kw)
+                }
+                webTarget = null
             }
         )
     }
