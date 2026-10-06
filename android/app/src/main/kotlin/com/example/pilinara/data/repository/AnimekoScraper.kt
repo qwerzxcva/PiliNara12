@@ -71,7 +71,10 @@ object AnimekoScraper {
         val rawBaseUrl: String = "",
         val requestIntervalMs: Long = 3000L,
         val matchEpisodeSortFromName: String = "",
-        val matchChannelName: String = ""
+        val matchChannelName: String = "",
+        val filterByEpisodeSort: Boolean = false,
+        val searchRemoveSpecial: Boolean = false,
+        val searchUseSubjectNamesCount: Int = 0
     )
 
     /** 作品（番剧）条目 */
@@ -143,7 +146,12 @@ object AnimekoScraper {
                 o["requestInterval"]?.jsonPrimitive?.content?.toLongOrNull()
             }.getOrNull() ?: 3000L,
             matchEpisodeSortFromName = noCh?.get("matchEpisodeSortFromName")?.jsonPrimitive?.contentOrNull ?: "",
-            matchChannelName = flat?.get("matchChannelName")?.jsonPrimitive?.contentOrNull ?: ""
+            matchChannelName = flat?.get("matchChannelName")?.jsonPrimitive?.contentOrNull ?: "",
+            filterByEpisodeSort = o["filterByEpisodeSort"]?.jsonPrimitive?.booleanOrNull ?: false,
+            searchRemoveSpecial = o["searchRemoveSpecial"]?.jsonPrimitive?.booleanOrNull ?: false,
+            searchUseSubjectNamesCount = runCatching {
+                o["searchUseSubjectNamesCount"]?.jsonPrimitive?.content?.toIntOrNull()
+            }.getOrNull() ?: 0
         )
     }
 
@@ -225,8 +233,21 @@ object AnimekoScraper {
                     }
                 }
             }
-            out.distinctBy { it.url }
+            // 审核：filterByEpisodeSort=true（53 源）按集数排序，否则剧集乱序。
+            // 集数从名称里提取（"第3集"/"EP03"/"P2"/纯数字），提取不到排最后。
+            val sorted = if (cfg.filterByEpisodeSort) {
+                out.sortedWith(compareBy({ episodeNum(it.name) }, { it.name }))
+            } else out
+            sorted.distinctBy { it.url }
         }.getOrDefault(emptyList())
+
+    /** 从剧集名提取数字序号（用于排序）；提取不到返回 Int.MAX_VALUE 排最后 */
+    private fun episodeNum(name: String): Int {
+        Regex("第\\s*(\\d+)").find(name)?.let { return it.groupValues[1].toIntOrNull() ?: Int.MAX_VALUE }
+        Regex("(?:EP|Ep|ep)\\s*(\\d+)").find(name)?.let { return it.groupValues[1].toIntOrNull() ?: Int.MAX_VALUE }
+        Regex("(?:^|[^0-9])(\\d{1,4})(?:[^0-9]|$)").find(name)?.let { return it.groupValues[1].toIntOrNull() ?: Int.MAX_VALUE }
+        return Int.MAX_VALUE
+    }
 
     /**
      * 第三步：剧集页 → 视频地址
@@ -347,7 +368,11 @@ object AnimekoScraper {
             keyword.trim().split(Regex("\\s+")).firstOrNull()?.takeIf { it.isNotBlank() }
                 ?: keyword.trim()
         } else keyword.trim()
-        return cfg.searchUrl.replace("{keyword}", java.net.URLEncoder.encode(k, "UTF-8"))
+        // 审核：searchRemoveSpecial=true（51 源）移除特殊字符，避免破坏站点搜索
+        val cleaned = if (cfg.searchRemoveSpecial) {
+            k.replace(Regex("[^\\p{L}\\p{N}\\s]"), "").trim()
+        } else k
+        return cfg.searchUrl.replace("{keyword}", java.net.URLEncoder.encode(cleaned, "UTF-8"))
     }
 
     /** 主页 base（用于拼相对链接） */
