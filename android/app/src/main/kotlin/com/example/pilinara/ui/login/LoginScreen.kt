@@ -204,7 +204,9 @@ fun LoginScreen(
  */
 @Composable
 fun QrCodeImage(content: String, alpha: Float = 1f) {
-    val bitmap = remember(content) {
+    // 审核：Kotlin 2.2 下含 early return 的 remember 易被 lint 判为
+    // RememberReturnType(Unit)；显式声明 Bitmap? 类型以明确返回值。
+    val bitmap: android.graphics.Bitmap? = remember(content) {
         if (content.isEmpty()) return@remember null
         runCatching {
             val size = 480
