@@ -647,17 +647,33 @@ class SubscribeRepository(
         runCatching {
             val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
                 ?: error("未找到源「$sourceName」的配置")
+
+            // 先取剧集页
+            var html = fetch(episodeUrl, cfg)
             val base = AnimekoScraper.baseOf(episodeUrl)
-            val html = BiliHttpClient.client.get(episodeUrl) {
-                if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
-                if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
-            }.bodyAsText()
-            if (html.isBlank()) error("剧集页返回为空")
-            val v = AnimekoScraper.extractVideoUrl(html, base, cfg.cfg)
-            if (v.isBlank()) error("未提取到视频地址（可能站点改版或有风控）")
-            v
+
+            // 先试本页直链
+            var v = AnimekoScraper.extractVideoUrl(html, base, cfg.cfg)
+            if (v.isNotBlank()) return@runCatching v
+
+            // 本页没有 → nestedUrl 二级跳（60/63 源如此）
+            val nested = AnimekoScraper.extractNestedUrls(html, base, cfg.cfg)
+            for (n in nested.take(3)) {   // 最多跳 3 次，防死循环
+                val nHtml = fetch(n, cfg)
+                v = AnimekoScraper.extractVideoUrl(nHtml, AnimekoScraper.baseOf(n), cfg.cfg)
+                if (v.isNotBlank()) return@runCatching v
+            }
+            error("未提取到视频地址（可能站点改版/风控/需要 JS 渲染）")
         }
     }
+
+    /** 统一 GET：带 UA/Cookie，超时由 BiliHttpClient 保证 */
+    private suspend fun fetch(url: String, cfg: AnimekoScraper.SourceConfig): String =
+        BiliHttpClient.client.get(url) {
+            if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
+            if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
+            if (cfg.cfg.referer.isNotBlank()) header("Referer", cfg.cfg.referer)
+        }.bodyAsText()
 
     fun observeSources(): kotlinx.coroutines.flow.Flow<List<SubscribeSourceEntity>> = dao.observeAll()
 
