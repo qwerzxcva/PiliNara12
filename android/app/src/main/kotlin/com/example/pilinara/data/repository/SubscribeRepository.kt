@@ -436,6 +436,32 @@ object SubscribeParser {
 /**
  * 订阅源仓库：源的增删改查 + 同步（拉取→解析→落库）
  */
+    /**
+     * 按关键词搜索一个 Animeko 数据源（调研后实现）
+     *
+     * 仅对 **rss 类型**的源可用：其 searchConfig.searchUrl 就是标准 RSS
+     * （如 `https://share.dmhy.org/topics/rss/rss.xml?keyword={keyword}`），
+     * 直接取回走 RSS 解析即可得到条目（含磁力/直链）。
+     *
+     * web-selector 类型的源需要 CSS 选择器引擎 + 视频地址提取器，
+     * 本版本**未实现**，直接返回明确失败（不做假结果）。
+     */
+    suspend fun searchAnimekoSource(
+        searchUrl: String,
+        keyword: String,
+        factoryId: String
+    ): Result<ParsedSource> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!factoryId.equals("rss", ignoreCase = true)) {
+                error("该源为网页刮削型（$factoryId），需要 CSS 选择器引擎，当前版本暂不支持自动搜索")
+            }
+            val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
+            val text = BiliHttpClient.client.get(url).bodyAsText()
+            if (text.isBlank()) error("搜索返回为空")
+            parseRss(text)
+        }
+    }
+
 class SubscribeRepository(
     private val dao: SubscribeSourceDao,
     private val itemDao: com.example.pilinara.database.SubscribeItemDao
@@ -536,32 +562,6 @@ class SubscribeRepository(
     /** 观察全部条目（Flow，UI 自动刷新） */
     fun observeItems(): kotlinx.coroutines.flow.Flow<List<SubscribeItemEntity>> =
         itemDao.observeAll()
-
-    /**
-     * 按关键词搜索一个 Animeko 数据源（调研后实现）
-     *
-     * 仅对 **rss 类型**的源可用：其 searchConfig.searchUrl 就是标准 RSS
-     * （如 `https://share.dmhy.org/topics/rss/rss.xml?keyword={keyword}`），
-     * 直接取回走 RSS 解析即可得到可播放条目（磁力/直链）。
-     *
-     * web-selector 类型的源需要 CSS 选择器引擎 + 视频地址提取器，
-     * 本版本**未实现**，直接返回明确失败（不做假结果）。
-     */
-    suspend fun searchAnimekoSource(
-        searchUrl: String,
-        keyword: String,
-        factoryId: String
-    ): Result<ParsedSource> = withContext(Dispatchers.IO) {
-        runCatching {
-            if (!factoryId.equals("rss", ignoreCase = true)) {
-                error("该源为网页刮削型（$factoryId），需要 CSS 选择器引擎，当前版本暂不支持自动搜索")
-            }
-            val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
-            val text = BiliHttpClient.client.get(url).bodyAsText()
-            if (text.isBlank()) error("搜索返回为空")
-            parseRss(text)
-        }
-    }
 
     suspend fun removeSource(id: Long) = withContext(Dispatchers.IO) {
         runCatching {
