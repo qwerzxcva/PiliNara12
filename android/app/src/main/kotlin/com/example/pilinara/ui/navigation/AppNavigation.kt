@@ -236,11 +236,18 @@ fun AppNavigation() {
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->
             val roomId = backStackEntry.arguments?.getString("roomId") ?: ""
-            LiveRoomScreen(roomId = roomId)
+            LiveRoomScreen(
+                roomId = roomId,
+                onBack = { navController.popBackStack() }  // 审核轮202：原空lambda——直播间无法返回
+            )
         }
         composable(Screen.Comment.route) { backStackEntry ->
             val bvid = backStackEntry.arguments?.getString("bvid") ?: ""
-            CommentScreen(bvid = bvid)
+            CommentScreen(
+                bvid = bvid,
+                onBack = { navController.popBackStack() },      // 审核轮202：原空lambda——评论页无法返回
+                onGoLogin = { navController.navigate(Screen.Login.route) }  // 未登录跳登录
+            )
         }
         composable(Screen.Member.route) { backStackEntry ->
             val mid = backStackEntry.arguments?.getString("mid")?.toLongOrNull() ?: 0L

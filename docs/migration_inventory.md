@@ -465,3 +465,11 @@
 ### 验证与提交
 - 构建 `:app:packageDebug` 多轮通过；lint "No issues found."；cargo test 16/16；clippy 0。
 - 提交：4f05eef(105-158) → 7497d35 PUSH_OK → c04cbc1(167-188) → 740e37e(189-190 Rust)。
+
+## r24b 补录（审核轮191-201）
+- **193**：播放页"下一P"按钮（多P时显示，对齐B站）。
+- **194（性能）**：DanmakuView onDraw textSize 反复赋值触发 measure → 变化才赋值；暂停时仍持续绘制（125 遗留：暂停后新弹幕一帧即消失）。
+- **198**：弹幕关键词屏蔽大小写不敏感——Kotlin shouldBlock + Rust dmfilter 双侧对齐（"hhh" 原挡不住 "HHH"）。
+- **200**：直播间人气值 popularity 死数据接通 UI（WS op3 心跳回包实时显示）。
+- **201（真 bug）**：Mine 页 QuickActions"稍后再看"写死空 lambda 点击无响应 → 接 onToViewClick。
+- 提交链：740e37e(189-190) → f6c8e84(200) → ecbeb5c(201)；lint 0/0/0、cargo 16/16 保持。
