@@ -184,3 +184,20 @@ Kotlin 编译器由 JetBrains 官方单一维护，不存在 GCC/Clang 那种带
 - run_scraper_regression（3 组 PASS）
 - run_rss_regression（3 组 PASS）
 - lint gate 单测（7 例）
+
+## Room schema 导出缺口（已知，未修）
+
+现象：copyRoomSchemas 从 Room 2.6.1 时代起一直 NO-SOURCE，
+schemas/ 里只有 2.json，缺 v3 schema。
+
+根因（推断，未验证）：根脚本把 buildDir 重定向到仓库 build/，
+Room 插件的 schema 输出与 schemaDirectory 探测路径对不上，
+KSP 实际未生成 schema 文件。
+
+影响：v2→v3 迁移**无法被 Room 的 AutoMigration 校验**；
+但手写 MIGRATION_2_3 只 CREATE TABLE 不删数据，运行时安全，
+用户数据零丢失。属于「校验链路断」而非「功能坏」。
+
+未修原因：本地无可用 Gradle 环境反复试错，盲改路径可能引入 CI 失败。
+待办：有 Gradle 环境后查 KSP room.schemaLocation 与 room{} 扩展在
+buildDir 重定向下的正确配合，生成并提交 v3 schema。
