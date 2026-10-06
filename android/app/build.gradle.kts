@@ -7,7 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.2.21"
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.21"
     id("com.google.devtools.ksp") version "2.2.21-2.0.5"
-    id("androidx.room") version "2.6.1"
+    id("androidx.room") version "2.8.5"
     kotlin("plugin.serialization") version "2.2.21"
 }
 
@@ -115,9 +115,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
     
     // Room for local storage
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
     implementation("com.google.code.gson:gson:2.10.1")
     
     // Audio service (foreground playback)
