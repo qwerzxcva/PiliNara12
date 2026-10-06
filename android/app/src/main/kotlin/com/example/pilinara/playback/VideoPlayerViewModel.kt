@@ -589,8 +589,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
-    fun setPlaybackSpeed(speed: Float) {
+    /**
+     * 设置播放速度。
+     * @param raw true 时不做档位归一化，允许长按临时 3x 等越界值。
+     */
+    fun setPlaybackSpeed(speed: Float, raw: Boolean = false) {
         val normalizedSpeed = when {
+            raw -> speed.coerceIn(0.25f, 4.0f)
             speed <= 0.5f -> 0.5f
             speed <= 1.0f -> 1.0f
             speed <= 2.0f -> speed
