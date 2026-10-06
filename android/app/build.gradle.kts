@@ -90,6 +90,8 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.1")
     implementation("io.ktor:ktor-client-encoding:3.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    // Animeko 网页刮削源（web-selector）：CSS 选择器引擎
+    implementation("org.jsoup:jsoup:1.18.1")
     
     // Jetpack Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
