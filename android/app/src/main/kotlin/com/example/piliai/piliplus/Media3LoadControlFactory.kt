@@ -37,14 +37,14 @@ internal object Media3LoadControlFactory {
         val policy = resolveMedia3BufferPolicy(targetBufferBytes, bufferDurationMs, isLive)
             ?: return DefaultLoadControl()
         return DefaultLoadControl.Builder()
-            .setBufferDurationsMsForStreaming(
+            .setBufferDurationsMs(
                 policy.minBufferMs,
                 policy.maxBufferMs,
                 policy.bufferForPlaybackMs,
                 policy.bufferForPlaybackAfterRebufferMs,
             )
             .setTargetBufferBytes(policy.targetBufferBytes)
-            .setPrioritizeTimeOverSizeThresholdsForStreaming(true)
+            .setPrioritizeTimeOverSizeThresholds(true)
             .setBackBuffer(policy.backBufferDurationMs, false)
             .build()
     }
