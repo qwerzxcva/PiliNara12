@@ -229,3 +229,20 @@ buildDir 重定向下的正确配合，生成并提交 v3 schema。
 - 本地工作区已用 main tip 刷新（cp 方式，保留 .git）
 - 本地 git 分支仍停在 180b53de1（平行提交），后续推送一律以远端为准
 - 回归脚本路径已更新为 piliai，3+3 PASS
+
+## 功能移植调研完成（子代理双调研）
+
+### 1. 今日推荐算法（587 行 Dart 已完整拆解）
+来源：feature/today-watch-new 分支（已存档 tar 包）
+核心：创作者亲和度(completion×recency 曲线) + 主题偏好 + MMR 多样性(λ 按策略调) 
+       + 3 策略权重(balanced/affinity/explore) + 轻松看/深度学习 modeFit + 负反馈硬过滤
+输入：B 站 history/cursor(80条) + 首页推荐候选 + 本地负反馈(Room 已有 TodayWatchFeedbackDao)
+移植方案：纯函数直译 kotlin.math（~400行）+ Repository 编排 + 首页 Section 入口(MVP)
+验证方式：用 Dart 端相同输入对拍（算法零 Android 依赖，可单测）
+
+### 2. Kototoro UI 要点（已提取）
+- 纯黑 OLED 主题 darkenTheme：黑底 #000 + 浮层 surfaceContainerHighest.darken(0.7) + 主色降亮
+- Hero 轮播 240dp、底部圆角 20dp、100dp 渐变遮罩、胶囊指示器(16×6/6×6)
+- 卡片 12dp 圆角、封面 16:10、间距 8dp、页边距 12dp、去阴影(surface 色阶分层)
+- 语义双值色：vip粉 #FF6699/#D44E7D、链接蓝 #008AC5/#2C9CC8
+- TabBar 42dp 居中无分割线、AppBar 52dp 0 elevation
