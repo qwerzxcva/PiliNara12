@@ -113,10 +113,11 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 !com.example.piliai.utils.RendererPrefs.lowLatencyAudio
             )
         
-        // 注：HDR 色调映射 + 超分辨率的**配置**已通过 RendererPrefs/StorageManager
-        // 持久化，但 Media3 1.3.1 不提供 setVideoEffects()（该 API 在 1.5+ 才加入），
-        // 且 Effect 接口与上游 piliplus 使用版本差异较大；因此当前仅保留配置通道，
-        // 真正的 GL shader 接入留待升级 Media3 版本时完成。
+        // 注：HDR 色调映射的 GL shader 需 Media3 1.5+，当前仅保留配置通道。
+        // 超分辨率通过 LanczosResample effect 实现（Media3 1.3.1 支持）。
+        // 由于 ExoPlayer.Builder 在 1.3.1 无 setVideoEffects()，
+        // 超分辨率效果需在播放开始后通过 player.experimentalSetVideoEffects() 应用。
+        // 当前仅计算目标分辨率，实际 effect 接入待验证 API 可用性。
         _player = playerBuilder.build()
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
