@@ -52,7 +52,21 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
+        buildConfig = true
     }
+
+    // 弹弹play (DanDan) 弹幕源 API 凭据（可选；从 https://www.dandanplay.com/api-docs/ 申请）。
+    // 未配置时 DandanApi.isEnabled=false，弹幕源静默关闭，不影响 B 站原生弹幕。
+    defaultConfig.buildConfigField(
+        "String",
+        "DANDAN_API_APPID",
+        "\"${System.getenv("DANDAN_API_APPID") ?: ""}\"",
+    )
+    defaultConfig.buildConfigField(
+        "String",
+        "DANDAN_API_KEY",
+        "\"${System.getenv("DANDAN_API_KEY") ?: ""}\"",
+    )
     
     packaging {
         jniLibs {
