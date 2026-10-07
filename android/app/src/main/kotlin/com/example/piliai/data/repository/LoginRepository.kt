@@ -5,9 +5,7 @@ import com.example.piliai.database.PiliNaraRepository
 import com.example.piliai.data.model.NavResponse
 import com.example.piliai.data.model.QrGenerateResponse
 import com.example.piliai.data.model.QrPollData
-import com.example.piliai.data.model.QrPollResponse
 import com.example.piliai.data.remote.AccountSession
-import com.example.piliai.data.remote.BiliHttpClient
 import com.example.piliai.data.remote.LoginApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
