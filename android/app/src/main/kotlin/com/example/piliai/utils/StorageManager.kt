@@ -51,6 +51,8 @@ class StorageManager(private val context: Context) {
         private val DANMAKU_SPEED_KEY = floatPreferencesKey("danmakuSpeed")
         private val DANMAKU_SHOW_TOP_KEY = booleanPreferencesKey("danmakuShowTop")
         private val DANMAKU_SHOW_BOTTOM_KEY = booleanPreferencesKey("danmakuShowBottom")
+        private val TODAY_WATCH_MODE_KEY = stringPreferencesKey("todayWatchMode")
+        private val TODAY_WATCH_STRATEGY_KEY = stringPreferencesKey("todayWatchStrategy")
         
         @Volatile
         private var instance: StorageManager? = null
@@ -229,6 +231,22 @@ class StorageManager(private val context: Context) {
 
     suspend fun setDanmakuShowBottom(enabled: Boolean) {
         context.dataStore.edit { preferences -> preferences[DANMAKU_SHOW_BOTTOM_KEY] = enabled }
+    }
+
+    /** 今日推荐模式（relaxed/learn） */
+    val todayWatchModeFlow: Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[TODAY_WATCH_MODE_KEY] ?: "relaxed" }
+
+    suspend fun setTodayWatchMode(mode: String) {
+        context.dataStore.edit { preferences -> preferences[TODAY_WATCH_MODE_KEY] = mode }
+    }
+
+    /** 今日推荐策略（balanced/affinity/explore） */
+    val todayWatchStrategyFlow: Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[TODAY_WATCH_STRATEGY_KEY] ?: "balanced" }
+
+    suspend fun setTodayWatchStrategy(strategy: String) {
+        context.dataStore.edit { preferences -> preferences[TODAY_WATCH_STRATEGY_KEY] = strategy }
     }
 
     suspend fun setSubtitleFontSize(size: Int) {
