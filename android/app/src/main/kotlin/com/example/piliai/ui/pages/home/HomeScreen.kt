@@ -278,9 +278,9 @@ fun HomeScreen(
  */
 @Composable
 private fun HeroCarousel(
+    modifier: Modifier = Modifier,
     items: List<com.example.piliai.data.model.TopRcmdItem>,
     onItemClick: (com.example.piliai.data.model.TopRcmdItem) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val pagerState = rememberPagerState(pageCount = { items.size })
     Column(modifier = modifier.fillMaxWidth()) {
