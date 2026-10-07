@@ -1,6 +1,8 @@
 package com.example.piliai.ui.pages.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.background
@@ -16,8 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items as rowItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayCircleOutline
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
@@ -39,17 +41,22 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -97,44 +104,76 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             // Kototoro 打磨：品牌渐变顶栏
-            Box(
-                Modifier.fillMaxWidth()
-                    .background(com.example.piliai.ui.theme.PiliGradients.bilibili)
-                    .statusBarsPadding()
+            // Kototoro 风格顶栏：去掉粉蓝渐变与彩虹图标色，改用主题 surface +
+            // 单一 onSurface 图标色；次要入口收进溢出菜单，主操作只留搜索。
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth().statusBarsPadding(),
             ) {
                 TopAppBar(
-                    title = { Text("PiliAI", color = androidx.compose.ui.graphics.Color.White) },
+                    title = {
+                        Text(
+                            "PiliAI",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
                     actions = {
                         IconButton(onClick = onSearchClick) {
-                            Icon(Icons.Filled.Search, contentDescription = "搜索",
-                                tint = androidx.compose.ui.graphics.Color.White)
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = "搜索",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
                         }
-                        IconButton(onClick = onRankClick) {
-                            Icon(Icons.Filled.EmojiEvents, contentDescription = "排行榜",
-                                tint = androidx.compose.ui.graphics.Color(0xFFFFD54F))
-                        }
-                        IconButton(onClick = onHotMoreClick) {
-                            Icon(Icons.Filled.Whatshot, contentDescription = "热门精选",
-                                tint = androidx.compose.ui.graphics.Color(0xFFFF7043))
-                        }
-                        // 审核23+批次L32：分区/番剧入口
-                        IconButton(onClick = onZoneClick) {
-                            Icon(Icons.Filled.Apps, contentDescription = "分区浏览",
-                                tint = androidx.compose.ui.graphics.Color.White)
-                        }
-                        IconButton(onClick = onBangumiClick) {
-                            Icon(Icons.Filled.Movie, contentDescription = "番剧",
-                                tint = androidx.compose.ui.graphics.Color(0xFFB39DDB))
-                        }
-                        // 审核：恢复 Story（竖屏沉浸式推荐流）入口，修复远端 navigation
-                        // 传 onStoryClick 但 HomeScreen 无此参数导致的编译失败。
-                        IconButton(onClick = onStoryClick) {
-                            Icon(Icons.Filled.PlayCircleOutline, contentDescription = "推荐流",
-                                tint = androidx.compose.ui.graphics.Color.White)
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = "更多",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("排行榜") },
+                                    leadingIcon = { Icon(Icons.Filled.EmojiEvents, null) },
+                                    onClick = { menuExpanded = false; onRankClick() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("热门精选") },
+                                    leadingIcon = { Icon(Icons.Filled.Whatshot, null) },
+                                    onClick = { menuExpanded = false; onHotMoreClick() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("分区浏览") },
+                                    leadingIcon = { Icon(Icons.Filled.Apps, null) },
+                                    onClick = { menuExpanded = false; onZoneClick() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("番剧") },
+                                    leadingIcon = { Icon(Icons.Filled.Movie, null) },
+                                    onClick = { menuExpanded = false; onBangumiClick() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("推荐流") },
+                                    leadingIcon = { Icon(Icons.Filled.PlayCircleOutline, null) },
+                                    onClick = { menuExpanded = false; onStoryClick() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("今日推荐") },
+                                    leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
+                                    onClick = { menuExpanded = false; onTodayWatchClick() },
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent
+                        containerColor = Color.Transparent
                     ),
                 )
             }
@@ -160,18 +199,15 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        // 顶部大卡轮播（批次L29）
+                        // 顶部 Hero 轮播（Kototoro 风格：240dp 高、底部 20dp 圆角、
+                        // 100dp 渐变遮罩、胶囊指示器）
                         if (topRcmd.isNotEmpty()) {
                             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                                LazyRow(
-                                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    rowItems(topRcmd, key = { "top${it.bvid}" }) { t ->
-                                        TopRcmdCard(t) { onVideoClick(t.bvid, t.cid) }
-                                    }
-                                }
+                                HeroCarousel(
+                                    items = topRcmd,
+                                    onItemClick = { onVideoClick(it.bvid, it.cid) },
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
                             }
                         }
                         // 今日推荐 Section（全宽，成功才显示）
@@ -216,34 +252,100 @@ fun HomeScreen(
 }
 
 @Composable
-private fun TopRcmdCard(item: com.example.piliai.data.model.TopRcmdItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.width(260.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp)
-    ) {
-        Box {
-            AsyncImage(
-                model = item.pic.ifBlank { item.cover }.toHttpsUrl(),
-                contentDescription = item.title,
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-                contentScale = ContentScale.Crop,
-            )
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+/**
+ * Kototoro 风格 Hero 轮播：
+ * - 高度 240dp、底部圆角 20dp
+ * - 100dp 渐变遮罩保证标题可读
+ * - 胶囊指示器（选中 16×6，未选中 6×6）
+ */
+@Composable
+private fun HeroCarousel(
+    items: List<com.example.piliai.data.model.TopRcmdItem>,
+    onItemClick: (com.example.piliai.data.model.TopRcmdItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagerState = rememberPagerState(pageCount = { items.size })
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth().height(240.dp),
+            pageSpacing = 0.dp,
+        ) { page ->
+            val item = items[page]
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onItemClick(item) }
+            ) {
+                AsyncImage(
+                    model = item.pic.ifBlank { item.cover }.toHttpsUrl(),
+                    contentDescription = item.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                // 100dp 渐变遮罩（底部）
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f))
+                            )
                         )
+                )
+                Column(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = item.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    .padding(8.dp),
-            )
+                    val upName = item.owner?.name ?: item.name
+                    if (upName.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = upName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.82f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+        // 胶囊指示器
+        if (items.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(items.size) { i ->
+                    val selected = pagerState.currentPage == i
+                    Box(
+                        Modifier
+                            .padding(horizontal = 3.dp)
+                            .width(if (selected) 16.dp else 6.dp)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                            )
+                    )
+                }
+            }
         }
     }
 }
