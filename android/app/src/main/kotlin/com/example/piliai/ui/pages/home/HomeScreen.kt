@@ -251,7 +251,6 @@ fun HomeScreen(
     }
 }
 
-@Composable
 /**
  * Kototoro 风格 Hero 轮播：
  * - 高度 240dp、底部圆角 20dp
