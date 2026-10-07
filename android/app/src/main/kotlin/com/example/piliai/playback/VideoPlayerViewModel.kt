@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
@@ -75,7 +76,9 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val onlineCount: Long = 0L,
         // Kazumi 特性：低延迟音频 + 视频渲染器（0=SurfaceView 1=TextureView）
         val lowLatencyAudio: Boolean = false,
-        val renderer: Int = 0
+        val renderer: Int = 0,
+        // 弹幕源：是否启用 DanDan（弹弹play）弹幕作为补充源
+        val danmakuDandanEnabled: Boolean = false
     )
     
     data class DanmakuEvent(
@@ -298,6 +301,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         this.currentBvid = "ep$epId"
         // 番剧弹幕需要 cid
         loadDanmakuFor(cid)
+        // 弹弹play 弹幕补充源（启用时按番剧标题拉取，静默降级）
+        val danmakuTitle = pages.getOrNull(currentPartIndex)?.part ?: ep.title
+        val dandanToggle = com.example.piliai.utils.StorageManager(appContext)
+        kotlinx.coroutines.launch {
+            val enabled = dandanToggle.dandanDanmakuFlow.first()
+            if (enabled) loadDandanDanmaku(danmakuTitle)
+        }
 
         val (resp, video, audio) = repo.getPgcPlayUrl(epId, cid, qn = currentQn)
             .getOrElse { setError("番剧 playurl 失败: ${it.message}"); return }
@@ -368,6 +378,39 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             if (mergedEvents != null) list.map { e -> e.copy(uid = uidByTs[e.timestamp] ?: 0L) } else list
         }
         withUid?.let { addDanmakuEvents(it) }
+    }
+
+    /**
+     * 弹弹play (DanDan) 弹幕补充源（移植自 piliplus）。
+     * 按视频标题搜索 DanDan 番剧，取第一集弹幕作为 B 站弹幕的补充。
+     * 仅在启用 + 配置了 API 凭据时生效；未命中静默降级（不影响 B 站弹幕）。
+     */
+    private suspend fun loadDandanDanmaku(title: String) {
+        if (title.isBlank()) return
+        if (!com.example.piliai.danmaku.DandanApi.isEnabled) return
+        val events = withContext(Dispatchers.Default) {
+            runCatching {
+                val animes = com.example.piliai.danmaku.DandanApi.searchAnime(title)
+                val target = animes.firstOrNull() ?: return@runCatching emptyList<com.example.piliai.data.model.ParsedDanmaku>()
+                // 取第一集（episode 1）弹幕；DanDan episodeId = animeId + 4 位零填充集数
+                val episodeId = target.animeId * 10000 + 1
+                val comments = com.example.piliai.danmaku.DandanApi.getComments(episodeId)
+                comments.map { it.toParsedDanmaku() }
+            }.getOrDefault(emptyList())
+        }
+        if (events.isNotEmpty()) {
+            val danmakuEvents = events.map { p ->
+                DanmakuEvent(
+                    id = "dandan",
+                    timestamp = (p.timestamp * 1000).toLong(),
+                    content = p.content,
+                    color = p.color or 0xFF000000.toInt(),
+                    fontSize = p.fontSize,
+                    mode = p.mode,
+                )
+            }
+            addDanmakuEvents(danmakuEvents)
+        }
     }
 
     // ==================== 字幕（批次K） ====================
