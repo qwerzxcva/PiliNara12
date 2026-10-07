@@ -88,11 +88,12 @@ fun MineScreen(
     ) { padding ->
         when {
             nav != null -> {
+                val navData = nav ?: return@Scaffold
                 UserContent(
                     modifier = Modifier.padding(padding),
-                    nav = nav,
+                    nav = navData,
                     onHistoryClick = onHistoryClick,
-                    onFavoritesClick = { onFavoritesClick(nav.mid) },
+                    onFavoritesClick = { onFavoritesClick(navData.mid) },
                     onToViewClick = onToViewClick,
                     onBangumiClick = onBangumiClick,
                     onDownloadsClick = onDownloadsClick,
