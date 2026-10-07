@@ -178,9 +178,9 @@ fun <T> KototoroHorizontalCardList(
 @Composable
 fun KototoroSectionHeader(
     title: String,
+    modifier: Modifier = Modifier,
     subtitle: String? = null,
     onSeeAllClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier

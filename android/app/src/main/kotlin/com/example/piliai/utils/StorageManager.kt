@@ -59,6 +59,10 @@ class StorageManager(private val context: Context) {
         private val TODAY_WATCH_STRATEGY_KEY = stringPreferencesKey("todayWatchStrategy")
         private val BUFFER_DURATION_KEY = intPreferencesKey("bufferDurationMs")
         private val DANDAN_DANMAKU_KEY = booleanPreferencesKey("dandanDanmakuEnabled")
+        // 审核216：第一批 Flutter 高频设置项（PiliPlus enableAutoEnter/pauseOnMinimize/enableOnlineTotal）
+        private val AUTO_ENTER_KEY = booleanPreferencesKey("enableAutoEnter")
+        private val PAUSE_ON_MINIMIZE_KEY = booleanPreferencesKey("pauseOnMinimize")
+        private val ONLINE_TOTAL_KEY = booleanPreferencesKey("enableOnlineTotal")
         
         // HDR 色调映射设置
         private val HDR_ENABLED_KEY = booleanPreferencesKey("hdrToneMappingEnabled")
@@ -287,6 +291,33 @@ class StorageManager(private val context: Context) {
     }
     suspend fun setBufferDuration(ms: Int) {
         context.dataStore.edit { preferences -> preferences[BUFFER_DURATION_KEY] = ms }
+    }
+
+    // 审核216：自动全屏（进入播放页即全屏，PiliPlus enableAutoEnter）
+    val autoEnterFullscreenFlow: Flow<Boolean> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[AUTO_ENTER_KEY] ?: false }
+
+    suspend fun setAutoEnterFullscreen(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_ENTER_KEY] = enabled }
+    }
+
+    // 审核216：切后台自动暂停（PiliPlus pauseOnMinimize）
+    val pauseOnMinimizeFlow: Flow<Boolean> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[PAUSE_ON_MINIMIZE_KEY] ?: false }
+
+    suspend fun setPauseOnMinimize(enabled: Boolean) {
+        context.dataStore.edit { it[PAUSE_ON_MINIMIZE_KEY] = enabled }
+    }
+
+    // 审核216：显示实时在线人数（PiliPlus enableOnlineTotal；loadOnlineCount 已有数据源）
+    val showOnlineTotalFlow: Flow<Boolean> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[ONLINE_TOTAL_KEY] ?: true }
+
+    suspend fun setShowOnlineTotal(enabled: Boolean) {
+        context.dataStore.edit { it[ONLINE_TOTAL_KEY] = enabled }
     }
 
     /**

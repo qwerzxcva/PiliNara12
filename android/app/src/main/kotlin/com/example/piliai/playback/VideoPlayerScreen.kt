@@ -130,7 +130,8 @@ fun VideoPlayerScreen(
             val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
                 when (event) {
                     androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
-                        viewModel.pause()
+                        // 审核216：pauseOnMinimize 设置控制（默认关——Flutter 版行为对齐）
+                        viewModel.onAppBackground()
                     }
                     else -> {}
                 }
@@ -744,8 +745,12 @@ fun VideoPlayerScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    // 批次L40：实时在线人数
-                    if (state.onlineCount > 0L) {
+                    // 批次L40：实时在线人数（审核216：受设置 enableOnlineTotal 控制）
+                    val showOnline by androidx.compose.runtime.produceState(initialValue = true) {
+                        com.example.piliai.utils.StorageManager.getInstance(com.example.piliai.AppContext.get())
+                            .showOnlineTotalFlow.collect { value = it }
+                    }
+                    if (state.onlineCount > 0L && showOnline) {
                         Spacer(Modifier.height(2.dp))
                         Text(
                             "👁 ${state.onlineCount} 人正在看",

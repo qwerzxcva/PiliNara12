@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -65,11 +66,12 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
+        // 审核216：设置分类子页——LazyListScope 局部扩展函数（捕获 state/viewModel），
+        // Tab 切换按分类组合段落（PiliPlus 七分类思路的轻量落地，避免 DSL receiver 断裂）
+        var category by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        val categories = listOf("全部", "播放", "弹幕", "外观", "关于")
+
+        fun LazyListScope.playSection() {
             // ===== 播放设置 =====
             item { SectionTitle("播放设置") }
 
@@ -146,7 +148,38 @@ fun SettingsScreen(
                     onClick = { showQualityDialog = true }
                 )
             }
-
+            item {
+                // 审核216：PiliPlus enableAutoEnter
+                SettingSwitch(
+                    title = "自动进入全屏",
+                    subtitle = "进入播放页即全屏播放",
+                    icon = Icons.Default.Fullscreen,
+                    checked = state.autoEnterFullscreen,
+                    onChange = { viewModel.setAutoEnterFullscreen(it) }
+                )
+            }
+            item {
+                // 审核216：PiliPlus pauseOnMinimize
+                SettingSwitch(
+                    title = "切后台自动暂停",
+                    subtitle = "应用退到后台时暂停播放",
+                    icon = Icons.Default.Pause,
+                    checked = state.pauseOnMinimize,
+                    onChange = { viewModel.setPauseOnMinimize(it) }
+                )
+            }
+            item {
+                // 审核216：PiliPlus enableOnlineTotal
+                SettingSwitch(
+                    title = "显示在线人数",
+                    subtitle = "播放页展示实时在线观众数",
+                    icon = Icons.Default.Groups,
+                    checked = state.showOnlineTotal,
+                    onChange = { viewModel.setShowOnlineTotal(it) }
+                )
+            }
+        }
+        fun LazyListScope.dmSection() {
             // ===== 弹幕设置 =====
             item { SectionTitle("弹幕设置") }
 
@@ -218,7 +251,8 @@ fun SettingsScreen(
                     BlacklistDialog(onDismiss = { showBlacklist = false })
                 }
             }
-
+        }
+        fun LazyListScope.styleSection() {
             // ===== 主题 =====
             item { SectionTitle("外观") }
 
@@ -247,7 +281,8 @@ fun SettingsScreen(
                     onChange = { viewModel.setAmoled(it) }
                 )
             }
-
+        }
+        fun LazyListScope.aboutSection() {
             // ===== 关于 =====
             item { SectionTitle("关于") }
             item {
@@ -259,6 +294,37 @@ fun SettingsScreen(
                 )
             }
             item { Spacer(Modifier.height(24.dp)) }
+        }
+
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            TabRow(
+                selectedTabIndex = category,
+                containerColor = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                categories.forEachIndexed { i, label ->
+                    Tab(
+                        selected = category == i,
+                        onClick = { category = i },
+                        text = { Text(label) },
+                    )
+                }
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                when (category) {
+                    1 -> playSection()
+                    2 -> dmSection()
+                    3 -> styleSection()
+                    4 -> aboutSection()
+                    else -> {
+                        playSection(); dmSection(); styleSection(); aboutSection()
+                    }
+                }
+            }
         }
     }
 

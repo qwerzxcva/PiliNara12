@@ -657,6 +657,26 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         )
     }
 
+    /** 审核216：pauseOnMinimize——Screen 的 ON_PAUSE/ON_RESUME 回调 */
+    fun onAppBackground() {
+        viewModelScope.launch {
+            val pause = runCatching {
+                com.example.piliai.utils.StorageManager.getInstance(appContext)
+                    .pauseOnMinimizeFlow.first()
+            }.getOrDefault(false)
+            if (pause && _player?.isPlaying == true) {
+                _player?.pause()
+                _state.value = _state.value.copy(isPlaying = false)
+            }
+        }
+    }
+
+    /** 审核216：enableAutoEnter——首次加载完成自动进入全屏，由 Screen 观察 state 触发 */
+    suspend fun shouldAutoEnterFullscreen(): Boolean = runCatching {
+        com.example.piliai.utils.StorageManager.getInstance(appContext)
+            .autoEnterFullscreenFlow.first()
+    }.getOrDefault(false)
+
     fun play() {
         viewModelScope.launch {
             _player?.play()

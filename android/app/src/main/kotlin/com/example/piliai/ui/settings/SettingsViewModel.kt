@@ -45,10 +45,23 @@ class SettingsViewModel(context: Context) : ViewModel() {
         // 主题
         val themeMode: String = "system",     // system/light/dark
         val accentColor: String = "",         // 十六进制，空=默认绿
-        val amoled: Boolean = false           // AMOLED 纯黑（仅暗色生效）
+        val amoled: Boolean = false,          // AMOLED 纯黑（仅暗色生效）
+        // 审核216：第一批 Flutter 高频设置项
+        val autoEnterFullscreen: Boolean = false,  // 进入播放页自动全屏
+        val pauseOnMinimize: Boolean = false,      // 切后台自动暂停
+        val showOnlineTotal: Boolean = true        // 显示实时在线人数
     )
 
     init {
+        viewModelScope.launch {
+            storage.autoEnterFullscreenFlow.collect { _state.value = _state.value.copy(autoEnterFullscreen = it) }
+        }
+        viewModelScope.launch {
+            storage.pauseOnMinimizeFlow.collect { _state.value = _state.value.copy(pauseOnMinimize = it) }
+        }
+        viewModelScope.launch {
+            storage.showOnlineTotalFlow.collect { _state.value = _state.value.copy(showOnlineTotal = it) }
+        }
         viewModelScope.launch {
             storage.autoPlayFlow.collect { _state.value = _state.value.copy(autoPlay = it) }
         }
@@ -154,4 +167,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
     }
     /** 弹弹play 弹幕源开关（配置了凭据后在番剧页生效） */
     fun setDandanDanmakuEnabled(v: Boolean) = viewModelScope.launch { storage.setDandanDanmaku(v) }
+
+    // 审核216：第一批 Flutter 高频设置项
+    fun setAutoEnterFullscreen(v: Boolean) = viewModelScope.launch { storage.setAutoEnterFullscreen(v) }
+    fun setPauseOnMinimize(v: Boolean) = viewModelScope.launch { storage.setPauseOnMinimize(v) }
+    fun setShowOnlineTotal(v: Boolean) = viewModelScope.launch { storage.setShowOnlineTotal(v) }
 }
