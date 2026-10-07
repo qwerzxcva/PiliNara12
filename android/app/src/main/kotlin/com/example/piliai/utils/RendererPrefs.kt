@@ -27,6 +27,14 @@ object RendererPrefs {
     var lowLatencyAudio: Boolean = false
         private set
 
+    /**
+     * VOD 缓冲时长（毫秒），供 ExoPlayer.Builder 的 LoadControl 读取。
+     * 移植自 piliplus 缓冲策略；默认 16s（上游 DEFAULT_BUFFER_DURATION_MS）。
+     */
+    @Volatile
+    var bufferDurationMs: Int = 16_000
+        private set
+
     private var inited = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -45,6 +53,11 @@ object RendererPrefs {
                 lowLatencyAudio = v
             }
         }
+        scope.launch {
+            storage.bufferDurationFlow.collectLatest { v ->
+                bufferDurationMs = v
+            }
+        }
     }
 
     /** 设置变更时同步更新缓存（下次创建 PlayerView 生效） */
@@ -55,5 +68,10 @@ object RendererPrefs {
     /** 更新低延迟音频缓存 */
     fun updateLowLatency(v: Boolean) {
         lowLatencyAudio = v
+    }
+
+    /** 更新缓冲时长缓存（下次进入播放器生效） */
+    fun updateBufferDuration(ms: Int) {
+        bufferDurationMs = ms
     }
 }
