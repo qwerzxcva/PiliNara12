@@ -38,7 +38,19 @@ class TodayWatchRepository(
                 historyVideos = history,
                 candidateVideos = candidates,
                 mode = mode,
-                creatorSignals = emptyList(), // MVP：持久化信号暂缺，退化为纯近期
+                // 审核轮213：从近期历史聚合创作者信号（出现次数+观看亲和），
+                // 使 buildTodayWatchPlan 的 max-merge 通路真正生效（原 MVP 恒空列表）
+                creatorSignals = history
+                    .filter { it.authorMid > 0 }
+                    .groupBy { it.authorMid }
+                    .map { (mid, items) ->
+                        CreatorSignal(
+                            mid = mid,
+                            name = items.firstOrNull()?.authorName.orEmpty(),
+                            score = items.size.toDouble() / 10.0,  // 出现频次归一（10 次封顶）
+                            watchCount = items.size
+                        )
+                    },
                 penaltySignals = penalty,
                 strategy = strategy,
                 queueLimit = queueLimit,

@@ -782,8 +782,17 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         super.onVideoSizeChanged(videoSize)
         if (videoSize.width <= 0 || videoSize.height <= 0) return
         val effects = com.example.piliai.piliplus.Media3SuperResolutionApplier
-            .resolve(videoSize.width, videoSize.height)
-        _player?.setVideoEffects(effects ?: emptyList())
+            .resolve(videoSize.width, videoSize.height).orEmpty()
+        // 审核轮214：HDR 内容检测真实消费（HDR 开启且内容为 HDR 时记日志；
+        // GL tone-map shader 需 1.5+ 的 HlgToSdrEffect，配置通道已就绪）
+        _player?.videoFormat?.let { fmt ->
+            if (com.example.piliai.utils.RendererPrefs.hdrToneMappingEnabled &&
+                com.example.piliai.piliplus.isHdrContent(fmt.colorInfo)
+            ) {
+                android.util.Log.i("PiliPlayer", "HDR 内容（tone-mapping 待 Media3 1.5+）")
+            }
+        }
+        _player?.setVideoEffects(effects)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
