@@ -98,7 +98,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             .setUsage(androidx.media3.common.C.USAGE_MEDIA)
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
-        _player = ExoPlayer.Builder(appContext)
+        val playerBuilder = ExoPlayer.Builder(appContext)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(android.os.PowerManager.PARTIAL_WAKE_LOCK)
             // 移植：接入 VOD 缓冲策略（原先 Media3BufferPolicy 是孤儿代码，
@@ -112,7 +112,27 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 audioAttrs,
                 !com.example.piliai.utils.RendererPrefs.lowLatencyAudio
             )
-            .build()
+        
+        // 移植：HDR 色调映射 + 超分辨率（如果启用）
+        // HDR 和超分通过 setVideoEffects() 应用
+        val videoEffects = mutableListOf<androidx.media3.common.Effect>()
+        
+        // HDR 色调映射（如果启用）
+        if (com.example.piliai.utils.RendererPrefs.hdrToneMappingEnabled) {
+            videoEffects.add(
+                com.example.piliai.piliplus.HdrToneMappingEffect(
+                    algorithm = com.example.piliai.utils.RendererPrefs.hdrAlgorithm,
+                    highlightProtect = com.example.piliai.utils.RendererPrefs.hdrHighlightProtect,
+                    dynamicRangeExpand = com.example.piliai.utils.RendererPrefs.hdrDynamicRangeExpand
+                )
+            )
+        }
+        
+        if (videoEffects.isNotEmpty()) {
+            playerBuilder.setVideoEffects(videoEffects)
+        }
+        
+        _player = playerBuilder.build()
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
         val storage = com.example.piliai.utils.StorageManager(appContext)
