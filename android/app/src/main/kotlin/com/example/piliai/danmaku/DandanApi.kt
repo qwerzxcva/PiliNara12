@@ -66,11 +66,11 @@ object DandanApi {
             .addHeader("X-Signature", sig)
             .build()
         return try {
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return null
-                val body = resp.body?.string() ?: return null
-                com.google.gson.Gson().fromJson(body, Map::class.java) as? Map<String, Any>
-            }
+            val resp = client.newCall(req).execute()
+            if (!resp.isSuccessful) return null
+            val body = resp.body?.string() ?: return null
+            resp.body?.close()
+            com.google.gson.Gson().fromJson(body, Map::class.java) as? Map<String, Any>
         } catch (e: Exception) {
             null
         }
@@ -81,37 +81,31 @@ object DandanApi {
     /** 搜索番剧（按标题） */
     suspend fun searchAnime(title: String): List<DandanAnime> =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                val data = get(SEARCH_EPISODES_PATH, mapOf("anime" to title, "v2" to "true"))
-                    ?: return emptyList()
-                val animesJson = data["animes"] as? List<*> ?: return emptyList()
-                animesJson.mapNotNull { it as? Map<*, *> }
-                    .map { map ->
-                        DandanAnime(
-                            animeId = (map["animeId"] as? Number)?.toInt() ?: 0,
-                            animeTitle = (map["animeTitle"] as? String)?.orEmpty() ?: "",
-                            typeDescription = (map["typeDescription"] as? String)?.orEmpty() ?: "",
-                        )
-                    }
-            }.getOrDefault(emptyList())
+            val data = get(SEARCH_EPISODES_PATH, mapOf("anime" to title, "v2" to "true"))
+            val animesJson = data?.get("animes") as? List<*>
+            animesJson.orEmpty().mapNotNull { it as? Map<*, *> }
+                .map { map ->
+                    DandanAnime(
+                        animeId = (map["animeId"] as? Number)?.toInt() ?: 0,
+                        animeTitle = (map["animeTitle"] as? String) ?: "",
+                        typeDescription = (map["typeDescription"] as? String) ?: "",
+                    )
+                }
         }
 
     /** 通过 bangumiId 获取集数列表 */
     suspend fun getEpisodes(bangumiId: Int): List<DandanEpisode> =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                val data = get("$BANGUMI_INFO_PATH$bangumiId")
-                    ?: return emptyList()
-                val bangumi = data["bangumi"] as? Map<*, *> ?: return emptyList()
-                val episodesJson = bangumi["episodes"] as? List<*> ?: return emptyList()
-                episodesJson.mapNotNull { it as? Map<*, *> }
-                    .map { map ->
-                        DandanEpisode(
-                            episodeId = (map["episodeId"] as? Number)?.toInt() ?: 0,
-                            episodeTitle = (map["episodeTitle"] as? String)?.orEmpty() ?: "",
-                        )
-                    }
-            }.getOrDefault(emptyList())
+            val data = get("$BANGUMI_INFO_PATH$bangumiId")
+            val bangumi = data?.get("bangumi") as? Map<*, *>
+            val episodesJson = bangumi?.get("episodes") as? List<*>
+            episodesJson.orEmpty().mapNotNull { it as? Map<*, *> }
+                .map { map ->
+                    DandanEpisode(
+                        episodeId = (map["episodeId"] as? Number)?.toInt() ?: 0,
+                        episodeTitle = (map["episodeTitle"] as? String) ?: "",
+                    )
+                }
         }
 
     /**
@@ -121,22 +115,19 @@ object DandanApi {
      */
     suspend fun getComments(episodeId: Int): List<DandanComment> =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                val data = get("$COMMENT_PATH$episodeId", mapOf("withRelated" to "true", "chConvert" to "0"))
-                    ?: return emptyList()
-                val commentsJson = data["comments"] as? List<*> ?: return emptyList()
-                commentsJson.mapNotNull { it as? Map<*, *> }
-                    .map { map ->
-                        val parts = ((map["p"] as? String) ?: "").split(",")
-                        DandanComment(
-                            time = parts.getOrNull(0)?.toDoubleOrNull() ?: 0.0,
-                            type = parts.getOrNull(1)?.toIntOrNull() ?: 1,
-                            color = parts.getOrNull(2)?.toIntOrNull() ?: 0x756ABE,
-                            source = parts.getOrNull(3) ?: "DanDan",
-                            message = (map["m"] as? String) ?: "",
-                        )
-                    }
-            }.getOrDefault(emptyList())
+            val data = get("$COMMENT_PATH$episodeId", mapOf("withRelated" to "true", "chConvert" to "0"))
+            val commentsJson = data?.get("comments") as? List<*>
+            commentsJson.orEmpty().mapNotNull { it as? Map<*, *> }
+                .map { map ->
+                    val parts = ((map["p"] as? String) ?: "").split(",")
+                    DandanComment(
+                        time = parts.getOrNull(0)?.toDoubleOrNull() ?: 0.0,
+                        type = parts.getOrNull(1)?.toIntOrNull() ?: 1,
+                        color = parts.getOrNull(2)?.toIntOrNull() ?: 0x756ABE,
+                        source = parts.getOrNull(3) ?: "DanDan",
+                        message = (map["m"] as? String) ?: "",
+                    )
+                }
         }
 
     /**
@@ -148,12 +139,10 @@ object DandanApi {
      */
     suspend fun getCommentsByBgmId(bgmId: Int, episode: Int): List<DandanComment> =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                // DanDan 的 episodeId 约定：bangumiId + 4 位零填充集数
-                val episodeIdStr = "${bgmId}${episode.toString().padStart(4, '0')}"
-                val episodeId = episodeIdStr.toIntOrNull() ?: return emptyList()
-                getComments(episodeId)
-            }.getOrDefault(emptyList())
+            // DanDan 的 episodeId 约定：bangumiId + 4 位零填充集数
+            val episodeIdStr = "${bgmId}${episode.toString().padStart(4, '0')}"
+            val episodeId = episodeIdStr.toIntOrNull()
+            if (episodeId == null) emptyList() else getComments(episodeId)
         }
 
     // ==================== 内部工具 ====================
