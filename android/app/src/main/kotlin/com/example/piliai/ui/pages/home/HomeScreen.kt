@@ -39,7 +39,7 @@ import com.example.piliai.utils.toHttpsUrl
  *
  * 设计规范来源：/tmp/src/kototoro-ui（Material You + 大圆角卡片）。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
@@ -125,7 +125,7 @@ fun HomeScreen(
                             }
                             item {
                                 KototoroHorizontalCardList(
-                                    items = tw.plan.videos,
+                                    items = tw.plan.videoQueue,
                                 ) { video ->
                                     KototoroVideoCard(
                                         title = video.title,
