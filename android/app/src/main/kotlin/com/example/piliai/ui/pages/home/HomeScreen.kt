@@ -76,6 +76,11 @@ fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
 
+    // 今日推荐：进入首页后异步加载，不阻塞首屏
+    val todayWatchViewModel: com.example.piliai.todaywatch.TodayWatchViewModel = viewModel()
+    val todayWatchState by todayWatchViewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { todayWatchViewModel.loadIfNeeded() }
+
     // 触底自动加载下一页
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -97,7 +102,7 @@ fun HomeScreen(
                     .statusBarsPadding()
             ) {
                 TopAppBar(
-                    title = { Text("PiliNara", color = androidx.compose.ui.graphics.Color.White) },
+                    title = { Text("PiliAI", color = androidx.compose.ui.graphics.Color.White) },
                     actions = {
                         IconButton(onClick = onSearchClick) {
                             Icon(Icons.Filled.Search, contentDescription = "搜索",
@@ -166,6 +171,17 @@ fun HomeScreen(
                                         TopRcmdCard(t) { onVideoClick(t.bvid, t.cid) }
                                     }
                                 }
+                            }
+                        }
+                        // 今日推荐 Section（全宽，成功才显示）
+                        val tw = todayWatchState
+                        if (tw is com.example.piliai.todaywatch.TodayWatchViewModel.UiState.Success) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                com.example.piliai.todaywatch.TodayWatchSection(
+                                    plan = tw.plan,
+                                    onVideoClick = { bvid -> onVideoClick(bvid, 0L) },
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
                             }
                         }
                         items(s.items, key = { it.bvid }) { card ->
