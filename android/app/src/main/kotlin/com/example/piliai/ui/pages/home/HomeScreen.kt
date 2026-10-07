@@ -180,6 +180,7 @@ fun HomeScreen(
                                 com.example.piliai.todaywatch.TodayWatchSection(
                                     plan = tw.plan,
                                     onVideoClick = { bvid -> onVideoClick(bvid, 0L) },
+                                    onDislike = { v -> todayWatchViewModel.dislike(v.bvid, v.ownerMid) },
                                     modifier = Modifier.padding(vertical = 4.dp),
                                 )
                             }
