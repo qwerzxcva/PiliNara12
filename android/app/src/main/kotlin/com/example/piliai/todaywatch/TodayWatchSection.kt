@@ -1,6 +1,7 @@
 package com.example.piliai.todaywatch
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,7 +52,8 @@ import com.example.piliai.utils.toHttpsUrl
 fun TodayWatchSection(
     plan: TodayWatchPlan,
     onVideoClick: (bvid: String) -> Unit,
-    onDislike: (video: RcmdCandidate) -> Unit,
+    onSeeAll: () -> Unit = {},
+    onDislike: (video: RcmdCandidate) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -70,6 +72,13 @@ fun TodayWatchSection(
                 text = if (plan.mode == TodayWatchMode.RELAX) "轻松看" else "深度学习",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "查看全部",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(onClick = onSeeAll),
             )
         }
 
