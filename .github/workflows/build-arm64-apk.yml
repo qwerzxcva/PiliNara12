@@ -2,9 +2,9 @@ name: Build ARM64 APK (Kotlin + Rust)
 
 on:
   push:
-    branches: [feat/arm64-rust-build]
+    branches: [main]
   pull_request:
-    branches: [feat/arm64-rust-build]
+    branches: [main]
   workflow_dispatch:
 
 env:
