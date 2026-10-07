@@ -621,11 +621,13 @@ private fun BlacklistDialog(onDismiss: () -> Unit) {
         com.example.piliai.data.remote.BiliApiClient().getBlacklist(page)
             .onSuccess { resp ->
                 if (resp.optInt("code") == 0) {
-                    val list = resp.optJSONObject("data")?.optJSONArray("list")
-                    total = resp.optJSONObject("data")?.optInt("total") ?: 0
-                    items = if (page == 1) {
-                        (0 until (list?.length() ?: 0)).map { list!!.getJSONObject(it) }
-                    } else items + (0 until (list?.length() ?: 0)).map { list!!.getJSONObject(it) }
+                    // 审核轮211：消除 !!（val 捕获后智能转换）
+                    val data = resp.optJSONObject("data")
+                    val list = data?.optJSONArray("list")
+                    total = data?.optInt("total") ?: 0
+                    val safeList = list ?: org.json.JSONArray()
+                    val fresh = (0 until safeList.length()).map { safeList.getJSONObject(it) }
+                    items = if (page == 1) fresh else items + fresh
                     pn = page
                 } else msg = "加载失败 code=${resp.optInt("code")}"
             }.onFailure { msg = "加载失败: ${it.message}" }

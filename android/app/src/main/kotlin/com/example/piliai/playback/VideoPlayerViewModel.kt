@@ -150,7 +150,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _player = playerBuilder.build()
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
-        val storage = com.example.piliai.utils.StorageManager(appContext)
+        val storage = com.example.piliai.utils.StorageManager.getInstance(appContext)
         viewModelScope.launch {
             storage.videoQualityFlow.collect { q ->
                 currentQn = when (q) {
@@ -201,7 +201,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun setLowLatencyAudio(enabled: Boolean) {
         com.example.piliai.utils.RendererPrefs.updateLowLatency(enabled)
         viewModelScope.launch {
-            com.example.piliai.utils.StorageManager(appContext).setLowLatencyAudio(enabled)
+            com.example.piliai.utils.StorageManager.getInstance(appContext).setLowLatencyAudio(enabled)
         }
     }
 
@@ -210,7 +210,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         // 同步更新进程内缓存，使下次创建 PlayerView 立即生效
         com.example.piliai.utils.RendererPrefs.update(v)
         viewModelScope.launch {
-            com.example.piliai.utils.StorageManager(appContext).setRenderer(v)
+            com.example.piliai.utils.StorageManager.getInstance(appContext).setRenderer(v)
         }
     }
     
@@ -330,7 +330,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         // 弹弹play 弹幕补充源（启用时按番剧标题拉取，静默降级）
         val danmakuTitle = pages.getOrNull(currentPartIndex)?.part
             ?: episode?.title ?: episode?.longTitle ?: ""
-        val dandanToggle = com.example.piliai.utils.StorageManager(appContext)
+        val dandanToggle = com.example.piliai.utils.StorageManager.getInstance(appContext)
         viewModelScope.launch {
             val enabled = dandanToggle.dandanDanmakuFlow.first()
             if (enabled) loadDandanDanmaku(danmakuTitle)
@@ -1214,7 +1214,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _state.value = _state.value.copy(danmakuScale = scale.coerceIn(0.5f, 2f))
         viewModelScope.launch {
             runCatching {
-                com.example.piliai.utils.StorageManager(appContext)
+                com.example.piliai.utils.StorageManager.getInstance(appContext)
                     .setDanmakuScale(scale.coerceIn(0.5f, 2f))
             }
         }
@@ -1234,7 +1234,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         cachedDmShowTop = enabled
         viewModelScope.launch {
             runCatching {
-                com.example.piliai.utils.StorageManager(appContext).setDanmakuShowTop(enabled)
+                com.example.piliai.utils.StorageManager.getInstance(appContext).setDanmakuShowTop(enabled)
             }
         }
     }
@@ -1243,7 +1243,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         cachedDmShowBottom = enabled
         viewModelScope.launch {
             runCatching {
-                com.example.piliai.utils.StorageManager(appContext).setDanmakuShowBottom(enabled)
+                com.example.piliai.utils.StorageManager.getInstance(appContext).setDanmakuShowBottom(enabled)
             }
         }
     }
