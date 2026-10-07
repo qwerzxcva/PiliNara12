@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / 'android/app/src/main/kotlin/com/example/pilinara/data/repository/AnimekoScraper.kt').read_text(encoding='utf-8')
+source = (ROOT / 'android/app/src/main/kotlin/com/example/piliai/data/repository/AnimekoScraper.kt').read_text(encoding='utf-8')
 start = source.index('    fun extractVideoUrl(')
 end = source.index('    fun extractNestedUrls(', start)
 # Last KDoc belongs to extractNestedUrls, strip it off.
