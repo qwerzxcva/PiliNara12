@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.heightIn
-import org.json.JSONObject as JsonObj
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -127,6 +126,15 @@ fun SettingsScreen(
                     icon = Icons.Default.Movie,
                     checked = state.danmakuEnabled,
                     onChange = { viewModel.setDanmakuEnabled(it) }
+                )
+            }
+            item {
+                SettingSwitch(
+                    title = "弹弹play 弹幕源",
+                    subtitle = if (com.example.piliai.danmaku.DandanApi.isEnabled) "补充番剧弹幕（已配置凭据）" else "需先在 BuildConfig 配置 API 凭据",
+                    icon = Icons.Default.PlayCircle,
+                    checked = state.dandanDanmakuEnabled,
+                    onChange = { viewModel.setDandanDanmakuEnabled(it) }
                 )
             }
             item {
