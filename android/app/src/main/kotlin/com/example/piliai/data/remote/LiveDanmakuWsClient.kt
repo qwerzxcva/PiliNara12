@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.ByteArrayOutputStream
-import java.net.URI
 import java.nio.ByteBuffer
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
