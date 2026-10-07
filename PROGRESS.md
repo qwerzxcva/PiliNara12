@@ -343,3 +343,25 @@ MainActivity 渲染的是 `MainApp`，其 NavHost 只有 6 条路由
 1. **真机验证**：安装 APK 测试所有功能（特别是导航、今日推荐、缓冲策略）
 2. **Media3 升级**：升级到 1.5+ 后实现 HDR GL shader + 超分辨率 effect
 3. **弹幕源移植**：从存档分支移植 DanDan 弹幕源
+
+## DanDan 弹幕源移植完成（Run 37651247715 全绿）
+
+### 实现内容
+- `DandanApi.kt`：弹弹play (DanDan) 弹幕源 HTTP 客户端（OkHttp）
+  - 签名算法：`base64(sha256(appId+timestamp+path+apikey))`
+  - 4 个公开 API：searchAnime、getEpisodes、getComments、getCommentsByBgmId
+  - 随机 User-Agent 池，避免被裸机器人过滤
+- `DandanModels.kt`：番剧/集数/弹幕数据模型（GSON 反序列化）
+- `DandanCompat.kt`：DandanComment → ParsedDanmaku 转换
+- `VideoPlayerViewModel`：番剧页启用时按标题搜索 DanDan + 第一集弹幕合并显示
+- `SettingsScreen` + `SettingsViewModel`：新增「弹弹play 弹幕源」开关（默认关）
+- `build.gradle.kts`：加 buildConfig + DANDAN_API_APPID/DANDAN_API_KEY（通过环境变量注入）
+- `StorageManager`：dandanDanmakuFlow/setDandanDanmaku
+
+### 诚实说明
+- 未配置凭据时 `DandanApi.isEnabled=false`，弹幕源静默关闭，不影响 B 站原生弹幕
+- 番剧标题匹配是 best-effort（首条搜索结果），不是精确匹配
+- 需从 https://www.dandanplay.com/api-docs/ 申请免费凭据后在 CI 环境变量配置才能生效
+
+### 清理
+- `/workspace/backups`（存档分支 tar 包）和 `/tmp/br`（解包目录）已删除
