@@ -246,3 +246,36 @@ buildDir 重定向下的正确配合，生成并提交 v3 schema。
 - 卡片 12dp 圆角、封面 16:10、间距 8dp、页边距 12dp、去阴影(surface 色阶分层)
 - 语义双值色：vip粉 #FF6699/#D44E7D、链接蓝 #008AC5/#2C9CC8
 - TabBar 42dp 居中无分割线、AppBar 52dp 0 elevation
+
+## 关键修复：导航图接线（Run 37616336984 全绿）
+
+### 问题（用户反馈「点击某个功能没反应」的根因）
+MainActivity 渲染的是 `MainApp`，其 NavHost 只有 6 条路由
+（home/dynamics/mine/video/settings/login），且：
+- `onSearchClick = {}` 空实现
+- onRankClick/onHotMoreClick/onZoneClick/onBangumiClick/onStoryClick/
+  onTodayWatchClick 全部走默认空值
+
+而完整接线的 `AppNavigation.kt`（462 行、30+ 路由）**从未被使用**，
+导致搜索/排行/热门/分区/番剧/推荐流/今日推荐按钮点击无反应，
+收藏/历史/直播/评论/下载/订阅/文章/弹幕屏蔽等 25+ 页面完全不可达。
+
+### 修复
+- MainActivity 改用 AppNavigation 作为唯一入口
+- AppNavigation 挂载三 tab 底部导航（复用 MainTab 图标/文案），
+  仅在 Home/Dynamics/Profile 显示；tab 切换用 saveState/restoreState
+- MainApp.kt / MainViewModel 成为死代码（待清理）
+
+## UI 改造（Kototoro 风格，Run 37615084963 全绿）
+- 首页顶栏：去掉粉蓝渐变背景 + 4 种彩虹图标色（白/黄/橙/紫），
+  改为主题 surface + 单一 onSurface 图标色；次要入口收进溢出菜单
+- Hero 轮播：240dp 高、20dp 圆角、100dp 渐变遮罩、胶囊指示器(16×6/6×6)
+- 视频卡片：图上文下分区（原标题压在封面上）、surfaceContainerLow 分层、去阴影
+- AMOLED 纯黑主题基建已存在且设置页可开关（PiliSemantic.Amoled #000 + #121212~#303030 梯度）
+
+## 今日推荐（today-watch 移植完成）
+- 算法层 417 行纯函数（对拍测试 5 组断言通过）
+- Repository 编排（history/cursor + TopRcmd + Room 负反馈）
+- 首页 Section（UP 主榜 + 横向卡片 + 推荐理由）
+- 独立页（模式/策略 SegmentedButton，偏好持久化 DataStore）
+- 长按点踩 → 写 Room → 重新生成
