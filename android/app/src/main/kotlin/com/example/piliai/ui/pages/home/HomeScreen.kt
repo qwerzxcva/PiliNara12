@@ -1,78 +1,51 @@
 package com.example.piliai.ui.pages.home
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.PlayCircleOutline
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Surface
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.piliai.data.model.VideoItem
+import com.example.piliai.ui.components.*
 import com.example.piliai.utils.toHttpsUrl
 
+/**
+ * Kototoro 风格首页。
+ *
+ * 重构原因：原 UI 太丑，没有实现 Kototoro 那种顶级设计。
+ * 核心改动：
+ * 1. 顶栏：搜索/消息/我的平齐一行（方便左右滑动切换）
+ * 2. Hero 轮播：240dp 高、20dp 圆角、100dp 渐变遮罩、胶囊指示器
+ * 3. 今日推荐：横向大卡片流（280dp 宽、12dp 间距）
+ * 4. 视频推荐流：大卡片（信息叠在封面上，不在图下）
+ * 5. 所有卡片 20dp 大圆角（Kototoro 规范）
+ *
+ * 设计规范来源：/tmp/src/kototoro-ui（Material You + 大圆角卡片）。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onVideoClick: (bvid: String, cid: Long) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
+    onMessageClick: () -> Unit = {},
+    onMineClick: () -> Unit = {},
     onRankClick: () -> Unit = {},
     onHotMoreClick: () -> Unit = {},
     onZoneClick: () -> Unit = {},
@@ -82,7 +55,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
 
     // 今日推荐：进入首页后异步加载，不阻塞首屏
     val todayWatchViewModel: com.example.piliai.todaywatch.TodayWatchViewModel = viewModel()
@@ -92,9 +65,9 @@ fun HomeScreen(
     // 触底自动加载下一页
     val shouldLoadMore by remember {
         derivedStateOf {
-            val info = gridState.layoutInfo
+            val info = listState.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-            info.totalItemsCount > 0 && last >= info.totalItemsCount - 6
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
         }
     }
     LaunchedEffect(shouldLoadMore) {
@@ -103,80 +76,13 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            // Kototoro 打磨：品牌渐变顶栏
-            // Kototoro 风格顶栏：去掉粉蓝渐变与彩虹图标色，改用主题 surface +
-            // 单一 onSurface 图标色；次要入口收进溢出菜单，主操作只留搜索。
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth().statusBarsPadding(),
-            ) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            "PiliAI",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    },
-                    actions = {
-                        IconButton(onClick = onSearchClick) {
-                            Icon(
-                                Icons.Filled.Search,
-                                contentDescription = "搜索",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                        var menuExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            IconButton(onClick = { menuExpanded = true }) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = "更多",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("排行榜") },
-                                    leadingIcon = { Icon(Icons.Filled.EmojiEvents, null) },
-                                    onClick = { menuExpanded = false; onRankClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("热门精选") },
-                                    leadingIcon = { Icon(Icons.Filled.Whatshot, null) },
-                                    onClick = { menuExpanded = false; onHotMoreClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("分区浏览") },
-                                    leadingIcon = { Icon(Icons.Filled.Apps, null) },
-                                    onClick = { menuExpanded = false; onZoneClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("番剧") },
-                                    leadingIcon = { Icon(Icons.Filled.Movie, null) },
-                                    onClick = { menuExpanded = false; onBangumiClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("推荐流") },
-                                    leadingIcon = { Icon(Icons.Filled.PlayCircleOutline, null) },
-                                    onClick = { menuExpanded = false; onStoryClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("今日推荐") },
-                                    leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
-                                    onClick = { menuExpanded = false; onTodayWatchClick() },
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    ),
-                )
-            }
+            // Kototoro 风格顶栏：搜索/消息/我的平齐一行
+            KototoroTopBar(
+                title = "piliAI",
+                onSearchClick = onSearchClick,
+                onMessageClick = onMessageClick,
+                onMineClick = onMineClick,
+            )
         },
     ) { padding ->
         PullToRefreshBox(
@@ -192,39 +98,66 @@ fun HomeScreen(
                 }
                 is HomeUiState.Success -> {
                     val topRcmd by viewModel.topRcmd.collectAsStateWithLifecycle()
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        state = gridState,
-                        contentPadding = PaddingValues(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        // 顶部 Hero 轮播（Kototoro 风格：240dp 高、底部 20dp 圆角、
-                        // 100dp 渐变遮罩、胶囊指示器）
+                        // Hero 轮播（Kototoro 风格）
                         if (topRcmd.isNotEmpty()) {
-                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            item {
                                 HeroCarousel(
                                     items = topRcmd,
                                     onItemClick = { onVideoClick(it.bvid, it.cid) },
-                                    modifier = Modifier.padding(vertical = 4.dp),
                                 )
                             }
                         }
-                        // 今日推荐 Section（全宽，成功才显示）
+
+                        // 今日推荐 Section（横向大卡片流）
                         val tw = todayWatchState
                         if (tw is com.example.piliai.todaywatch.TodayWatchViewModel.UiState.Success) {
-                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                                com.example.piliai.todaywatch.TodayWatchSection(
-                                    plan = tw.plan,
-                                    onVideoClick = { bvid -> onVideoClick(bvid, 0L) },
-                                    onSeeAll = onTodayWatchClick,
-                                    onDislike = { v -> todayWatchViewModel.dislike(v.bvid, v.ownerMid) },
-                                    modifier = Modifier.padding(vertical = 4.dp),
+                            item {
+                                KototoroSectionHeader(
+                                    title = "今日推荐",
+                                    subtitle = "为你精选",
+                                    onSeeAllClick = onTodayWatchClick,
                                 )
                             }
+                            item {
+                                KototoroHorizontalCardList(
+                                    items = tw.plan.videos,
+                                ) { video ->
+                                    KototoroVideoCard(
+                                        title = video.title,
+                                        cover = video.cover.toHttpsUrl(),
+                                        upName = video.ownerName,
+                                        playCount = video.playCountText,
+                                        duration = video.durationText,
+                                        onClick = { onVideoClick(video.bvid, 0L) },
+                                    )
+                                }
+                            }
                         }
-                        items(s.items, key = { it.bvid }) { card ->
-                            VideoCardItem(card, onClick = { onVideoClick(card.bvid, card.cid) })
+
+                        // 视频推荐流（大卡片，信息叠在封面上）
+                        item {
+                            KototoroSectionHeader(
+                                title = "推荐",
+                                subtitle = "热门视频",
+                                onSeeAllClick = onHotMoreClick,
+                            )
+                        }
+                        items(s.items) { card ->
+                            Box(Modifier.padding(horizontal = 16.dp)) {
+                                KototoroVideoCard(
+                                    title = card.title,
+                                    cover = card.pic.toHttpsUrl(),
+                                    upName = card.author,
+                                    playCount = card.viewCountText,
+                                    duration = card.durationText,
+                                    onClick = { onVideoClick(card.bvid, card.cid) },
+                                )
+                            }
                         }
                     }
                 }
@@ -240,8 +173,8 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.error,
                             )
                             Spacer(Modifier.height(12.dp))
-                            androidx.compose.material3.Button(onClick = { viewModel.refresh() }) {
-                                androidx.compose.material3.Text("重试")
+                            Button(onClick = { viewModel.refresh() }) {
+                                Text("重试")
                             }
                         }
                     }
@@ -274,7 +207,7 @@ private fun HeroCarousel(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .clickable { onItemClick(item) }
             ) {
@@ -342,94 +275,6 @@ private fun HeroCarousel(
                                 if (selected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
                             )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun VideoCardItem(card: VideoItem, onClick: () -> Unit) {
-    // 审核（丑根因）：原标题 Text 用 Box 默认 TopStart 直接压在封面上，
-    // 无背景区分，既丑又难读。改为「封面 + 下方文字区」的标准卡片结构：
-    // 播放量/时长作为角标叠在图上，标题置于下方分层 surface（AMOLED 灰阶）。
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(
-            defaultElevation = 0.dp,
-        ),
-    ) {
-        Column {
-            // 封面 + 角标（播放量、时长）
-            Box {
-                AsyncImage(
-                    model = card.pic.toHttpsUrl(),
-                    contentDescription = card.title,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-                    contentScale = ContentScale.Crop,
-                )
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .background(
-                            Color.Black.copy(alpha = 0.55f),
-                            RoundedCornerShape(4.dp)
-                        )
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Filled.PlayCircleOutline,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        text = card.viewCountText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                    )
-                }
-                if (card.durationText.isNotBlank()) {
-                    Text(
-                        text = card.durationText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(6.dp)
-                            .background(
-                                Color.Black.copy(alpha = 0.55f),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                    )
-                }
-            }
-            // 下方文字区：标题 + UP 主/描述
-            Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                Text(
-                    text = card.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (card.author.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = card.author,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
