@@ -50,9 +50,9 @@ import com.example.piliai.utils.toHttpsUrl
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TodayWatchSection(
+    modifier: Modifier = Modifier,
     plan: TodayWatchPlan,
     onVideoClick: (bvid: String) -> Unit,
-    modifier: Modifier = Modifier,
     onSeeAll: () -> Unit = {},
     onDislike: (video: RcmdCandidate) -> Unit = {},
 ) {
