@@ -27,6 +27,7 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val renderer: Int = 0,                 // Kazumi：渲染器 0=SurfaceView 1=TextureView
         val videoQuality: String = "auto",   // auto/1080p/720p/480p
         val playbackSpeed: Float = 1.0f,
+        val bufferDurationMs: Int = 16_000,  // VOD 缓冲时长（LoadControl，移植自 piliplus）
         // 弹幕
         val danmakuEnabled: Boolean = true,
         val danmakuOpacity: Float = 1.0f,
@@ -72,6 +73,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             storage.amoledFlow.collect { _state.value = _state.value.copy(amoled = it) }
         }
+        viewModelScope.launch {
+            storage.bufferDurationFlow.collect { _state.value = _state.value.copy(bufferDurationMs = it) }
+        }
     }
 
     fun setAutoPlay(v: Boolean) = viewModelScope.launch { storage.setAutoPlay(v) }
@@ -79,6 +83,10 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setRenderer(v: Int) = viewModelScope.launch {
         com.example.piliai.utils.RendererPrefs.update(v)
         storage.setRenderer(v)
+    }
+    fun setBufferDuration(v: Int) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateBufferDuration(v)
+        storage.setBufferDuration(v)
     }
     fun setVideoQuality(q: String) = viewModelScope.launch { storage.setVideoQuality(q) }
     fun setDanmakuEnabled(v: Boolean) = viewModelScope.launch { storage.setDanmakuEnabled(v) }
