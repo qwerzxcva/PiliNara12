@@ -53,6 +53,7 @@ class StorageManager(private val context: Context) {
         private val DANMAKU_SHOW_BOTTOM_KEY = booleanPreferencesKey("danmakuShowBottom")
         private val TODAY_WATCH_MODE_KEY = stringPreferencesKey("todayWatchMode")
         private val TODAY_WATCH_STRATEGY_KEY = stringPreferencesKey("todayWatchStrategy")
+        private val BUFFER_DURATION_KEY = intPreferencesKey("bufferDurationMs")
         
         @Volatile
         private var instance: StorageManager? = null
@@ -247,6 +248,17 @@ class StorageManager(private val context: Context) {
 
     suspend fun setTodayWatchStrategy(strategy: String) {
         context.dataStore.edit { preferences -> preferences[TODAY_WATCH_STRATEGY_KEY] = strategy }
+    }
+
+    /**
+     * VOD 缓冲时长（毫秒）。默认 16000（piliplus 上游默认）。
+     * 作用于 ExoPlayer 的 LoadControl（见 Media3LoadControlFactory）。
+     */
+    val bufferDurationFlow: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[BUFFER_DURATION_KEY] ?: 16_000 }
+
+    suspend fun setBufferDuration(ms: Int) {
+        context.dataStore.edit { preferences -> preferences[BUFFER_DURATION_KEY] = ms }
     }
 
     suspend fun setSubtitleFontSize(size: Int) {
