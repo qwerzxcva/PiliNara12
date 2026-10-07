@@ -51,6 +51,7 @@ fun SettingsScreen(
     var showAccentDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showRendererDialog by remember { mutableStateOf(false) }
+    var showBufferDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -97,6 +98,14 @@ fun SettingsScreen(
                     subtitle = if (state.renderer == 1) "TextureView（可合成动画）" else "SurfaceView（性能最佳）",
                     icon = Icons.AutoMirrored.Filled.ViewQuilt,
                     onClick = { showRendererDialog = true }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "缓冲时长",
+                    subtitle = bufferLabel(state.bufferDurationMs),
+                    icon = Icons.Default.Storage,
+                    onClick = { showBufferDialog = true }
                 )
             }
             item {
@@ -378,6 +387,46 @@ fun SettingsScreen(
             }
         )
     }
+
+    // 缓冲时长选择弹窗（移植自 piliplus 缓冲策略）
+    if (showBufferDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showBufferDialog = false },
+            title = { Text("缓冲时长") },
+            text = {
+                Column {
+                    listOf(8_000 to "8 秒（省流量，弱网易卡）",
+                           16_000 to "16 秒（推荐，默认）",
+                           32_000 to "32 秒（强网更流畅）").forEach { (ms, label) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setBufferDuration(ms)
+                                    showBufferDialog = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = state.bufferDurationMs == ms,
+                                onClick = { viewModel.setBufferDuration(ms); showBufferDialog = false }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBufferDialog = false }) { Text("取消") }
+            }
+        )
+    }
+}
+
+private fun bufferLabel(ms: Int) = when (ms) {
+    8_000 -> "8 秒"; 32_000 -> "32 秒"; else -> "16 秒（默认）"
 }
 
 private fun qualityLabel(v: String) = when (v) {
