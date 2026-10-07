@@ -1,9 +1,21 @@
 package com.example.piliai.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -13,6 +25,7 @@ import com.example.piliai.ui.library.FavoritesScreen
 import com.example.piliai.ui.library.HistoryScreen
 import com.example.piliai.ui.live.LiveRoomScreen
 import com.example.piliai.ui.login.LoginScreen
+import com.example.piliai.ui.main.MainTab
 import com.example.piliai.ui.main.SearchScreen
 import com.example.piliai.ui.pages.dynamics.DynamicsScreen
 import com.example.piliai.ui.pages.home.HomeScreen
@@ -101,7 +114,55 @@ sealed class Screen(val route: String) {
 fun AppNavigation() {
     val navController = rememberNavController()
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    
+
+    // 审核（关键修复）：MainActivity 原先使用 MainApp，其 NavHost 只有 6 条路由且
+    // HomeScreen 的 onSearchClick 等回调全为空实现——导致搜索/排行/分区/番剧/
+    // 推荐流/今日推荐等按钮点击无反应，且 25+ 个页面不可达。
+    // 现改为以本文件（完整路由图）为唯一入口，并在此挂载三 tab 底部导航。
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val tabRouteOf: (MainTab) -> String = { tab ->
+        when (tab) {
+            MainTab.HOME -> Screen.Home.route
+            MainTab.DYNAMICS -> Screen.Dynamics.route
+            MainTab.MINE -> Screen.Profile.route
+        }
+    }
+    val showBottomBar = MainTab.entries.any { tabRouteOf(it) == currentRoute }
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar {
+                    MainTab.entries.forEach { tab ->
+                        val route = tabRouteOf(tab)
+                        val selected = currentRoute == route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (!selected) {
+                                    navController.navigate(route) {
+                                        popUpTo(Screen.Home.route) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                            icon = {
+                                Icon(
+                                    if (selected) tab.iconFilled else tab.iconOutlined,
+                                    contentDescription = stringResource(tab.labelRes),
+                                )
+                            },
+                            label = { Text(stringResource(tab.labelRes)) },
+                        )
+                    }
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { padding ->
+        Box(Modifier.padding(padding)) {
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route
@@ -457,6 +518,8 @@ fun AppNavigation() {
                 title = title,
                 onBack = { navController.popBackStack() }
             )
+        }
+    }
         }
     }
 }
