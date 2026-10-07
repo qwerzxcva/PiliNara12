@@ -35,6 +35,36 @@ object RendererPrefs {
     var bufferDurationMs: Int = 16_000
         private set
 
+    /**
+     * HDR 色调映射开关（移植自 piliplus SDR→HDR 功能）
+     * 默认关闭，用户可在设置页启用
+     */
+    @Volatile
+    var hdrToneMappingEnabled: Boolean = false
+        private set
+
+    /**
+     * HDR 色调映射算法（0=Reinhard, 1=ACES, 2=Mobius）
+     * 默认 Reinhard（平衡性能与效果）
+     */
+    @Volatile
+    var hdrAlgorithm: Int = 0
+        private set
+
+    /**
+     * HDR 高光保护强度（0.0~1.0），防止过曝
+     */
+    @Volatile
+    var hdrHighlightProtect: Double = 0.5
+        private set
+
+    /**
+     * HDR 动态范围扩展强度（0.0~1.0）
+     */
+    @Volatile
+    var hdrDynamicRangeExpand: Double = 0.5
+        private set
+
     private var inited = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -58,6 +88,26 @@ object RendererPrefs {
                 bufferDurationMs = v
             }
         }
+        scope.launch {
+            storage.hdrEnabledFlow.collectLatest { v ->
+                hdrToneMappingEnabled = v
+            }
+        }
+        scope.launch {
+            storage.hdrAlgorithmFlow.collectLatest { v ->
+                hdrAlgorithm = v
+            }
+        }
+        scope.launch {
+            storage.hdrHighlightProtectFlow.collectLatest { v ->
+                hdrHighlightProtect = v.toDouble()
+            }
+        }
+        scope.launch {
+            storage.hdrDynamicRangeExpandFlow.collectLatest { v ->
+                hdrDynamicRangeExpand = v.toDouble()
+            }
+        }
     }
 
     /** 设置变更时同步更新缓存（下次创建 PlayerView 生效） */
@@ -73,5 +123,25 @@ object RendererPrefs {
     /** 更新缓冲时长缓存（下次进入播放器生效） */
     fun updateBufferDuration(ms: Int) {
         bufferDurationMs = ms
+    }
+
+    /** 更新 HDR 色调映射开关 */
+    fun updateHdrToneMapping(enabled: Boolean) {
+        hdrToneMappingEnabled = enabled
+    }
+
+    /** 更新 HDR 算法（0=Reinhard, 1=ACES, 2=Mobius） */
+    fun updateHdrAlgorithm(algorithm: Int) {
+        hdrAlgorithm = algorithm.coerceIn(0, 2)
+    }
+
+    /** 更新 HDR 高光保护强度（0.0~1.0） */
+    fun updateHdrHighlightProtect(value: Double) {
+        hdrHighlightProtect = value.coerceIn(0.0, 1.0)
+    }
+
+    /** 更新 HDR 动态范围扩展强度（0.0~1.0） */
+    fun updateHdrDynamicRangeExpand(value: Double) {
+        hdrDynamicRangeExpand = value.coerceIn(0.0, 1.0)
     }
 }
