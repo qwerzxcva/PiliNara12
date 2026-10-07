@@ -71,6 +71,7 @@ fun HomeScreen(
     onZoneClick: () -> Unit = {},
     onBangumiClick: () -> Unit = {},
     onStoryClick: () -> Unit = {},
+    onTodayWatchClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -180,6 +181,7 @@ fun HomeScreen(
                                 com.example.piliai.todaywatch.TodayWatchSection(
                                     plan = tw.plan,
                                     onVideoClick = { bvid -> onVideoClick(bvid, 0L) },
+                                    onSeeAll = onTodayWatchClick,
                                     onDislike = { v -> todayWatchViewModel.dislike(v.bvid, v.ownerMid) },
                                     modifier = Modifier.padding(vertical = 4.dp),
                                 )
