@@ -54,6 +54,7 @@ class StorageManager(private val context: Context) {
         private val TODAY_WATCH_MODE_KEY = stringPreferencesKey("todayWatchMode")
         private val TODAY_WATCH_STRATEGY_KEY = stringPreferencesKey("todayWatchStrategy")
         private val BUFFER_DURATION_KEY = intPreferencesKey("bufferDurationMs")
+        private val DANDAN_DANMAKU_KEY = booleanPreferencesKey("dandanDanmakuEnabled")
         
         // HDR 色调映射设置
         private val HDR_ENABLED_KEY = booleanPreferencesKey("hdrToneMappingEnabled")
@@ -265,6 +266,17 @@ class StorageManager(private val context: Context) {
 
     suspend fun setBufferDuration(ms: Int) {
         context.dataStore.edit { preferences -> preferences[BUFFER_DURATION_KEY] = ms }
+    }
+
+    /**
+     * 是否启用 DanDan（弹弹play）弹幕源作为 B 站弹幕的补充。
+     * 默认 false。启用后番剧页会额外拉取 DanDan 弹幕（需配置 API 凭据）。
+     */
+    val dandanDanmakuFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[DANDAN_DANMAKU_KEY] ?: false }
+
+    suspend fun setDandanDanmaku(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[DANDAN_DANMAKU_KEY] = enabled }
     }
 
     /**
