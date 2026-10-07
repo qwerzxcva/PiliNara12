@@ -52,9 +52,9 @@ import com.example.piliai.utils.toHttpsUrl
 fun TodayWatchSection(
     plan: TodayWatchPlan,
     onVideoClick: (bvid: String) -> Unit,
+    modifier: Modifier = Modifier,
     onSeeAll: () -> Unit = {},
     onDislike: (video: RcmdCandidate) -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         // 标题行
