@@ -201,3 +201,31 @@ KSP 实际未生成 schema 文件。
 未修原因：本地无可用 Gradle 环境反复试错，盲改路径可能引入 CI 失败。
 待办：有 Gradle 环境后查 KSP room.schemaLocation 与 room{} 扩展在
 buildDir 重定向下的正确配合，生成并提交 v3 schema。
+
+## 方案 B 完成：单 main + 更名 piliAI
+
+### 仓库结构
+- main 已快进指向 Kotlin 项目 tip（08eb941da2 → 含更名提交）
+- 工作流触发改为 main + workflow_dispatch（提交 1cd5e16d61，CI 绿）
+- 删除 20 个分支，只留 main
+- 仓库更名：qwerzxcva/PiliNara12 → **qwerzxcva/piliAI**
+
+### 不可逆操作前的保护措施
+- 全部 21 个分支 SHA 备份：/workspace/pilinara-branch-backup.json
+- 14 个 diverged 分支的独有改动（提交信息+文件+patch）：
+  /workspace/backups/diverged-branches-features.json
+- 老 main(Flutter) tip 30bd5ab200 是新 main 的祖先，历史完整保留
+- diverged 分支多为 Flutter（用户明确不要）；3 个 diverged Kotlin 分支
+  (kotlin-rust-arm64/kotlin-rust-build/native-only) 是当前分支的早期实验版，已被取代
+
+### 更名内容
+- 包名 com.example.pilinara → com.example.piliai（135 文件）
+- namespace/applicationId、Rust JNI 函数名（Java_com_example_piliai_*）、
+  Kotlin 目录、AndroidManifest、应用名字符串
+- 库名 libpilinara_native.so 保持不变（JNI 加载一致性）
+- 用 Git Data API 单提交完成（避免 137 个文件各自成 commit 触发 137 次 CI）
+
+### 本地与远端一致性
+- 本地工作区已用 main tip 刷新（cp 方式，保留 .git）
+- 本地 git 分支仍停在 180b53de1（平行提交），后续推送一律以远端为准
+- 回归脚本路径已更新为 piliai，3+3 PASS
