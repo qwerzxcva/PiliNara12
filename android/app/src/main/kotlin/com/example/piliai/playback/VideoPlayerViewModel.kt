@@ -101,6 +101,13 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _player = ExoPlayer.Builder(appContext)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(android.os.PowerManager.PARTIAL_WAKE_LOCK)
+            // 移植：接入 VOD 缓冲策略（原先 Media3BufferPolicy 是孤儿代码，
+            // 播放器从未设置 LoadControl）。默认 16s / 4MiB，可在设置页调整。
+            .setLoadControl(
+                com.example.piliai.piliplus.Media3LoadControlFactory.create(
+                    bufferDurationMs = com.example.piliai.utils.RendererPrefs.bufferDurationMs,
+                )
+            )
             .setAudioAttributes(
                 audioAttrs,
                 !com.example.piliai.utils.RendererPrefs.lowLatencyAudio
