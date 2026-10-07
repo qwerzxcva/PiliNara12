@@ -482,3 +482,13 @@
 - 207 BiliPai 竖屏沉浸式推荐流（feature/story 移植）：VerticalPager + 自动加载 + 首页入口
 - 208 修复用户 Animeko 提交回归：VM 丢失 r24 符号（mode/showToast/persistDmShow*/cachedDmShow*/brightnessTouched/playNextPart/likeCoinFav）从 f6c8e84 恢复
 - BiliPai 参照获取成功：codeload tarball（git clone 不可达）；已对照：批量下载✓/离线弹幕✓/视频取帧✓/AI总结✓/article·cast·screenshot 待评估
+
+
+## r24d（2026-10-08，审核轮215-218）
+- **215（播放修复·核心）**：DASH CDN 风控升级实测复现——无 buvid3 cookie 一律 403（标准 UA 也拒）。修复：桌面 Chrome UA + Referer/Origin + AccountSession.cookieHeader() 喂播放器 DataSource；resolveAndPlay 前置 ensureBuvid()；自造 UA 'PiliNara/1.0' 全清除（播放器/BangumiSession/AccountSession）。
+- **215（顶栏）**：MoreVert 折叠菜单 → 一级图标平铺（7 图标，后融合用户 Animeko 提交的消息/我的 = 9 图标）+ ScrollableTabRow 分类条（推荐/热门/排行/番剧/分区/竖屏流）。
+- **216（设置）**：设置分类 Tab（全部/播放/弹幕/外观/关于）——LazyListScope 局部扩展函数组合段落方案（裸 if{} 会断 DSL receiver）。第一批 Flutter 高频设置项移植并真实接线：enableAutoEnter（自动全屏）、pauseOnMinimize（切后台暂停，ON_STOP 受设置控制）、enableOnlineTotal（在线人数显示，produceState 接流）。修 KototoroSectionHeader modifier 位次。
+- **217**：enableAutoEnter 消费闭环——播放就绪（isPlaying && shouldAutoEnterFullscreen）自动转横屏。
+- **218（评估）**：BiliPai article 专栏阅读页（1532行：BlockParser/DetailScreen/RichTextRenderer 等）——数据源 x/article/view 本机 -509 风控、polymer opus 404，**无真实衔接不上线**，待可验证环境再移植。
+- 教训：rebase 冲突中断 + PUSH_OK 同时出现 = 假成功（推的是远端头非本地）；回执必须核对 `git status` 无 rebase-merge 目录。
+- 提交链：aa3854d→(rebase 冲突融合用户 0d7a872 5提交)→b411530(215)→4074538(216)→ba1f101(217)。
