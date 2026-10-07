@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -255,21 +259,21 @@ fun KototoroTopBar(
             ) {
                 IconButton(onClick = onSearchClick) {
                     Icon(
-                        androidx.compose.material.icons.Icons.Filled.Search,
+                        Icons.Filled.Search,
                         contentDescription = "搜索",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 IconButton(onClick = onMessageClick) {
                     Icon(
-                        androidx.compose.material.icons.Icons.Filled.Notifications,
+                        Icons.Filled.Notifications,
                         contentDescription = "消息",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 IconButton(onClick = onMineClick) {
                     Icon(
-                        androidx.compose.material.icons.Icons.Filled.Person,
+                        Icons.Filled.Person,
                         contentDescription = "我的",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
