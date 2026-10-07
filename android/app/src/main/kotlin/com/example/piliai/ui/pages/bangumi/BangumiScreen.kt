@@ -87,7 +87,7 @@ fun BangumiScreen(
                 }
             }
             else -> {
-                val season = state.season!!
+                val season = state.season ?: return@Scaffold
                 LazyColumn(Modifier.padding(padding).fillMaxSize()) {
                     // 头部：封面 + 信息
                     item {
