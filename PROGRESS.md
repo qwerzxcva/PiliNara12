@@ -279,3 +279,34 @@ MainActivity 渲染的是 `MainApp`，其 NavHost 只有 6 条路由
 - 首页 Section（UP 主榜 + 横向卡片 + 推荐理由）
 - 独立页（模式/策略 SegmentedButton，偏好持久化 DataStore）
 - 长按点踩 → 写 Room → 重新生成
+
+## 【跨段收束点】缓冲策略移植（进行中，未提交未推送！）
+
+### 段预算用尽时的状态
+**本地工作区有一批未提交的改动**（远端还没有，下一段开工第一件事：核实这 4 个文件改动还在，然后补完设置 UI 再一次性提交+推送）：
+
+1. ✅ 新建 `piliplus/Media3LoadControlFactory.kt`（VOD 缓冲策略工厂，移植自 piliplus，
+   去除 Flutter 依赖；默认 16s/4MiB，直播回退 Media3 默认）
+2. ✅ `playback/VideoPlayerViewModel.kt`：ExoPlayer.Builder 已接 `.setLoadControl(...)`
+   （读取 `RendererPrefs.bufferDurationMs`）
+3. ✅ `utils/RendererPrefs.kt`：加 `bufferDurationMs` @Volatile 缓存 + collect bufferDurationFlow + updateBufferDuration()
+4. ✅ `utils/StorageManager.kt`：加 `BUFFER_DURATION_KEY` + `bufferDurationFlow` + `setBufferDuration()`
+
+### 下一段待办（续着干）
+1. **SettingsViewModel**：SettingsUiState 加 `bufferDurationMs: Int = 16000` 字段 +
+   init 里 collect `bufferDurationFlow` + `fun setBufferDuration(v: Int)`（照 setLowLatencyAudio 模式，
+   记得同时调 `RendererPrefs.updateBufferDuration(v)`）
+2. **SettingsScreen**：「低延迟音频」区块下加「缓冲时长」PreferenceItem（点击弹 dialog：
+   8秒/16秒/32秒 三档），照「视频渲染器」对话框写法
+3. 提交 + 推送全部 6 个文件 + 等 CI 绿
+4. 然后移植**超分辨率**：`piliplus/Media3SuperResolution.kt`（main 里有孤儿 0 引用）
+   + `resolveMedia3SuperResolutionTarget` 逻辑；需新增依赖 `androidx.media3:media3-effect:1.3.1`
+   （main 现只有 exoplayer/ui/dash/hls），用 `LanczosResample.scaleToFit` + `player.setVideoEffects()`
+   （实现见备份 feat-bottom-nav-history-17f3224890 ExoPlayerPlugin.kt 的 setSuperResolution，已确认非 Flutter 部分）
+5. SDR→HDR：`HdrToneMappingEffect.kt`（171 行，media3 Effect 接口）在 feature-hdr-sdr-port-p12 备份里
+
+### 已完成大项（本轮已全部推送+CI 绿）
+- 导航图接线：MainActivity 改用 AppNavigation（25+ 页面可达，死 MainApp 已删）— Run 37616336984 绿
+- 今日推荐全链路移植（算法/Repository/Section/独立页/点踩/设置持久化）
+- Kototoro UI：顶栏去彩虹色收进溢出菜单、Hero 轮播(240dp/20dp圆角/胶囊指示器)、视频卡片图上文下
+- 仓库更名 piliAI、单 main、包名 com.example.piliai
