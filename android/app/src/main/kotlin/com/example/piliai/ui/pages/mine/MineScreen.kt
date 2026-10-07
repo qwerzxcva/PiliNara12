@@ -88,7 +88,7 @@ fun MineScreen(
     ) { padding ->
         when {
             nav != null -> {
-                val n = nav!!
+                val n = nav
                 UserContent(
                     modifier = Modifier.padding(padding),
                     nav = n,
