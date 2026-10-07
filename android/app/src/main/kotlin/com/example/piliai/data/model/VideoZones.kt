@@ -1,6 +1,5 @@
 package com.example.piliai.data.model
 
-import kotlinx.serialization.Serializable
 
 /** 批次L32：视频分区树（静态，与 web 端主分区对齐；避免再依赖接口） */
 data class Zone(
