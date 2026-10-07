@@ -40,6 +40,7 @@ sealed class Screen(val route: String) {
     }
     object History : Screen("history")
     object Story : Screen("story")  // 审核轮207：竖屏沉浸式推荐流（BiliPai story 移植）
+    object TodayWatch : Screen("today_watch")  // 今日推荐独立页（today-watch 移植）
     object Settings : Screen("settings")
     object VideoPlayer : Screen("video/{bvid}?cid={cid}&local={local}") {
         const val CID_ARG = "cid"
@@ -121,7 +122,8 @@ fun AppNavigation() {
                 },
                 onZoneClick = { navController.navigate(Screen.Zone.route) },
                 onBangumiClick = { navController.navigate(Screen.Bangumi.createRoute()) },
-                onStoryClick = { navController.navigate(Screen.Story.route) }
+                onStoryClick = { navController.navigate(Screen.Story.route) },
+                onTodayWatchClick = { navController.navigate(Screen.TodayWatch.route) }
             )
         }
         composable(Screen.Search.route) { backStackEntry ->
@@ -209,6 +211,14 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onVideoClick = { bvid, cid ->
                     navController.navigate(Screen.VideoPlayer.createRoute(bvid, cid))
+                }
+            )
+        }
+        composable(Screen.TodayWatch.route) {
+            com.example.piliai.todaywatch.TodayWatchScreen(
+                onBack = { navController.popBackStack() },
+                onVideoClick = { bvid ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(bvid, 0L))
                 }
             )
         }
