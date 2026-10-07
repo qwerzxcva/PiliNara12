@@ -62,7 +62,7 @@ class BiliDocumentsProvider : DocumentsProvider() {
     }
 
     override fun queryRoots(projection: Array<out String>?): Cursor {
-        val context = context!!
+        val context = context ?: return MatrixCursor(projection ?: defaultRootProjection)
         val appInfo = context.applicationInfo
         val appName = appInfo.loadLabel(context.packageManager).toString()
         return MatrixCursor(projection ?: defaultRootProjection).apply {
