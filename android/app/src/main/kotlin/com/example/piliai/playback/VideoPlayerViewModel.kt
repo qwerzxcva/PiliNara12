@@ -102,7 +102,33 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             .setUsage(androidx.media3.common.C.USAGE_MEDIA)
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
-        val playerBuilder = ExoPlayer.Builder(appContext)
+        // 审核轮210：音量归一化（1.3.1 Builder 无 setAudioSink，走 RenderersFactory
+        // 覆盖 buildAudioSink 注入 AudioNormalizationProcessor——分帧动态增益+EQ+限幅）
+        val audioNormEnabled = com.example.piliai.utils.RendererPrefs.audioNormalization
+        val renderersFactory: androidx.media3.exoplayer.RenderersFactory =
+            if (audioNormEnabled) object : androidx.media3.exoplayer.DefaultRenderersFactory(appContext) {
+                @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+                override fun buildAudioSink(
+                    context: android.content.Context,
+                    enableFloatOutput: Boolean,
+                    enableAudioTrackPlaybackParams: Boolean
+                ): androidx.media3.exoplayer.audio.AudioSink {
+                    val processor = com.example.piliai.piliplus.AudioNormalizationProcessor().apply {
+                        setConfiguration(
+                            com.example.piliai.piliplus.AudioNormalizationConfiguration(
+                                dynamic = true, targetRmsDb = -16.0, maxGain = 10.0
+                            )
+                        )
+                    }
+                    return androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(appContext)
+                        .setAudioProcessors(arrayOf(processor))
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .build()
+                }
+            } else androidx.media3.exoplayer.DefaultRenderersFactory(appContext)
+
+        val playerBuilder = ExoPlayer.Builder(appContext, renderersFactory)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(android.os.PowerManager.PARTIAL_WAKE_LOCK)
             // 移植：接入 VOD 缓冲策略（原先 Media3BufferPolicy 是孤儿代码，
@@ -117,11 +143,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 !com.example.piliai.utils.RendererPrefs.lowLatencyAudio
             )
         
-        // 注：HDR 色调映射的 GL shader 需 Media3 1.5+，当前仅保留配置通道。
-        // 超分辨率通过 LanczosResample effect 实现（Media3 1.3.1 支持）。
-        // 由于 ExoPlayer.Builder 在 1.3.1 无 setVideoEffects()，
-        // 超分辨率效果需在播放开始后通过 player.experimentalSetVideoEffects() 应用。
-        // 当前仅计算目标分辨率，实际 effect 接入待验证 API 可用性。
+        // 审核轮210（更正旧注释）：javap 实测 Media3 1.3.1 的 ExoPlayer **有**
+        // setVideoEffects(List<Effect>)——超分辨率已在 onVideoSizeChanged 真实接入
+        //（Media3SuperResolutionApplier，GL 上采样替代 1.5+ 才有的 LanczosResample）。
+        // HDR 色调映射 GL shader 仍需 1.5+（配置通道保留）。
         _player = playerBuilder.build()
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
@@ -751,6 +776,17 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
+    // 审核轮210：超分辨率真接入（Media3 1.3.1 已有 setVideoEffects，javap 验证；
+    // LanczosResample 需 1.5+，用 ScaleAndRotateTransformation GL 上采样替代）
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+        super.onVideoSizeChanged(videoSize)
+        if (videoSize.width <= 0 || videoSize.height <= 0) return
+        val effects = com.example.piliai.piliplus.Media3SuperResolutionApplier
+            .resolve(videoSize.width, videoSize.height)
+        _player?.setVideoEffects(effects ?: emptyList())
+    }
+
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         _state.value = _state.value.copy(isPlaying = isPlaying)
     }

@@ -92,6 +92,15 @@ fun SettingsScreen(
                 )
             }
             item {
+                // 审核轮210：音量归一化（AudioNormalizationProcessor 真接入）
+                SettingRow(
+                    title = "音量归一化",
+                    subtitle = if (state.audioNormalization) "动态拉平响度（-16 LUFS）" else "关闭",
+                    icon = Icons.Default.GraphicEq,
+                    onClick = { viewModel.setAudioNormalization(!state.audioNormalization) }
+                )
+            }
+            item {
                 SettingRow(
                     title = "视频渲染器",
                     subtitle = if (state.renderer == 1) "TextureView（可合成动画）" else "SurfaceView（性能最佳）",
@@ -105,6 +114,27 @@ fun SettingsScreen(
                     subtitle = bufferLabel(state.bufferDurationMs),
                     icon = Icons.Default.Storage,
                     onClick = { showBufferDialog = true }
+                )
+            }
+            item {
+                // 审核轮210：超分辨率（真接入 setVideoEffects，GL 上采样）
+                SettingRow(
+                    title = "超分辨率",
+                    subtitle = when (state.superResolutionMode) {
+                        "efficiency" -> "效率模式（最高 1080p）"
+                        "quality" -> "质量模式（最高 4K）"
+                        else -> "关闭"
+                    },
+                    icon = Icons.Default.AutoAwesome,
+                    onClick = {
+                        viewModel.setSuperResolutionMode(
+                            when (state.superResolutionMode) {
+                                "disable" -> "efficiency"
+                                "efficiency" -> "quality"
+                                else -> "disable"
+                            }
+                        )
+                    }
                 )
             }
             item {

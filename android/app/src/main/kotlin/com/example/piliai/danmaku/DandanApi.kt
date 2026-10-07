@@ -46,6 +46,8 @@ object DandanApi {
     val isEnabled: Boolean get() =
         BuildConfig.DANDAN_API_APPID.isNotEmpty() && BuildConfig.DANDAN_API_KEY.isNotEmpty()
 
+    private val gson = com.google.gson.Gson()
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -67,11 +69,12 @@ object DandanApi {
             .addHeader("X-Signature", sig)
             .build()
         return try {
-            val resp = client.newCall(req).execute()
-            if (!resp.isSuccessful) return null
-            val body = resp.body?.string() ?: return null
-            resp.body?.close()
-            com.google.gson.Gson().fromJson(body, Map::class.java) as? Map<String, Any>
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val body = resp.body?.string() ?: return null
+                // 审核轮210：Gson 提为伴生常量（原先每次请求新建）
+                gson.fromJson(body, Map::class.java) as? Map<String, Any>
+            }
         } catch (e: Exception) {
             null
         }

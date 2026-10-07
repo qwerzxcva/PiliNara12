@@ -35,6 +35,16 @@ object RendererPrefs {
     var bufferDurationMs: Int = 16_000
         private set
 
+    /** 审核轮210：超分辨率模式（disable/efficiency/quality），供播放器 setVideoEffects 读取 */
+    @Volatile
+    var superResolutionMode: String = "disable"
+        private set
+
+    /** 审核轮210：音量归一化（AudioNormalizationProcessor 接入 DefaultAudioSink） */
+    @Volatile
+    var audioNormalization: Boolean = false
+        private set
+
     /**
      * HDR 色调映射开关（移植自 piliplus SDR→HDR 功能）
      * 默认关闭，用户可在设置页启用
@@ -89,6 +99,17 @@ object RendererPrefs {
             }
         }
         scope.launch {
+            storage.superResolutionFlow.collectLatest { v ->
+                superResolutionMode = v
+                updateSuperResolution(v)
+            }
+        }
+        scope.launch {
+            storage.audioNormFlow.collectLatest { v ->
+                audioNormalization = v
+            }
+        }
+        scope.launch {
             storage.hdrEnabledFlow.collectLatest { v ->
                 hdrToneMappingEnabled = v
             }
@@ -123,6 +144,19 @@ object RendererPrefs {
     /** 更新缓冲时长缓存（下次进入播放器生效） */
     fun updateBufferDuration(ms: Int) {
         bufferDurationMs = ms
+    }
+
+    /** 审核轮210：更新音量归一化缓存 */
+    fun updateAudioNormalization(v: Boolean) {
+        audioNormalization = v
+    }
+
+    /** 审核轮210：更新超分辨率缓存 */
+    fun updateSuperResolution(mode: String) {
+        superResolutionMode = mode
+        com.example.piliai.piliplus.Media3SuperResolutionApplier.mode =
+            try { com.example.piliai.piliplus.Media3SuperResolutionMode.fromName(mode) }
+            catch (_: Exception) { com.example.piliai.piliplus.Media3SuperResolutionMode.DISABLE }
     }
 
     /** 更新 HDR 色调映射开关 */

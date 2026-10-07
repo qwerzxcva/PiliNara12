@@ -28,6 +28,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val videoQuality: String = "auto",   // auto/1080p/720p/480p
         val playbackSpeed: Float = 1.0f,
         val bufferDurationMs: Int = 16_000,  // VOD 缓冲时长（LoadControl，移植自 piliplus）
+        val superResolutionMode: String = "disable",  // 审核轮210：超分辨率（disable/efficiency/quality）
+        val audioNormalization: Boolean = false,  // 审核轮210：音量归一化
         // HDR 色调映射（移植自 piliplus，配置通道已就位，实际 GL shader 待 Media3 1.5+）
         val hdrEnabled: Boolean = false,
         val hdrAlgorithm: Int = 0,           // 0=Reinhard, 1=ACES, 2=Mobius
@@ -82,6 +84,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         }
         viewModelScope.launch {
             storage.bufferDurationFlow.collect { _state.value = _state.value.copy(bufferDurationMs = it) }
+            storage.superResolutionFlow.collect { _state.value = _state.value.copy(superResolutionMode = it) }
+            storage.audioNormFlow.collect { _state.value = _state.value.copy(audioNormalization = it) }
         }
         viewModelScope.launch {
             storage.hdrEnabledFlow.collect { _state.value = _state.value.copy(hdrEnabled = it) }
@@ -110,6 +114,18 @@ class SettingsViewModel(context: Context) : ViewModel() {
         com.example.piliai.utils.RendererPrefs.updateBufferDuration(v)
         storage.setBufferDuration(v)
     }
+    /** 审核轮210：切换音量归一化 */
+    fun setAudioNormalization(v: Boolean) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateAudioNormalization(v)
+        storage.setAudioNormalization(v)
+    }
+
+    /** 审核轮210：切换超分辨率模式 */
+    fun setSuperResolutionMode(mode: String) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateSuperResolution(mode)
+        storage.setSuperResolutionMode(mode)
+    }
+
     fun setVideoQuality(q: String) = viewModelScope.launch { storage.setVideoQuality(q) }
     fun setDanmakuEnabled(v: Boolean) = viewModelScope.launch { storage.setDanmakuEnabled(v) }
     fun setDanmakuOpacity(v: Float) = viewModelScope.launch { storage.setDanmakuOpacity(v) }

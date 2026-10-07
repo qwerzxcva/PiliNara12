@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.emptyPreferences
+import kotlinx.coroutines.flow.catch
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,6 +28,8 @@ class StorageManager(private val context: Context) {
         private val ACCENT_COLOR_KEY = stringPreferencesKey("accentColor")
         private val VIDEO_QUALITY_KEY = stringPreferencesKey("defaultVideoQa")
         private val AUTO_PLAY_KEY = booleanPreferencesKey("autoPlayEnable")
+        private val SUPER_RES_KEY = stringPreferencesKey("superResolutionMode")
+        private val AUDIO_NORM_KEY = booleanPreferencesKey("audioNormalization")
         private val FULLSCREEN_MODE_KEY = stringPreferencesKey("fullScreenMode")
         private val UI_SCALE_KEY = floatPreferencesKey("uiScale")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
@@ -264,6 +268,23 @@ class StorageManager(private val context: Context) {
     val bufferDurationFlow: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[BUFFER_DURATION_KEY] ?: 16_000 }
 
+    // 审核轮210：超分辨率模式（disable/efficiency/quality）
+    val superResolutionFlow: Flow<String> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[SUPER_RES_KEY] ?: "disable" }
+
+    suspend fun setSuperResolutionMode(mode: String) {
+        context.dataStore.edit { it[SUPER_RES_KEY] = mode }
+    }
+
+    // 审核轮210：音量归一化（AudioNormalizationProcessor 实时流处理）
+    val audioNormFlow: Flow<Boolean> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[AUDIO_NORM_KEY] ?: false }
+
+    suspend fun setAudioNormalization(enabled: Boolean) {
+        context.dataStore.edit { it[AUDIO_NORM_KEY] = enabled }
+    }
     suspend fun setBufferDuration(ms: Int) {
         context.dataStore.edit { preferences -> preferences[BUFFER_DURATION_KEY] = ms }
     }
