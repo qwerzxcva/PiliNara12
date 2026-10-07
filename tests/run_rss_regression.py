@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / 'android/app/src/main/kotlin/com/example/pilinara/data/repository/SubscribeRepository.kt').read_text()
+source = (ROOT / 'android/app/src/main/kotlin/com/example/piliai/data/repository/SubscribeRepository.kt').read_text()
 
 def function(name):
     start = source.index('    private fun ' + name + '(')
