@@ -38,7 +38,25 @@ data class RcmdCandidate(
     val viewCount: Long = 0L,
     val likeCount: Long = 0L,
     val danmakuCount: Long = 0L,
-)
+) {
+    /** 格式化播放量（1.2万 / 3.4亿） */
+    val playCountText: String
+        get() = when {
+            viewCount >= 100_000_000 -> String.format("%.1f亿", viewCount / 100_000_000.0)
+            viewCount >= 10_000 -> String.format("%.1f万", viewCount / 10_000.0)
+            else -> viewCount.toString()
+        }
+
+    /** 格式化时长（MM:SS / HH:MM:SS） */
+    val durationText: String
+        get() {
+            val h = duration / 3600
+            val m = (duration % 3600) / 60
+            val s = duration % 60
+            return if (h > 0) String.format("%d:%02d:%02d", h, m, s)
+            else String.format("%d:%02d", m, s)
+        }
+}
 
 /** 创作者信号（跨会话持久化的兴趣分） */
 data class CreatorSignal(val mid: Long, val name: String = "", val score: Double, val watchCount: Int = 1)
