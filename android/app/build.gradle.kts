@@ -12,11 +12,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pilinara"
+    namespace = "com.example.piliai"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.pilinara"
+        applicationId = "com.example.piliai"
         minSdk = 24  // Android 7+ for broader compatibility
         targetSdk = 34
         versionCode = 1

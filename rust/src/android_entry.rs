@@ -18,7 +18,7 @@ use jni::JNIEnv;
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_create(
+pub extern "C" fn Java_com_example_piliai_WebpNativeLib_create(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
     width: jint,
@@ -32,7 +32,7 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_create(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_addFrame(
+pub extern "C" fn Java_com_example_piliai_WebpNativeLib_addFrame(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
     encoder_ptr: i64,
@@ -55,7 +55,7 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_addFrame(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_finalize<'a>(
+pub extern "C" fn Java_com_example_piliai_WebpNativeLib_finalize<'a>(
     env: JNIEnv<'a>,
     _class: JClass<'_>,
     encoder_ptr: i64,
@@ -89,7 +89,7 @@ pub extern "C" fn Java_com_example_pilinara_WebpNativeLib_finalize<'a>(
 // ============================================================================
 
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
+pub extern "C" fn Java_com_example_piliai_AudioNativeLib_normalize<'a>(
     env: JNIEnv<'a>,
     _class: JClass<'_>,
     input: JByteArray<'a>,
@@ -146,7 +146,7 @@ pub extern "C" fn Java_com_example_pilinara_AudioNativeLib_normalize<'a>(
 
 /// Create a new DanmakuMerger instance
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeCreate(
+pub extern "C" fn Java_com_example_piliai_danmaku_DanmakuNativeLib_nativeCreate(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
     window_seconds: f64,
@@ -170,7 +170,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeCreat
 
 /// Free DanmakuMerger instance
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeDestroy(
+pub extern "C" fn Java_com_example_piliai_danmaku_DanmakuNativeLib_nativeDestroy(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
     merger_ptr: i64,
@@ -185,7 +185,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeDestr
 
 /// Load pinyin dictionary
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeLoadPinyinDict<'a>(
+pub extern "C" fn Java_com_example_piliai_danmaku_DanmakuNativeLib_nativeLoadPinyinDict<'a>(
     env: JNIEnv<'a>,
     _class: JClass<'_>,
     merger_ptr: i64,
@@ -219,7 +219,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeLoadP
 
 /// 输入 playurl 响应 JSON，返回选中的 {video, audio, duration} JSON；失败返回 null。
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_PlayUrlNativeLib_selectStreams<'a>(
+pub extern "C" fn Java_com_example_piliai_PlayUrlNativeLib_selectStreams<'a>(
     mut env: JNIEnv<'a>,
     _class: JClass<'a>,
     body: JString<'a>,
@@ -244,7 +244,7 @@ pub extern "C" fn Java_com_example_pilinara_PlayUrlNativeLib_selectStreams<'a>(
 // 输出: {buckets:[0..1...], peak_index, peak_value, total}
 // ============================================================================
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeHeatMap<'a>(
+pub extern "C" fn Java_com_example_piliai_danmaku_DanmakuNativeLib_nativeHeatMap<'a>(
     mut env: JNIEnv<'a>,
     _class: JClass<'a>,
     points_json: JString<'a>,
@@ -277,7 +277,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeHeatM
 // 输出: {kept_indices:[...], blocked_total, blocked_by_uid, blocked_by_keyword, blocked_by_regex}
 // ============================================================================
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeFilterBlock<'a>(
+pub extern "C" fn Java_com_example_piliai_danmaku_DanmakuNativeLib_nativeFilterBlock<'a>(
     mut env: JNIEnv<'a>,
     _class: JClass<'a>,
     entries_json: JString<'a>,
@@ -312,7 +312,7 @@ pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeFilte
 // 输出: {entries:[...], filtered_count, merged_count, elapsed_ms}；失败返回 null
 // ============================================================================
 #[no_mangle]
-pub extern "C" fn Java_com_example_pilinara_danmaku_DanmakuNativeLib_nativeMerge<'a>(
+pub extern "C" fn Java_com_example_piliai_danmaku_DanmakuNativeLib_nativeMerge<'a>(
     mut env: JNIEnv<'a>,
     _class: JClass<'a>,
     merger_ptr: i64,
