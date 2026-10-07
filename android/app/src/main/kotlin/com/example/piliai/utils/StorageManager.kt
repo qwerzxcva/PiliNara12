@@ -55,6 +55,12 @@ class StorageManager(private val context: Context) {
         private val TODAY_WATCH_STRATEGY_KEY = stringPreferencesKey("todayWatchStrategy")
         private val BUFFER_DURATION_KEY = intPreferencesKey("bufferDurationMs")
         
+        // HDR 色调映射设置
+        private val HDR_ENABLED_KEY = booleanPreferencesKey("hdrToneMappingEnabled")
+        private val HDR_ALGORITHM_KEY = intPreferencesKey("hdrAlgorithm")
+        private val HDR_HIGHLIGHT_PROTECT_KEY = floatPreferencesKey("hdrHighlightProtect")
+        private val HDR_DYNAMIC_RANGE_EXPAND_KEY = floatPreferencesKey("hdrDynamicRangeExpand")
+        
         @Volatile
         private var instance: StorageManager? = null
 
@@ -259,6 +265,50 @@ class StorageManager(private val context: Context) {
 
     suspend fun setBufferDuration(ms: Int) {
         context.dataStore.edit { preferences -> preferences[BUFFER_DURATION_KEY] = ms }
+    }
+
+    /**
+     * HDR 色调映射开关。默认 false（关闭）。
+     * 启用后对 SDR 内容应用色调映射效果。
+     */
+    val hdrEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[HDR_ENABLED_KEY] ?: false }
+
+    suspend fun setHdrEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[HDR_ENABLED_KEY] = enabled }
+    }
+
+    /**
+     * HDR 色调映射算法（0=Reinhard, 1=ACES, 2=Mobius）。
+     * 默认 0（Reinhard，平衡性能与效果）。
+     */
+    val hdrAlgorithmFlow: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[HDR_ALGORITHM_KEY] ?: 0 }
+
+    suspend fun setHdrAlgorithm(algorithm: Int) {
+        context.dataStore.edit { preferences -> preferences[HDR_ALGORITHM_KEY] = algorithm }
+    }
+
+    /**
+     * HDR 高光保护强度（0.0~1.0）。防止过曝。
+     * 默认 0.5。
+     */
+    val hdrHighlightProtectFlow: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[HDR_HIGHLIGHT_PROTECT_KEY] ?: 0.5f }
+
+    suspend fun setHdrHighlightProtect(value: Float) {
+        context.dataStore.edit { preferences -> preferences[HDR_HIGHLIGHT_PROTECT_KEY] = value }
+    }
+
+    /**
+     * HDR 动态范围扩展强度（0.0~1.0）。
+     * 默认 0.5。
+     */
+    val hdrDynamicRangeExpandFlow: Flow<Float> = context.dataStore.data
+        .map { preferences -> preferences[HDR_DYNAMIC_RANGE_EXPAND_KEY] ?: 0.5f }
+
+    suspend fun setHdrDynamicRangeExpand(value: Float) {
+        context.dataStore.edit { preferences -> preferences[HDR_DYNAMIC_RANGE_EXPAND_KEY] = value }
     }
 
     suspend fun setSubtitleFontSize(size: Int) {
