@@ -28,6 +28,13 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val videoQuality: String = "auto",   // auto/1080p/720p/480p
         val playbackSpeed: Float = 1.0f,
         val bufferDurationMs: Int = 16_000,  // VOD 缓冲时长（LoadControl，移植自 piliplus）
+        // HDR 色调映射（移植自 piliplus，配置通道已就位，实际 GL shader 待 Media3 1.5+）
+        val hdrEnabled: Boolean = false,
+        val hdrAlgorithm: Int = 0,           // 0=Reinhard, 1=ACES, 2=Mobius
+        val hdrHighlightProtect: Float = 0.5f,
+        val hdrDynamicRangeExpand: Float = 0.5f,
+        // 弹幕源：弹弹play (DanDan) 补充弹幕（移植自 animeko-upstream；需在 BuildConfig 配置凭据）
+        val dandanDanmakuEnabled: Boolean = false,
         // 弹幕
         val danmakuEnabled: Boolean = true,
         val danmakuOpacity: Float = 1.0f,
@@ -76,6 +83,21 @@ class SettingsViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             storage.bufferDurationFlow.collect { _state.value = _state.value.copy(bufferDurationMs = it) }
         }
+        viewModelScope.launch {
+            storage.hdrEnabledFlow.collect { _state.value = _state.value.copy(hdrEnabled = it) }
+        }
+        viewModelScope.launch {
+            storage.hdrAlgorithmFlow.collect { _state.value = _state.value.copy(hdrAlgorithm = it) }
+        }
+        viewModelScope.launch {
+            storage.hdrHighlightProtectFlow.collect { _state.value = _state.value.copy(hdrHighlightProtect = it) }
+        }
+        viewModelScope.launch {
+            storage.hdrDynamicRangeExpandFlow.collect { _state.value = _state.value.copy(hdrDynamicRangeExpand = it) }
+        }
+        viewModelScope.launch {
+            storage.dandanDanmakuFlow.collect { _state.value = _state.value.copy(dandanDanmakuEnabled = it) }
+        }
     }
 
     fun setAutoPlay(v: Boolean) = viewModelScope.launch { storage.setAutoPlay(v) }
@@ -96,4 +118,24 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setThemeMode(m: String) = viewModelScope.launch { storage.setThemeMode(m) }
     fun setAccentColor(hex: String) = viewModelScope.launch { storage.setAccentColor(hex) }
     fun setAmoled(v: Boolean) = viewModelScope.launch { storage.setAmoled(v) }
+
+    // HDR 色调映射设置
+    fun setHdrEnabled(v: Boolean) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateHdrToneMapping(v)
+        storage.setHdrEnabled(v)
+    }
+    fun setHdrAlgorithm(v: Int) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateHdrAlgorithm(v)
+        storage.setHdrAlgorithm(v)
+    }
+    fun setHdrHighlightProtect(v: Float) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateHdrHighlightProtect(v.toDouble())
+        storage.setHdrHighlightProtect(v)
+    }
+    fun setHdrDynamicRangeExpand(v: Float) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updateHdrDynamicRangeExpand(v.toDouble())
+        storage.setHdrDynamicRangeExpand(v)
+    }
+    /** 弹弹play 弹幕源开关（配置了凭据后在番剧页生效） */
+    fun setDandanDanmakuEnabled(v: Boolean) = viewModelScope.launch { storage.setDandanDanmaku(v) }
 }
