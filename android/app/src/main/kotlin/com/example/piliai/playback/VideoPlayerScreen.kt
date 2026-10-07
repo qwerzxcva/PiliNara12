@@ -93,6 +93,17 @@ fun VideoPlayerScreen(
         }
     }
     // 审核轮175：横屏时按返回键先回竖屏（B站行为），再按才退出
+    // 审核217：enableAutoEnter——播放就绪即自动进入全屏（横屏），设置开关控制
+    LaunchedEffect(state.isPlaying, state.isBuffering) {
+        if (state.isPlaying && viewModel.shouldAutoEnterFullscreen()) {
+            activity?.let { act ->
+                if (act.resources.configuration.orientation !=
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                ) act.requestedOrientation =
+                    android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+        }
+    }
     androidx.activity.compose.BackHandler(
         enabled = activity?.resources?.configuration?.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
