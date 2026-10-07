@@ -7,8 +7,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.piliai.ui.main.MainApp
-import com.example.piliai.ui.main.MainViewModel
+import com.example.piliai.ui.navigation.AppNavigation
 import com.example.piliai.ui.theme.PiliNaraTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,7 +24,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PiliNaraTheme {
-                MainApp(viewModel = MainViewModel())
+                // 审核（关键修复）：改用完整路由图 AppNavigation（30+ 路由 + 三 tab 底部栏），
+                // 原 MainApp 只有 6 条路由且首页回调多为空实现，导致大量按钮点击无反应。
+                AppNavigation()
             }
         }
     }
