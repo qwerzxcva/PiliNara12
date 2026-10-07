@@ -1,0 +1,155 @@
+package com.example.piliai.todaywatch
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.example.piliai.utils.toHttpsUrl
+
+/**
+ * 「今日推荐」首页 Section：UP 主榜（横向） + 推荐视频队列（横向卡片）。
+ *
+ * 风格对齐 Kototoro：12dp 圆角、去阴影、surface 色阶分层、推荐理由 chip。
+ */
+@Composable
+fun TodayWatchSection(
+    plan: TodayWatchPlan,
+    onVideoClick: (bvid: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // 标题行
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "今日推荐",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = if (plan.mode == TodayWatchMode.RELAX) "轻松看" else "深度学习",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // UP 主榜（横向）
+        if (plan.upRanks.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(plan.upRanks, key = { it.mid }) { rank ->
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Text(
+                            text = rank.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // 推荐视频队列（横向卡片）
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(plan.videoQueue, key = { it.bvid }) { video ->
+                TodayWatchCard(
+                    video = video,
+                    reason = plan.explanationByBvid[video.bvid].orEmpty(),
+                    onClick = { onVideoClick(video.bvid) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayWatchCard(
+    video: RcmdCandidate,
+    reason: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(220.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column {
+            AsyncImage(
+                model = video.cover.toHttpsUrl(),
+                contentDescription = video.title,
+                modifier = Modifier.fillMaxWidth().aspectRatio(1.6f).clip(
+                    RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+                ),
+                contentScale = ContentScale.Crop,
+            )
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                Text(
+                    text = video.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (reason.isNotBlank()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = video.ownerName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
