@@ -113,25 +113,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 !com.example.piliai.utils.RendererPrefs.lowLatencyAudio
             )
         
-        // 移植：HDR 色调映射 + 超分辨率（如果启用）
-        // HDR 和超分通过 setVideoEffects() 应用
-        val videoEffects = mutableListOf<androidx.media3.common.Effect>()
-        
-        // HDR 色调映射（如果启用）
-        if (com.example.piliai.utils.RendererPrefs.hdrToneMappingEnabled) {
-            videoEffects.add(
-                com.example.piliai.piliplus.HdrToneMappingEffect(
-                    algorithm = com.example.piliai.utils.RendererPrefs.hdrAlgorithm,
-                    highlightProtect = com.example.piliai.utils.RendererPrefs.hdrHighlightProtect,
-                    dynamicRangeExpand = com.example.piliai.utils.RendererPrefs.hdrDynamicRangeExpand
-                )
-            )
-        }
-        
-        if (videoEffects.isNotEmpty()) {
-            playerBuilder.setVideoEffects(videoEffects)
-        }
-        
+        // 注：HDR 色调映射 + 超分辨率的**配置**已通过 RendererPrefs/StorageManager
+        // 持久化，但 Media3 1.3.1 不提供 setVideoEffects()（该 API 在 1.5+ 才加入），
+        // 且 Effect 接口与上游 piliplus 使用版本差异较大；因此当前仅保留配置通道，
+        // 真正的 GL shader 接入留待升级 Media3 版本时完成。
         _player = playerBuilder.build()
         _player?.addListener(this)
         // 读取 DataStore 持久化设置：默认清晰度 + 弹幕开关（真实作用于播放链路）
