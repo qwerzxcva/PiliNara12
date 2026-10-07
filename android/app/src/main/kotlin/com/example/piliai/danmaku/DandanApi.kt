@@ -4,6 +4,7 @@ import com.example.piliai.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.security.MessageDigest
+import android.util.Base64 as AndroidBase64
 import kotlin.random.Random
 
 /**
@@ -161,6 +162,6 @@ object DandanApi {
         val apiKey = BuildConfig.DANDAN_API_KEY
         val data = "$appId$timestamp$path$apiKey"
         val digest = MessageDigest.getInstance("SHA-256").digest(data.toByteArray(Charsets.UTF_8))
-        return java.util.Base64.getEncoder().encodeToString(digest)
+        return AndroidBase64.encodeToString(digest, AndroidBase64.NO_WRAP)
     }
 }
