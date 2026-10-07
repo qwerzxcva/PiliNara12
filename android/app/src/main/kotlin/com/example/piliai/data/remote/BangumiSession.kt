@@ -74,7 +74,7 @@ object BangumiSession {
 
                 val resp = BiliHttpClient.client.get("https://api.bgm.tv/v0/me") {
                     header("Authorization", "Bearer $trimmed")
-                    header("User-Agent", "PiliNara/1.0 (Android)")
+                    header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 }.bodyAsText()
 
                 // 极简解析：取 username / nickname / id / avatar
@@ -131,5 +131,5 @@ fun io.ktor.client.request.HttpRequestBuilder.withBangumiAuth() {
     if (BangumiSession.isLogin && BangumiSession.token.isNotBlank()) {
         header("Authorization", "Bearer ${BangumiSession.token}")
     }
-    header("User-Agent", "PiliNara/1.0 (Android)")
+    header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 }

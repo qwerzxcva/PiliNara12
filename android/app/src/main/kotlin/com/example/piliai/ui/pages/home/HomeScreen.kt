@@ -43,8 +43,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -123,72 +123,38 @@ fun HomeScreen(
                         )
                     },
                     actions = {
-                        // Kototoro 风格：搜索/消息/我的平齐一行（方便左右滑动切换）
-                        IconButton(onClick = onSearchClick) {
-                            Icon(
-                                Icons.Filled.Search,
-                                contentDescription = "搜索",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
+                        // 审核215+用户版融合：全部入口一级图标平铺顶栏（含消息/我的）
                         IconButton(onClick = onMessageClick) {
-                            Icon(
-                                Icons.Filled.Notifications,
-                                contentDescription = "消息",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
+                            Icon(Icons.Filled.Notifications, contentDescription = "消息",
+                                tint = MaterialTheme.colorScheme.onSurface)
                         }
                         IconButton(onClick = onMineClick) {
-                            Icon(
-                                Icons.Filled.Person,
-                                contentDescription = "我的",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
+                            Icon(Icons.Filled.Person, contentDescription = "我的",
+                                tint = MaterialTheme.colorScheme.onSurface)
                         }
-                        var menuExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            IconButton(onClick = { menuExpanded = true }) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = "更多",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("排行榜") },
-                                    leadingIcon = { Icon(Icons.Filled.EmojiEvents, null) },
-                                    onClick = { menuExpanded = false; onRankClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("热门精选") },
-                                    leadingIcon = { Icon(Icons.Filled.Whatshot, null) },
-                                    onClick = { menuExpanded = false; onHotMoreClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("分区浏览") },
-                                    leadingIcon = { Icon(Icons.Filled.Apps, null) },
-                                    onClick = { menuExpanded = false; onZoneClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("番剧") },
-                                    leadingIcon = { Icon(Icons.Filled.Movie, null) },
-                                    onClick = { menuExpanded = false; onBangumiClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("推荐流") },
-                                    leadingIcon = { Icon(Icons.Filled.PlayCircleOutline, null) },
-                                    onClick = { menuExpanded = false; onStoryClick() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("今日推荐") },
-                                    leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
-                                    onClick = { menuExpanded = false; onTodayWatchClick() },
-                                )
-                            }
+                        IconButton(onClick = onTodayWatchClick) {
+                            Icon(Icons.Filled.AutoAwesome, contentDescription = "今日推荐",
+                                tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = onRankClick) {
+                            Icon(Icons.Filled.EmojiEvents, contentDescription = "排行榜",
+                                tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = onHotMoreClick) {
+                            Icon(Icons.Filled.Whatshot, contentDescription = "热门精选",
+                                tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = onZoneClick) {
+                            Icon(Icons.Filled.Apps, contentDescription = "分区浏览",
+                                tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = onBangumiClick) {
+                            Icon(Icons.Filled.Movie, contentDescription = "番剧",
+                                tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = onStoryClick) {
+                            Icon(Icons.Filled.PlayCircleOutline, contentDescription = "竖屏推荐流",
+                                tint = MaterialTheme.colorScheme.onSurface)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -198,6 +164,30 @@ fun HomeScreen(
             }
         },
     ) { padding ->
+        // 审核215：顶部可滑动分类条（B站 App 风格），点击直达对应页面
+        var selectedTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        val tabs = listOf(
+            "推荐" to ({} as () -> Unit), // 当前页即推荐
+            "热门" to onHotMoreClick,
+            "排行" to onRankClick,
+            "番剧" to onBangumiClick,
+            "分区" to onZoneClick,
+            "竖屏流" to onStoryClick,
+        )
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            edgePadding = 12.dp,
+            containerColor = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            tabs.forEachIndexed { i, (label, onClick) ->
+                Tab(
+                    selected = selectedTab == i,
+                    onClick = { selectedTab = i; onClick() },
+                    text = { Text(label) },
+                )
+            }
+        }
         PullToRefreshBox(
             isRefreshing = state is HomeUiState.Loading,
             onRefresh = { viewModel.refresh() },

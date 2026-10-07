@@ -517,6 +517,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     ) {
         val repo = VideoRepository(BiliApiClient())
         ensureCurrent(generation)
+        // 审核215：DASH CDN 强依赖 buvid3 cookie，播放前确保已获取
+        runCatching { com.example.piliai.data.remote.AccountSession.ensureBuvid() }
         // 1) 补 cid + 分P列表 + aid
         val detail = repo.getVideoDetail(bvid).getOrNull()?.data
         val effectiveCid = cidIn.takeIf { it > 0L }
@@ -601,10 +603,23 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         resumePositionMs: Long = 0L,
         playWhenReady: Boolean = true
     ) {
+        // 审核215：DASH CDN 风控升级——实测无 buvid3 cookie 一律 403（连标准 UA 都拒）。
+        // 必须：桌面 Chrome UA + Referer + AccountSession 的 buvid3/SESSDATA cookie。
+        val cookie = runCatching {
+            com.example.piliai.data.remote.AccountSession.cookieHeader()
+        }.getOrNull().orEmpty()
+        val headers = buildMap {
+            put("Referer", "https://www.bilibili.com")
+            put("Origin", "https://www.bilibili.com")
+            if (cookie.isNotEmpty()) put("Cookie", cookie)
+        }
         val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
+            .setUserAgent(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            )
             .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(mapOf("Referer" to "https://www.bilibili.com"))
+            .setDefaultRequestProperties(headers)
 
         val isLocal = !videoUrl.startsWith("http") && !videoUrl.startsWith("//")
         val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else Uri.parse(videoUrl)

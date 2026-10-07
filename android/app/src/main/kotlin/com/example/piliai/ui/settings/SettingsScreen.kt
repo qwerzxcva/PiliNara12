@@ -2,6 +2,7 @@ package com.example.piliai.ui.settings
 import java.util.Locale
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -519,14 +520,28 @@ private fun AccentColorDialog(
 
 @Composable
 fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium.copy(
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        ),
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
+    // 审核215：Kototoro 风格分组标题——primary 色条 + 字距
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+    ) {
+        Box(
+            Modifier
+                .size(width = 4.dp, height = 16.dp)
+                .background(
+                    MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(2.dp)
+                )
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            ),
+        )
+    }
 }
 
 @Composable

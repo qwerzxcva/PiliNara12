@@ -82,7 +82,7 @@ object AccountSession {
         if (hasBuvid3()) return true
         return runCatching {
             val json = BiliHttpClient.client.get("https://api.bilibili.com/x/frontend/finger/spi") {
-                header("User-Agent", "Mozilla/5.0 (Linux; Android 14) PiliNara/1.0")
+                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
             }.bodyAsText()
             val obj = org.json.JSONObject(json)
             val data = obj.optJSONObject("data") ?: return@runCatching false
