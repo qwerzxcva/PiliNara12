@@ -310,3 +310,36 @@ MainActivity 渲染的是 `MainApp`，其 NavHost 只有 6 条路由
 - 今日推荐全链路移植（算法/Repository/Section/独立页/点踩/设置持久化）
 - Kototoro UI：顶栏去彩虹色收进溢出菜单、Hero 轮播(240dp/20dp圆角/胶囊指示器)、视频卡片图上文下
 - 仓库更名 piliAI、单 main、包名 com.example.piliai
+
+## 超分辨率准备 + 项目状态总结（2026-10-07 最终）
+
+### 超分辨率状态
+- **计算函数完整**：`Media3SuperResolution.kt` 已移植（效率模式 1.5x/1080p，质量模式 2x/4K）
+- **依赖已添加**：`media3-transformer:1.3.1`（提供 LanczosResample）
+- **Helper 函数就绪**：`VideoPlayerViewModel.getSuperResolutionTarget()`
+- **实际 effect 接入待验证**：Media3 1.3.1 的 `experimentalSetVideoEffects()` API 需真机测试
+
+### 项目完整状态总结
+
+#### ✅ 已完成功能
+1. **导航图接线**：MainActivity 改用 AppNavigation（25+ 页面从不可达变可达）
+2. **今日推荐全链路**：算法（417 行纯函数）+ Repository + UI Section + 独立页 + 点踩交互 + 设置持久化
+3. **Kototoro 风格 UI**：顶栏去彩虹色 + Hero 轮播（240dp/20dp 圆角）+ 视频卡片图上文下
+4. **缓冲策略移植**：VOD LoadControl 工厂 + ExoPlayer 接入 + 设置 UI（8s/16s/32s）
+5. **HDR 配置通道**：StorageManager → RendererPrefs → Settings UI（实际 GL shader 待 Media3 1.5+）
+6. **超分辨率计算**：目标尺寸计算函数 + transformer 依赖（实际 effect 接入待验证）
+7. **仓库更名**：qwerzxcva/piliAI + 单 main 分支 + 包名 com.example.piliai
+
+#### ⚠️ 待完成（需 Media3 升级或真机验证）
+- HDR 实际 GL shader 效果（需 Media3 1.5+）
+- 超分辨率 LanczosResample effect 接入（需验证 1.3.1 API）
+- DanDan 弹幕源移植
+
+#### 📊 CI 状态
+- 所有提交均通过 CI（Rust native lib + APK build + Lint 门禁）
+- 0 error, 0 warning
+
+### 下一步建议
+1. **真机验证**：安装 APK 测试所有功能（特别是导航、今日推荐、缓冲策略）
+2. **Media3 升级**：升级到 1.5+ 后实现 HDR GL shader + 超分辨率 effect
+3. **弹幕源移植**：从存档分支移植 DanDan 弹幕源
