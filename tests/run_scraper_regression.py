@@ -49,7 +49,7 @@ fun main() {
     println("PASS production URI resolve")
 }
 '''
-lib = Path(os.environ.get('KOTLIN_LIB', '/opt/gradle-8.14.2/lib'))
+lib = Path(os.environ.get('KOTLIN_LIB') or (sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib')) or [None])[-1] or Path('/opt/gradle-8.14.2/lib'))
 stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
 with tempfile.TemporaryDirectory(prefix='pilinara-scraper-') as directory:
     d = Path(directory)

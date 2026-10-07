@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """提取生产 Kotlin RSS 解析函数，编译并在 JVM 运行；不是 Python 重写解析器。"""
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -56,8 +57,8 @@ fun main() {
 '''
 # ParseDate and guessEpisode are copied verbatim, preserving production semantics.
 program = prefix + '\n'.join(function(n) for n in ['parseRss', 'readText', 'parseDate', 'guessEpisode']) + tests
-lib = Path('/opt/gradle-8.14.2/lib')
-kxml = Path('/opt/android-sdk/cmdline-tools/latest/lib/external/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar')
+lib = Path(os.environ.get('KOTLIN_LIB') or (sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib')) or [None])[-1] or Path('/opt/gradle-8.14.2/lib'))
+kxml = Path(os.environ.get('KXML2_JAR') or (sorted(Path.home().glob('.gradle/caches/modules-2/files-2.1/net.sf.kxml/kxml2/*/*/kxml2-*.jar')) or [None])[-1] or Path('/opt/android-sdk/cmdline-tools/latest/lib/external/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar'))
 stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
 cp = f'{stdlib}:{kxml}'
 with tempfile.TemporaryDirectory(prefix='pilinara-rss-') as directory:

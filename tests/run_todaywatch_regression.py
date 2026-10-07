@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """编译生产 TodayWatchAlgorithm.kt 并跑行为对拍测试（与 Dart 端相同输入）。"""
+import os
 from pathlib import Path
 import subprocess, tempfile
 
@@ -60,7 +61,7 @@ fun main() {
 }
 '''
 
-lib = Path('/opt/gradle-8.14.2/lib')
+lib = Path(os.environ.get('KOTLIN_LIB') or (sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib')) or [None])[-1] or Path('/opt/gradle-8.14.2/lib'))
 stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
 with tempfile.TemporaryDirectory(prefix='todaywatch-') as d:
     dd = Path(d)
