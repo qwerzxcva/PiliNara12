@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.piliai.data.model.formatCount
 import com.example.piliai.data.model.toParsed
+import com.example.piliai.danmaku.toParsedDanmaku
 import com.example.piliai.data.model.AiConclusionResponse
 import com.example.piliai.data.remote.AccountSession
 import com.example.piliai.data.remote.BiliApiClient
@@ -302,9 +303,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         // 番剧弹幕需要 cid
         loadDanmakuFor(cid)
         // 弹弹play 弹幕补充源（启用时按番剧标题拉取，静默降级）
-        val danmakuTitle = pages.getOrNull(currentPartIndex)?.part ?: ep.title
+        val danmakuTitle = pages.getOrNull(currentPartIndex)?.part
+            ?: episode?.title ?: episode?.longTitle ?: ""
         val dandanToggle = com.example.piliai.utils.StorageManager(appContext)
-        kotlinx.coroutines.launch {
+        viewModelScope.launch {
             val enabled = dandanToggle.dandanDanmakuFlow.first()
             if (enabled) loadDandanDanmaku(danmakuTitle)
         }
