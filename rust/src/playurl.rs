@@ -79,12 +79,37 @@ pub fn select_streams(body: &str, target_qn: i64) -> Result<String, String> {
         .first()
         .ok_or_else(|| "no video stream".to_string())?;
 
-    // ---- audio：bandwidth 最高 ----
-    let best_audio = dash
-        .audio
-        .iter()
-        .max_by_key(|s| s.bandwidth)
-        .ok_or_else(|| "no audio stream".to_string())?;
+    // ---- audio：审核219 音质目标（B站音频流 id：30251 Hi-Res无损 > 30280 192k > 30232 132k > 30216 64k）----
+    // 设置页传入的 targetAudioQn 经 body 顶层 "_targetAudioQn" 传递（0=默认取最高音质）。
+    // Flutter defaultAudioQa 对齐；未指定时维持旧行为（bandwidth 最高）。
+    let target_audio = v["_targetAudioQn"].as_i64().unwrap_or(0);
+    fn audio_qn_rank(id: i64) -> i64 {
+        match id {
+            30251 => 4, // Hi-Res
+            30280 => 3, // 192k
+            30232 => 2, // 132k
+            30216 => 1, // 64k
+            _ => 0,
+        }
+    }
+    let best_audio = match target_audio {
+        0 => dash.audio.iter().max_by_key(|s| s.bandwidth),
+        qn => dash
+            .audio
+            .iter()
+            .min_by_key(|s| {
+                let r = audio_qn_rank(s.id);
+                let qn_r = audio_qn_rank(qn);
+                (
+                    if r > 0 { (qn_r - r).abs() } else { i64::MAX },
+                    std::cmp::Reverse(r),
+                    std::cmp::Reverse(s.bandwidth),
+                )
+            })
+            .filter(|_| dash.audio.iter().any(|s| audio_qn_rank(s.id) > 0))
+            .or_else(|| dash.audio.iter().max_by_key(|s| s.bandwidth)),
+    }
+    .ok_or_else(|| "no audio stream".to_string())?;
 
     let out = serde_json::json!({
         "video": best_video,
@@ -121,6 +146,32 @@ mod tests {
         let out = select_streams(body, 116).unwrap();
         let v: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["video"]["baseUrl"], "http://v/32");
+    }
+
+    #[test]
+    fn selects_target_audio_qn() {
+        // 审核219：_targetAudioQn=30216（64k）时选 30216 而非带宽最高的 30280
+        let body = r#"{"code":0,"_targetAudioQn":30216,"data":{"dash":{
+            "video":[{"id":80,"codecs":"avc1","bandwidth":1000,"baseUrl":"http://v/80"}],
+            "audio":[{"id":30280,"bandwidth":320000,"baseUrl":"http://a/192k"},
+                     {"id":30216,"bandwidth":64000,"baseUrl":"http://a/64k"}],
+            "duration":1}}}"#;
+        let out = select_streams(body, 80).unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["audio"]["id"], 30216);
+    }
+
+    #[test]
+    fn defaults_to_highest_audio_bandwidth() {
+        // 未传 _targetAudioQn → 维持旧行为（bandwidth 最高）
+        let body = r#"{"code":0,"data":{"dash":{
+            "video":[{"id":80,"codecs":"avc1","bandwidth":1000,"baseUrl":"http://v/80"}],
+            "audio":[{"id":30216,"bandwidth":64000,"baseUrl":"http://a/64k"},
+                     {"id":30280,"bandwidth":320000,"baseUrl":"http://a/192k"}],
+            "duration":1}}}"#;
+        let out = select_streams(body, 80).unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["audio"]["id"], 30280);
     }
 
     #[test]

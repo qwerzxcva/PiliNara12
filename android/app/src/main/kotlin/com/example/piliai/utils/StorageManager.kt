@@ -63,6 +63,8 @@ class StorageManager(private val context: Context) {
         private val AUTO_ENTER_KEY = booleanPreferencesKey("enableAutoEnter")
         private val PAUSE_ON_MINIMIZE_KEY = booleanPreferencesKey("pauseOnMinimize")
         private val ONLINE_TOTAL_KEY = booleanPreferencesKey("enableOnlineTotal")
+        // 审核219：默认音质（Flutter defaultAudioQa 对齐；B站音频流 id）
+        private val AUDIO_QA_KEY = stringPreferencesKey("defaultAudioQa")
         
         // HDR 色调映射设置
         private val HDR_ENABLED_KEY = booleanPreferencesKey("hdrToneMappingEnabled")
@@ -318,6 +320,15 @@ class StorageManager(private val context: Context) {
 
     suspend fun setShowOnlineTotal(enabled: Boolean) {
         context.dataStore.edit { it[ONLINE_TOTAL_KEY] = enabled }
+    }
+
+    // 审核219：默认音质选择（"0"=最高/30216=64k/30232=132k/30280=192k/30251=Hi-Res）
+    val audioQaFlow: Flow<String> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[AUDIO_QA_KEY] ?: "0" }
+
+    suspend fun setAudioQa(qn: String) {
+        context.dataStore.edit { it[AUDIO_QA_KEY] = qn }
     }
 
     /**

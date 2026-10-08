@@ -48,6 +48,7 @@ fun SettingsScreen(
 
     // 弹窗选择器状态
     var showQualityDialog by remember { mutableStateOf(false) }
+    var showAudioQaDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -146,6 +147,21 @@ fun SettingsScreen(
                     subtitle = qualityLabel(state.videoQuality),
                     icon = Icons.Default.HighQuality,
                     onClick = { showQualityDialog = true }
+                )
+            }
+            item {
+                // 审核219：默认音质（PiliPlus defaultAudioQa 对齐）
+                SettingRow(
+                    title = "默认音质",
+                    subtitle = when (state.audioQa) {
+                        "30251" -> "Hi-Res 无损"
+                        "30280" -> "192K 高码率"
+                        "30232" -> "132K 中码率"
+                        "30216" -> "64K 省流"
+                        else -> "自动（最高可用）"
+                    },
+                    icon = Icons.Default.MusicNote,
+                    onClick = { showAudioQaDialog = true }
                 )
             }
             item {
@@ -351,6 +367,41 @@ fun SettingsScreen(
                                 onClick = {
                                     viewModel.setVideoQuality(value)
                                     showQualityDialog = false
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label)
+                        }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // 审核219：音质选择弹窗
+    if (showAudioQaDialog) {
+        val options = listOf("0" to "自动（最高可用）", "30251" to "Hi-Res 无损", "30280" to "192K 高码率", "30232" to "132K 中码率", "30216" to "64K 省流")
+        AlertDialog(
+            onDismissRequest = { showAudioQaDialog = false },
+            title = { Text("默认音质") },
+            text = {
+                Column {
+                    options.forEach { (value, label) ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    viewModel.setAudioQa(value)
+                                    showAudioQaDialog = false
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = state.audioQa == value,
+                                onClick = {
+                                    viewModel.setAudioQa(value)
+                                    showAudioQaDialog = false
                                 }
                             )
                             Spacer(Modifier.width(8.dp))

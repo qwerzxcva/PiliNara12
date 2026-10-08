@@ -49,7 +49,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         // 审核216：第一批 Flutter 高频设置项
         val autoEnterFullscreen: Boolean = false,  // 进入播放页自动全屏
         val pauseOnMinimize: Boolean = false,      // 切后台自动暂停
-        val showOnlineTotal: Boolean = true        // 显示实时在线人数
+        val showOnlineTotal: Boolean = true,       // 显示实时在线人数
+        val audioQa: String = "0"                  // 审核219：默认音质（0=最高）
     )
 
     init {
@@ -61,6 +62,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
         }
         viewModelScope.launch {
             storage.showOnlineTotalFlow.collect { _state.value = _state.value.copy(showOnlineTotal = it) }
+        }
+        viewModelScope.launch {
+            storage.audioQaFlow.collect { _state.value = _state.value.copy(audioQa = it) }
         }
         viewModelScope.launch {
             storage.autoPlayFlow.collect { _state.value = _state.value.copy(autoPlay = it) }
@@ -172,4 +176,5 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setAutoEnterFullscreen(v: Boolean) = viewModelScope.launch { storage.setAutoEnterFullscreen(v) }
     fun setPauseOnMinimize(v: Boolean) = viewModelScope.launch { storage.setPauseOnMinimize(v) }
     fun setShowOnlineTotal(v: Boolean) = viewModelScope.launch { storage.setShowOnlineTotal(v) }
+    fun setAudioQa(v: String) = viewModelScope.launch { storage.setAudioQa(v) }
 }

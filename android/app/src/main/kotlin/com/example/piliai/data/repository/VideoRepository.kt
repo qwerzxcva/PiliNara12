@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import com.example.piliai.utils.toHttpsUrl
@@ -61,7 +62,15 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
         qn: Int = 80
     ): Result<Triple<PlayUrlResponse, String?, String?>> = withContext(Dispatchers.IO) {
         apiClient.getPlayUrl(bvid, cid, qn).mapCatching { resp ->
-            val selected = resp.rawJson?.let { PlayUrlNativeLib.select(it, qn) }
+            val selected = resp.rawJson?.let {
+                // 审核219：默认音质（PiliPlus defaultAudioQa 对齐）经设置键传入 Rust 选流
+                val audioQn = runCatching {
+                    com.example.piliai.utils.StorageManager.getInstance(
+                        com.example.piliai.AppContext.get()
+                    ).audioQaFlow.first()
+                }.getOrNull()?.toIntOrNull() ?: 0
+                PlayUrlNativeLib.select(it, qn, audioQn)
+            }
             if (selected != null) {
                 val arr = JSONObject(selected)
                 val video = arr.optJSONObject("video")?.optString("baseUrl")?.toHttpsUrl()
