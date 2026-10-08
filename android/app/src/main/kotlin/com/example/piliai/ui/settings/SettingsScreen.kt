@@ -50,6 +50,9 @@ fun SettingsScreen(
     var showQualityDialog by remember { mutableStateOf(false) }
     var showAudioQaDialog by remember { mutableStateOf(false) }
     var showCodecDialog by remember { mutableStateOf(false) }
+    var showCellularQaDialog by remember { mutableStateOf(false) }
+    var showCellularAudioDialog by remember { mutableStateOf(false) }
+    var showCellularCodecDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -176,6 +179,45 @@ fun SettingsScreen(
                     },
                     icon = Icons.Default.Memory,
                     onClick = { showCodecDialog = true }
+                )
+            }
+            // ===== 审核221：蜂窝网络覆盖（PiliPlus *Cellular 键对齐）=====
+            item { SectionTitle("蜂窝网络（移动数据）") }
+            item {
+                SettingRow(
+                    title = "蜂窝画质上限",
+                    subtitle = if (state.videoQaCellular.isBlank()) "跟随默认画质"
+                    else qualityLabel(
+                        when (state.videoQaCellular) {
+                            "116" -> "1080p"; "80" -> "1080p"; "64" -> "720p"; "32" -> "480p"; "16" -> "360p"
+                            else -> state.videoQaCellular
+                        }
+                    ),
+                    icon = Icons.Default.SignalCellular4Bar,
+                    onClick = { showCellularQaDialog = true }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "蜂窝音质上限",
+                    subtitle = if (state.audioQaCellular.isBlank()) "跟随默认音质"
+                    else when (state.audioQaCellular) {
+                        "30251" -> "Hi-Res 无损"; "30280" -> "192K"; "30232" -> "132K"; "30216" -> "64K"
+                        else -> state.audioQaCellular
+                    },
+                    icon = Icons.Default.MusicOff,
+                    onClick = { showCellularAudioDialog = true }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "蜂窝解码偏好",
+                    subtitle = if (state.preferCodecCellular.isBlank()) "跟随默认解码器"
+                    else when (state.preferCodecCellular) {
+                        "hevc" -> "HEVC/H.265"; "av1" -> "AV1"; else -> "AVC/H.264"
+                    },
+                    icon = Icons.Default.SimCardAlert,
+                    onClick = { showCellularCodecDialog = true }
                 )
             }
             item {
@@ -459,6 +501,70 @@ fun SettingsScreen(
                     }
                 }
             },
+            confirmButton = {}
+        )
+    }
+
+    // 审核221：蜂窝画质弹窗
+    if (showCellularQaDialog) {
+        val options = listOf("" to "跟随默认画质", "116" to "1080P 高清", "80" to "1080P", "64" to "720P 高清", "32" to "480P 清晰", "16" to "360P 流畅")
+        AlertDialog(
+            onDismissRequest = { showCellularQaDialog = false },
+            title = { Text("蜂窝画质上限") },
+            text = { Column {
+                options.forEach { (value, label) ->
+                    Row(Modifier.fillMaxWidth().clickable {
+                        viewModel.setVideoQaCellular(value); showCellularQaDialog = false
+                    }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = state.videoQaCellular == value, onClick = {
+                            viewModel.setVideoQaCellular(value); showCellularQaDialog = false
+                        })
+                        Spacer(Modifier.width(8.dp)); Text(label)
+                    }
+                }
+            } },
+            confirmButton = {}
+        )
+    }
+    // 审核221：蜂窝音质弹窗
+    if (showCellularAudioDialog) {
+        val options = listOf("" to "跟随默认音质", "30280" to "192K 高码率", "30232" to "132K 中码率", "30216" to "64K 省流")
+        AlertDialog(
+            onDismissRequest = { showCellularAudioDialog = false },
+            title = { Text("蜂窝音质上限") },
+            text = { Column {
+                options.forEach { (value, label) ->
+                    Row(Modifier.fillMaxWidth().clickable {
+                        viewModel.setAudioQaCellular(value); showCellularAudioDialog = false
+                    }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = state.audioQaCellular == value, onClick = {
+                            viewModel.setAudioQaCellular(value); showCellularAudioDialog = false
+                        })
+                        Spacer(Modifier.width(8.dp)); Text(label)
+                    }
+                }
+            } },
+            confirmButton = {}
+        )
+    }
+    // 审核221：蜂窝解码偏好弹窗
+    if (showCellularCodecDialog) {
+        val options = listOf("" to "跟随默认解码器", "avc" to "AVC/H.264（省电）", "hevc" to "HEVC/H.265（高压缩）", "av1" to "AV1（最新一代）")
+        AlertDialog(
+            onDismissRequest = { showCellularCodecDialog = false },
+            title = { Text("蜂窝解码偏好") },
+            text = { Column {
+                options.forEach { (value, label) ->
+                    Row(Modifier.fillMaxWidth().clickable {
+                        viewModel.setPreferCodecCellular(value); showCellularCodecDialog = false
+                    }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = state.preferCodecCellular == value, onClick = {
+                            viewModel.setPreferCodecCellular(value); showCellularCodecDialog = false
+                        })
+                        Spacer(Modifier.width(8.dp)); Text(label)
+                    }
+                }
+            } },
             confirmButton = {}
         )
     }

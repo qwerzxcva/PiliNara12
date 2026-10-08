@@ -64,17 +64,22 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
         apiClient.getPlayUrl(bvid, cid, qn).mapCatching { resp ->
             val selected = resp.rawJson?.let {
                 // 审核219：默认音质（PiliPlus defaultAudioQa 对齐）经设置键传入 Rust 选流
-                val audioQn = runCatching {
-                    com.example.piliai.utils.StorageManager.getInstance(
-                        com.example.piliai.AppContext.get()
-                    ).audioQaFlow.first()
-                }.getOrNull()?.toIntOrNull() ?: 0
-                val preferCodec = runCatching {
-                    com.example.piliai.utils.StorageManager.getInstance(
-                        com.example.piliai.AppContext.get()
-                    ).preferCodecFlow.first()
-                }.getOrNull().orEmpty()
-                PlayUrlNativeLib.select(it, qn, audioQn, preferCodec)
+                // 审核221：蜂窝网络下优先用 *Cellular 覆盖项（空则回退 WiFi 设置）
+                val ctx = com.example.piliai.AppContext.get()
+                val storage = com.example.piliai.utils.StorageManager.getInstance(ctx)
+                val cellular = com.example.piliai.utils.NetworkType.isCellular(ctx)
+                val audioQaRaw = if (cellular) {
+                    storage.audioQaCellularFlow.first().ifBlank { storage.audioQaFlow.first() }
+                } else storage.audioQaFlow.first()
+                val audioQn = audioQaRaw.toIntOrNull() ?: 0
+                // 审核221：蜂窝时视频画质覆盖（defaultVideoQaCellular）
+                val effectiveQn = if (cellular) {
+                    storage.videoQaCellularFlow.first().toIntOrNull()?.takeIf { it > 0 } ?: qn
+                } else qn
+                val preferCodec = if (cellular) {
+                    storage.preferCodecCellularFlow.first().ifBlank { storage.preferCodecFlow.first() }
+                } else storage.preferCodecFlow.first()
+                PlayUrlNativeLib.select(it, effectiveQn, audioQn, preferCodec)
             }
             if (selected != null) {
                 val arr = JSONObject(selected)

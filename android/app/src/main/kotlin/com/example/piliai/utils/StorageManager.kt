@@ -67,6 +67,10 @@ class StorageManager(private val context: Context) {
         private val AUDIO_QA_KEY = stringPreferencesKey("defaultAudioQa")
         // 审核220：编解码偏好（Flutter preferCodecs 对齐；avc/hevc/av1）
         private val PREFER_CODEC_KEY = stringPreferencesKey("preferCodecs")
+        // 审核221：蜂窝网络下的画质/音质/编码偏好（Flutter *Cellular 键对齐）
+        private val VIDEO_QA_CELLULAR_KEY = stringPreferencesKey("defaultVideoQaCellular")
+        private val AUDIO_QA_CELLULAR_KEY = stringPreferencesKey("defaultAudioQaCellular")
+        private val PREFER_CODEC_CELLULAR_KEY = stringPreferencesKey("preferCodecsCellular")
         
         // HDR 色调映射设置
         private val HDR_ENABLED_KEY = booleanPreferencesKey("hdrToneMappingEnabled")
@@ -340,6 +344,31 @@ class StorageManager(private val context: Context) {
 
     suspend fun setPreferCodec(codec: String) {
         context.dataStore.edit { it[PREFER_CODEC_KEY] = codec }
+    }
+
+    // 审核221：蜂窝网络覆盖项（空串=跟随 WiFi 设置）
+    val videoQaCellularFlow: Flow<String> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[VIDEO_QA_CELLULAR_KEY] ?: "" }
+
+    val audioQaCellularFlow: Flow<String> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[AUDIO_QA_CELLULAR_KEY] ?: "" }
+
+    val preferCodecCellularFlow: Flow<String> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[PREFER_CODEC_CELLULAR_KEY] ?: "" }
+
+    suspend fun setVideoQaCellular(qn: String) {
+        context.dataStore.edit { it[VIDEO_QA_CELLULAR_KEY] = qn }
+    }
+
+    suspend fun setAudioQaCellular(qn: String) {
+        context.dataStore.edit { it[AUDIO_QA_CELLULAR_KEY] = qn }
+    }
+
+    suspend fun setPreferCodecCellular(codec: String) {
+        context.dataStore.edit { it[PREFER_CODEC_CELLULAR_KEY] = codec }
     }
 
     /**
