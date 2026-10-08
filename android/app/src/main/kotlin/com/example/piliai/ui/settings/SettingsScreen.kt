@@ -49,6 +49,7 @@ fun SettingsScreen(
     // 弹窗选择器状态
     var showQualityDialog by remember { mutableStateOf(false) }
     var showAudioQaDialog by remember { mutableStateOf(false) }
+    var showCodecDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -162,6 +163,19 @@ fun SettingsScreen(
                     },
                     icon = Icons.Default.MusicNote,
                     onClick = { showAudioQaDialog = true }
+                )
+            }
+            item {
+                // 审核220：解码器偏好（PiliPlus preferCodecs 对齐）
+                SettingRow(
+                    title = "解码器偏好",
+                    subtitle = when (state.preferCodec) {
+                        "hevc" -> "HEVC/H.265（高压缩，需硬解支持）"
+                        "av1" -> "AV1（最新一代，设备相关）"
+                        else -> "AVC/H.264（省电，兼容性最佳）"
+                    },
+                    icon = Icons.Default.Memory,
+                    onClick = { showCodecDialog = true }
                 )
             }
             item {
@@ -402,6 +416,41 @@ fun SettingsScreen(
                                 onClick = {
                                     viewModel.setAudioQa(value)
                                     showAudioQaDialog = false
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label)
+                        }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // 审核220：解码器偏好弹窗
+    if (showCodecDialog) {
+        val options = listOf("avc" to "AVC/H.264（省电，兼容性最佳）", "hevc" to "HEVC/H.265（高压缩）", "av1" to "AV1（最新一代）")
+        AlertDialog(
+            onDismissRequest = { showCodecDialog = false },
+            title = { Text("解码器偏好") },
+            text = {
+                Column {
+                    options.forEach { (value, label) ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    viewModel.setPreferCodec(value)
+                                    showCodecDialog = false
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = state.preferCodec == value,
+                                onClick = {
+                                    viewModel.setPreferCodec(value)
+                                    showCodecDialog = false
                                 }
                             )
                             Spacer(Modifier.width(8.dp))

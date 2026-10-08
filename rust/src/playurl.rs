@@ -56,16 +56,29 @@ pub fn select_streams(body: &str, target_qn: i64) -> Result<String, String> {
     };
     let dash: Dash = serde_json::from_value(dash_node).map_err(|e| format!("no dash: {e}"))?;
 
-    // ---- video：qn 优先，其次编码偏好（avc > hevc > 其他），最后 bandwidth ----
-    fn codec_rank(c: &str) -> i64 {
-        if c.starts_with("avc") {
-            0
-        } else if c.starts_with("hevc") || c.starts_with("hvc") {
-            1
+    // ---- video：qn 优先，其次编码偏好（默认 avc > hevc > 其他；审核220 支持 _preferCodec 覆盖）----
+    let prefer = v["_preferCodec"].as_str().unwrap_or("avc").to_lowercase();
+    let codec_rank = |c: &str| -> i64 {
+        let fam = if c.starts_with("avc") {
+            "avc"
+        } else if c.starts_with("hev") || c.starts_with("hvc") || c.starts_with("h265") {
+            "hevc"
+        } else if c.contains("av01") || c.contains("av1") {
+            "av1"
         } else {
-            2
+            "other"
+        };
+        if fam == prefer {
+            0
+        } else {
+            match fam {
+                "avc" => 1,
+                "hevc" => 2,
+                "av1" => 3,
+                _ => 4,
+            }
         }
-    }
+    };
 
     let mut videos = dash.video.clone();
     videos.sort_by(|a, b| {
@@ -172,6 +185,19 @@ mod tests {
         let out = select_streams(body, 80).unwrap();
         let v: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["audio"]["id"], 30280);
+    }
+
+    #[test]
+    fn prefers_hevc_when_requested() {
+        // 审核220：_preferCodec=hevc 时优先 hevc（默认会选 avc）
+        let body = r#"{"code":0,"_preferCodec":"hevc","data":{"dash":{
+            "video":[{"id":80,"codecs":"avc1.640032","bandwidth":1000,"baseUrl":"http://v/avc"},
+                     {"id":80,"codecs":"hev1.1.6","bandwidth":1000,"baseUrl":"http://v/hev"}],
+            "audio":[{"id":30280,"bandwidth":320000,"baseUrl":"http://a/192k"}],
+            "duration":1}}}"#;
+        let out = select_streams(body, 80).unwrap();
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert!(v["video"]["codecs"].as_str().unwrap().starts_with("hev"));
     }
 
     #[test]

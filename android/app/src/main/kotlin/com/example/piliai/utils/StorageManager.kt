@@ -65,6 +65,8 @@ class StorageManager(private val context: Context) {
         private val ONLINE_TOTAL_KEY = booleanPreferencesKey("enableOnlineTotal")
         // 审核219：默认音质（Flutter defaultAudioQa 对齐；B站音频流 id）
         private val AUDIO_QA_KEY = stringPreferencesKey("defaultAudioQa")
+        // 审核220：编解码偏好（Flutter preferCodecs 对齐；avc/hevc/av1）
+        private val PREFER_CODEC_KEY = stringPreferencesKey("preferCodecs")
         
         // HDR 色调映射设置
         private val HDR_ENABLED_KEY = booleanPreferencesKey("hdrToneMappingEnabled")
@@ -329,6 +331,15 @@ class StorageManager(private val context: Context) {
 
     suspend fun setAudioQa(qn: String) {
         context.dataStore.edit { it[AUDIO_QA_KEY] = qn }
+    }
+
+    // 审核220：解码器偏好（avc 省电兼容 / hevc 高压缩 / av1 高效）
+    val preferCodecFlow: Flow<String> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[PREFER_CODEC_KEY] ?: "avc" }
+
+    suspend fun setPreferCodec(codec: String) {
+        context.dataStore.edit { it[PREFER_CODEC_KEY] = codec }
     }
 
     /**

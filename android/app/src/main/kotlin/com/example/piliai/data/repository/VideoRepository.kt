@@ -69,7 +69,12 @@ class VideoRepository(private val apiClient: BiliApiClient = BiliApiClient()) {
                         com.example.piliai.AppContext.get()
                     ).audioQaFlow.first()
                 }.getOrNull()?.toIntOrNull() ?: 0
-                PlayUrlNativeLib.select(it, qn, audioQn)
+                val preferCodec = runCatching {
+                    com.example.piliai.utils.StorageManager.getInstance(
+                        com.example.piliai.AppContext.get()
+                    ).preferCodecFlow.first()
+                }.getOrNull().orEmpty()
+                PlayUrlNativeLib.select(it, qn, audioQn, preferCodec)
             }
             if (selected != null) {
                 val arr = JSONObject(selected)

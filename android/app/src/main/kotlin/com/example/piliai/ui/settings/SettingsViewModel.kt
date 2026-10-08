@@ -50,7 +50,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val autoEnterFullscreen: Boolean = false,  // 进入播放页自动全屏
         val pauseOnMinimize: Boolean = false,      // 切后台自动暂停
         val showOnlineTotal: Boolean = true,       // 显示实时在线人数
-        val audioQa: String = "0"                  // 审核219：默认音质（0=最高）
+        val audioQa: String = "0",                 // 审核219：默认音质（0=最高）
+        val preferCodec: String = "avc"            // 审核220：解码器偏好
     )
 
     init {
@@ -65,6 +66,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
         }
         viewModelScope.launch {
             storage.audioQaFlow.collect { _state.value = _state.value.copy(audioQa = it) }
+        }
+        viewModelScope.launch {
+            storage.preferCodecFlow.collect { _state.value = _state.value.copy(preferCodec = it) }
         }
         viewModelScope.launch {
             storage.autoPlayFlow.collect { _state.value = _state.value.copy(autoPlay = it) }
@@ -177,4 +181,5 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setPauseOnMinimize(v: Boolean) = viewModelScope.launch { storage.setPauseOnMinimize(v) }
     fun setShowOnlineTotal(v: Boolean) = viewModelScope.launch { storage.setShowOnlineTotal(v) }
     fun setAudioQa(v: String) = viewModelScope.launch { storage.setAudioQa(v) }
+    fun setPreferCodec(v: String) = viewModelScope.launch { storage.setPreferCodec(v) }
 }
