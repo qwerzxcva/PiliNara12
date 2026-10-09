@@ -166,17 +166,58 @@ class SubscribeViewModel(
      * 审核轮8：条目无可播放直链时的提示
      * （避免把网页 URL 丢进播放器造成「点了没反应」）
      */
-    fun reportNotPlayable(title: String) {
-        val source = _state.value.sources.firstOrNull { it.enabled }
-        if (source != null) {
-            searchWebSource(source.url, source.name, title)
+    fun reportNotPlayable(item: SubscribeItemEntity) {
+        browseJob?.cancel()
+        searchJob?.cancel()
+        val generation = ++browseGeneration
+        val context = com.example.piliai.AppContext.get()
+        val source = _state.value.sources.firstOrNull {
+            it.id == item.sourceId && it.enabled
+        }
+        if (source == null) {
             _state.value = _state.value.copy(
-                infoMessage = "「$title」不是直链，已在「${source.name}」中搜索可播剧集"
+                errorMessage = context.getString(com.example.piliai.R.string.subscribe_source_unavailable),
+                isRefreshing = refreshJob?.isActive == true
             )
-        } else {
-            _state.value = _state.value.copy(
-                errorMessage = "「${title}」没有可播放的直链，也没有可用订阅源"
-            )
+            return
+        }
+        browseJob = viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            try {
+                val names = repository.searchableWebSourceNames(source.url)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (generation != browseGeneration) return@launch
+                if (!_state.value.sources.any { it.id == source.id && it.enabled }) {
+                    _state.value = _state.value.copy(
+                        errorMessage = context.getString(com.example.piliai.R.string.subscribe_source_unavailable)
+                    )
+                    return@launch
+                }
+                val name = names.firstOrNull { it == item.sourceName }
+                    ?: names.singleOrNull()
+                if (name == null) {
+                    _state.value = _state.value.copy(
+                        errorMessage = context.getString(
+                            if (names.isEmpty()) com.example.piliai.R.string.subscribe_no_matching_resolver
+                            else com.example.piliai.R.string.subscribe_choose_resolver
+                        )
+                    )
+                    return@launch
+                }
+                searchWebSource(source.url, name, item.title)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(
+                        errorMessage = context.getString(com.example.piliai.R.string.subscribe_resolver_load_failed)
+                    )
+                }
+            } finally {
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
+                }
+            }
         }
     }
 

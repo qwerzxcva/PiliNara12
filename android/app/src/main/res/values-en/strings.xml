@@ -11,4 +11,8 @@
     <string name="bangumi_rating">Score %1$.1f</string>
     <string name="bangumi_rank">Rank %1$d</string>
     <string name="bangumi_summary_unavailable">No summary available</string>
+    <string name="subscribe_source_unavailable">The owning subscription is disabled or removed. Select it again.</string>
+    <string name="subscribe_no_matching_resolver">The owning subscription has no available web resolver. This link cannot be played directly.</string>
+    <string name="subscribe_choose_resolver">This subscription contains multiple resolvers. Select a specific source and search for this title.</string>
+    <string name="subscribe_resolver_load_failed">Could not load the owning subscription configuration. Check your connection and retry.</string>
 </resources>

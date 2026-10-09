@@ -7,4 +7,8 @@
     <string name="bangumi_rating">评分 %1$.1f</string>
     <string name="bangumi_rank">排名 %1$d</string>
     <string name="bangumi_summary_unavailable">暂无简介</string>
+    <string name="subscribe_source_unavailable">所属订阅源已停用或移除，请重新选择</string>
+    <string name="subscribe_no_matching_resolver">所属订阅没有可用的网页解析源，此链接不能直接播放</string>
+    <string name="subscribe_choose_resolver">所属订阅包含多个解析源，请先选择具体数据源并搜索此作品</string>
+    <string name="subscribe_resolver_load_failed">读取所属订阅的解析配置失败，请检查网络后重试</string>
 </resources>

@@ -243,7 +243,7 @@ fun SubscribeScreen(
                                         onPlay(item.link, item.title, item.cover)
                                     // 无直链：网页刮削源 → 弹搜索框
                                     item.link.isBlank() -> webTarget = item
-                                    else -> viewModel.reportNotPlayable(item.title)
+                                    else -> viewModel.reportNotPlayable(item)
                                 }
                             }
                         }

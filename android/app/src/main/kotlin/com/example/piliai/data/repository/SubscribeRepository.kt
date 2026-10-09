@@ -624,6 +624,11 @@ class SubscribeRepository(
         }
     }
 
+    suspend fun searchableWebSourceNames(sourceUrl: String): List<String> =
+        configsOf(sourceUrl).filter {
+            it.factoryId == "web-selector" && it.cfg.searchUrl.isNotBlank()
+        }.map { it.name }.distinct()
+
     /**
      * 在网页刮削源里搜索（第一步：搜索页 → 作品列表）
      *
