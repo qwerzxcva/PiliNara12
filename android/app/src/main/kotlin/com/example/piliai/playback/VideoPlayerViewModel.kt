@@ -1,4 +1,4 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+@file:OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 
 package com.example.piliai.playback
 
