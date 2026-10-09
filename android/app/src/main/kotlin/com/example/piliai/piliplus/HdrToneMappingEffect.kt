@@ -1,6 +1,7 @@
 package com.example.piliai.piliplus
 
 import androidx.media3.common.C
+import androidx.media3.common.util.UnstableApi
 
 /**
  * HDR 色调映射辅助工具（移植自 piliplus 分支）。
@@ -20,6 +21,7 @@ import androidx.media3.common.C
  *
  * Media3 1.3.1 里 PQ 常量的正确名字是 `COLOR_TRANSFER_ST2084`（不是 SMPTE2084）。
  */
+@OptIn(UnstableApi::class)
 internal fun isHdrContent(colorInfo: androidx.media3.common.ColorInfo?): Boolean {
     if (colorInfo == null) return false
     val colorTransfer = colorInfo.colorTransfer
@@ -28,6 +30,7 @@ internal fun isHdrContent(colorInfo: androidx.media3.common.ColorInfo?): Boolean
 }
 
 /** 获取 HDR 内容的色域描述（BT.2020 / BT.709 / unknown）。 */
+@OptIn(UnstableApi::class)
 internal fun getHdrColorGamutDescription(colorInfo: androidx.media3.common.ColorInfo?): String {
     if (colorInfo == null) return "unknown"
     return when (colorInfo.colorSpace) {
@@ -38,6 +41,7 @@ internal fun getHdrColorGamutDescription(colorInfo: androidx.media3.common.Color
 }
 
 /** 获取 HDR 内容的色调传输特性描述（PQ / HLG / SDR / unknown）。 */
+@OptIn(UnstableApi::class)
 internal fun getHdrTransferDescription(colorInfo: androidx.media3.common.ColorInfo?): String {
     if (colorInfo == null) return "unknown"
     return when (colorInfo.colorTransfer) {
