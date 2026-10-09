@@ -9,6 +9,7 @@ import com.example.piliai.data.repository.SubscribeParser
 import com.example.piliai.data.repository.SubscribeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +59,8 @@ class SubscribeViewModel(
     private var refreshJob: Job? = null
     /** 审核轮103：搜索防重入（快速连点搜索按钮会并发打出多个请求） */
     private var searchJob: Job? = null
+    private var browseJob: Job? = null
+    private var browseGeneration = 0L
 
     init {
         // 源列表
@@ -251,7 +254,15 @@ class SubscribeViewModel(
 
     /** 清空搜索结果（返回订阅列表视图） */
     fun clearSearch() {
+        ++browseGeneration
+        browseJob?.cancel()
+        searchJob?.cancel()
+        activeSourceUrl = ""
+        activeSourceName = ""
+        _episodes.value = emptyList()
+        _currentSubject.value = null
         _searchResults.value = emptyList()
+        _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
     }
 
     // ==================== Animeko 网页刮削（第二步/第三步）====================
@@ -300,29 +311,39 @@ class SubscribeViewModel(
      * @param sourceName 源名（如"酱紫社(修复)"）
      */
     fun searchWebSource(sourceUrl: String, sourceName: String, keyword: String) {
+        browseJob?.cancel()
+        searchJob?.cancel()
+        val generation = ++browseGeneration
         activeSourceUrl = sourceUrl
         activeSourceName = sourceName
         _currentSubject.value = null
         _episodes.value = emptyList()
-        viewModelScope.launch {
+        _searchResults.value = emptyList()
+        browseJob = viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
-                repository.searchAnimekoWeb(sourceUrl, sourceName, keyword)
-                    .onSuccess { list ->
-                        _searchResults.value = list.map {
-                            com.example.piliai.database.SubscribeItemEntity(
-                                sourceId = -1L,
-                                title = it.name,
-                                link = it.url,
-                                sourceName = "subject"   // 标记：这是作品，点击进剧集
-                            )
-                        }
-                    }
-                    .onFailure { e ->
-                        _state.value = _state.value.copy(errorMessage = e.message ?: "搜索失败")
-                    }
+                val result = repository.searchAnimekoWeb(sourceUrl, sourceName, keyword)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (generation != browseGeneration) return@launch
+                val list = result.getOrThrow()
+                val sourceId = _state.value.sources.firstOrNull { it.url == sourceUrl }?.id
+                    ?: error("订阅源已移除，请重新选择")
+                _searchResults.value = list.map {
+                    SubscribeItemEntity(
+                        sourceId = sourceId,
+                        title = it.name,
+                        link = it.url,
+                        sourceName = "subject"
+                    )
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(errorMessage = error.message ?: "搜索失败")
+                }
             } finally {
-                if (_state.value.isRefreshing) {
+                if (generation == browseGeneration) {
                     _state.value = _state.value.copy(isRefreshing = false)
                 }
             }
@@ -331,22 +352,33 @@ class SubscribeViewModel(
 
     /** 第二步：打开作品 → 取剧集 */
     fun openSubject(subjectUrl: String, subjectName: String) {
-        if (activeSourceUrl.isBlank()) {
+        val sourceUrl = activeSourceUrl
+        val sourceName = activeSourceName
+        if (sourceUrl.isBlank()) {
             _state.value = _state.value.copy(errorMessage = "源信息丢失，请重新搜索")
             return
         }
+        browseJob?.cancel()
+        searchJob?.cancel()
+        val generation = ++browseGeneration
         _currentSubject.value = subjectName
-        viewModelScope.launch {
+        _episodes.value = emptyList()
+        browseJob = viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
-                repository.fetchEpisodes(activeSourceUrl, activeSourceName, subjectUrl)
-                    .onSuccess { list -> _episodes.value = list }
-                    .onFailure { e ->
-                        _state.value = _state.value.copy(errorMessage = e.message ?: "获取剧集失败")
-                    }
+                val result = repository.fetchEpisodes(sourceUrl, sourceName, subjectUrl)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (generation != browseGeneration) return@launch
+                _episodes.value = result.getOrThrow()
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(errorMessage = error.message ?: "获取剧集失败")
+                }
             } finally {
-                if (_state.value.isRefreshing) {
-                    _state.value = _state.value.copy(isRefreshing = false)
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
                 }
             }
         }
@@ -354,26 +386,35 @@ class SubscribeViewModel(
 
     /** 第三步：播放某一集 → 取直链后交给播放器 */
     fun playEpisode(episodeUrl: String, onReady: (String) -> Unit) {
-        if (activeSourceUrl.isBlank()) {
+        val sourceUrl = activeSourceUrl
+        val sourceName = activeSourceName
+        if (sourceUrl.isBlank()) {
             _state.value = _state.value.copy(errorMessage = "源信息丢失，请重新搜索")
             return
         }
-        viewModelScope.launch {
+        browseJob?.cancel()
+        searchJob?.cancel()
+        val generation = ++browseGeneration
+        browseJob = viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
-                repository.fetchVideoUrl(activeSourceUrl, activeSourceName, episodeUrl)
-                    .onSuccess { url ->
-                        if (url.isNotBlank()) onReady(url)
-                        else _state.value = _state.value.copy(errorMessage = "未取到播放地址")
-                    }
-                    .onFailure { e ->
-                        _state.value = _state.value.copy(
-                            errorMessage = e.message ?: "提取播放地址失败"
-                        )
-                    }
+                val result = repository.fetchVideoUrl(sourceUrl, sourceName, episodeUrl)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (generation != browseGeneration) return@launch
+                val url = result.getOrThrow()
+                require(url.isNotBlank()) { "未取到播放地址" }
+                val source = _state.value.sources.firstOrNull { it.url == sourceUrl }
+                require(source?.enabled == true) { "订阅源已停用或移除" }
+                onReady(url)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(errorMessage = error.message ?: "提取播放地址失败")
+                }
             } finally {
-                if (_state.value.isRefreshing) {
-                    _state.value = _state.value.copy(isRefreshing = false)
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
                 }
             }
         }
@@ -381,8 +422,12 @@ class SubscribeViewModel(
 
     /** 返回到作品列表（清剧集） */
     fun backToSubjects() {
+        ++browseGeneration
+        browseJob?.cancel()
+        searchJob?.cancel()
         _episodes.value = emptyList()
         _currentSubject.value = null
+        _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
     }
 
     fun clearError() {
