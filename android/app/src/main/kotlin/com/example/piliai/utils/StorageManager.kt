@@ -37,6 +37,8 @@ class StorageManager(private val context: Context) {
         private val AMOLED_KEY = booleanPreferencesKey("amoledBlack")
         // Kazumi 特性：视频渲染器（0=SurfaceView默认 1=TextureView）
         private val RENDERER_KEY = intPreferencesKey("videoRenderer")
+        // 播放后端："media3"（默认）或 "gpu-next"（libmpv + libplacebo）
+        private val PLAYBACK_BACKEND_KEY = stringPreferencesKey("playbackBackend")
         // Kazumi 特性：低延迟音频（缩短 AudioTrack 缓冲，代价是弱网易卡顿）
         private val LOW_LATENCY_AUDIO_KEY = booleanPreferencesKey("lowLatencyAudio")
         private val NOTIFICATION_ENABLED_KEY = booleanPreferencesKey("notificationEnabled")
@@ -58,6 +60,8 @@ class StorageManager(private val context: Context) {
         private val TODAY_WATCH_MODE_KEY = stringPreferencesKey("todayWatchMode")
         private val TODAY_WATCH_STRATEGY_KEY = stringPreferencesKey("todayWatchStrategy")
         private val BUFFER_DURATION_KEY = intPreferencesKey("bufferDurationMs")
+        // 播放结束动作：stop / next / repeat
+        private val COMPLETION_ACTION_KEY = stringPreferencesKey("completionAction")
         private val DANDAN_DANMAKU_KEY = booleanPreferencesKey("dandanDanmakuEnabled")
         // 审核216：第一批 Flutter 高频设置项（PiliPlus enableAutoEnter/pauseOnMinimize/enableOnlineTotal）
         private val AUTO_ENTER_KEY = booleanPreferencesKey("enableAutoEnter")
@@ -112,6 +116,14 @@ class StorageManager(private val context: Context) {
     /** Kazumi：视频渲染器（0=SurfaceView 1=TextureView） */
     val rendererFlow: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[RENDERER_KEY] ?: 0 }
+
+    /** 播放后端："media3" 或 "gpu-next"，缺省 media3。 */
+    val playbackBackendFlow: Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[PLAYBACK_BACKEND_KEY] ?: "media3" }
+
+    /** 播放结束动作：stop（停止）/ next（下一 P）/ repeat（单集循环）。 */
+    val completionActionFlow: Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[COMPLETION_ACTION_KEY] ?: "next" }
 
     /** Kazumi：低延迟音频（AudioTrack 缓冲最小化） */
     val lowLatencyAudioFlow: Flow<Boolean> = context.dataStore.data
@@ -176,6 +188,19 @@ class StorageManager(private val context: Context) {
     suspend fun setRenderer(v: Int) {
         context.dataStore.edit { preferences ->
             preferences[RENDERER_KEY] = v
+        }
+    }
+
+    /** 设置播放后端（"media3" / "gpu-next"），下次进入播放器生效。 */
+    suspend fun setPlaybackBackend(id: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PLAYBACK_BACKEND_KEY] = id
+        }
+    }
+
+    suspend fun setCompletionAction(action: String) {
+        context.dataStore.edit { preferences ->
+            preferences[COMPLETION_ACTION_KEY] = action
         }
     }
 

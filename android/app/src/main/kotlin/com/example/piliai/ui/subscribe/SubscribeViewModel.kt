@@ -257,6 +257,23 @@ class SubscribeViewModel(
     private var activeSourceName: String = ""
 
     /**
+     * 用条目标题在 Bangumi 上找对应条目，找到就把 id 交给 [onFound]。
+     * 找不到时给出提示，不跳转。
+     */
+    fun lookupBangumi(title: String, onFound: (Long) -> Unit) {
+        viewModelScope.launch {
+            val subject = runCatching {
+                com.example.piliai.data.remote.BangumiApi.searchSubject(title)
+            }.getOrNull()
+            if (subject == null || subject.id == 0L) {
+                _state.value = _state.value.copy(infoMessage = "Bangumi 上没有找到「$title」")
+            } else {
+                onFound(subject.id)
+            }
+        }
+    }
+
+    /**
      * 网页刮削搜索（第一步）
      * @param sourceUrl 订阅配置文件 URL（all.json/css.json 等）
      * @param sourceName 源名（如"酱紫社(修复)"）

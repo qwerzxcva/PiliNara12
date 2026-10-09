@@ -22,6 +22,11 @@ object RendererPrefs {
     var useTextureView: Boolean = false
         private set
 
+    /** 播放后端 id："media3" 或 "gpu-next"。gpu-next 未打包时由调用方回退。 */
+    @Volatile
+    var playbackBackend: String = "media3"
+        private set
+
     /** Kazumi：低延迟音频（同步缓存，供 ExoPlayer.Builder 读取） */
     @Volatile
     var lowLatencyAudio: Boolean = false
@@ -89,6 +94,11 @@ object RendererPrefs {
             }
         }
         scope.launch {
+            storage.playbackBackendFlow.collectLatest { v ->
+                playbackBackend = v
+            }
+        }
+        scope.launch {
             storage.lowLatencyAudioFlow.collectLatest { v ->
                 lowLatencyAudio = v
             }
@@ -134,6 +144,11 @@ object RendererPrefs {
     /** 设置变更时同步更新缓存（下次创建 PlayerView 生效） */
     fun update(v: Int) {
         useTextureView = (v == 1)
+    }
+
+    /** 更新播放后端缓存（下次进入播放器生效） */
+    fun updatePlaybackBackend(id: String) {
+        playbackBackend = id
     }
 
     /** 更新低延迟音频缓存 */

@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 plugins {
-    id("com.android.application") version "8.5.2"
+    id("com.android.application") version "8.12.0"
     id("org.jetbrains.kotlin.android") version "2.2.21"
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.21"
     id("com.google.devtools.ksp") version "2.2.21-2.0.5"
@@ -13,18 +13,20 @@ plugins {
 
 android {
     namespace = "com.example.piliai"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.piliai"
-        minSdk = 24  // Android 7+ for broader compatibility
-        targetSdk = 34
+        // Android 16+ / arm64-v8a only. minSdk 36 drops every pre-Android-16
+        // code path; the ABI filter guarantees no other architecture is packaged.
+        minSdk = 36
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
-        ndkVersion = "27.3.13750724" // r27b
-        
+        ndkVersion = "30.0.16248370"
+
         ndk {
-            // abiFilters removed for CI compatibility
+            abiFilters += listOf("arm64-v8a")
         }
     }
 

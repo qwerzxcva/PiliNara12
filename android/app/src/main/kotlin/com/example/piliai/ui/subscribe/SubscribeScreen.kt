@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -91,7 +92,8 @@ fun SubscribeScreen(
     viewModel: SubscribeViewModel = viewModel(factory = SubscribeViewModelFactory()),
     onPlay: (url: String, title: String, cover: String) -> Unit,
     onBack: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onOpenSubject: (Long) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
@@ -183,7 +185,12 @@ fun SubscribeScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(displayItems2, key = { it.link.hashCode().toString() + it.title }) { item ->
-                            SubscribeItemCard(item = item) {
+                            SubscribeItemCard(
+                                item = item,
+                                onInfo = {
+                                    viewModel.lookupBangumi(item.title) { id -> onOpenSubject(id) }
+                                }
+                            ) {
                                 // 审核轮8：不是所有条目都有可播放直链。
                                 // RSS 的 <link> 常是网页而非媒体；只有 enclosure/直链
                                 // 才能直接交给 ExoPlayer。这里先判定可否播放，
@@ -438,7 +445,11 @@ private fun EmptySubscribeHint(onAdd: () -> Unit) {
 }
 
 @Composable
-private fun SubscribeItemCard(item: SubscribeItemEntity, onClick: () -> Unit) {
+private fun SubscribeItemCard(
+    item: SubscribeItemEntity,
+    onInfo: (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column {
             Box {
@@ -460,12 +471,20 @@ private fun SubscribeItemCard(item: SubscribeItemEntity, onClick: () -> Unit) {
                 }
             }
             Column(Modifier.padding(8.dp)) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(
+                        text = item.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (onInfo != null && item.sourceName != "episode") {
+                        IconButton(onClick = onInfo) {
+                            Icon(Icons.Default.Info, contentDescription = "Bangumi 介绍")
+                        }
+                    }
+                }
                 if (item.sourceName.isNotBlank()) {
                     Spacer(Modifier.height(2.dp))
                     Text(

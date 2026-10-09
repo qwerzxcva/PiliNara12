@@ -25,6 +25,8 @@ class SettingsViewModel(context: Context) : ViewModel() {
         val autoPlay: Boolean = false,
         val lowLatencyAudio: Boolean = false,  // Kazumi：低延迟音频
         val renderer: Int = 0,                 // Kazumi：渲染器 0=SurfaceView 1=TextureView
+        val playbackBackend: String = "media3", // media3 / gpu-next
+        val completionAction: String = "next",  // stop / next / repeat
         val videoQuality: String = "auto",   // auto/1080p/720p/480p
         val playbackSpeed: Float = 1.0f,
         val bufferDurationMs: Int = 16_000,  // VOD 缓冲时长（LoadControl，移植自 piliplus）
@@ -93,6 +95,12 @@ class SettingsViewModel(context: Context) : ViewModel() {
             storage.rendererFlow.collect { _state.value = _state.value.copy(renderer = it) }
         }
         viewModelScope.launch {
+            storage.playbackBackendFlow.collect { _state.value = _state.value.copy(playbackBackend = it) }
+        }
+        viewModelScope.launch {
+            storage.completionActionFlow.collect { _state.value = _state.value.copy(completionAction = it) }
+        }
+        viewModelScope.launch {
             storage.videoQualityFlow.collect { _state.value = _state.value.copy(videoQuality = it) }
         }
         viewModelScope.launch {
@@ -143,6 +151,16 @@ class SettingsViewModel(context: Context) : ViewModel() {
     fun setRenderer(v: Int) = viewModelScope.launch {
         com.example.piliai.utils.RendererPrefs.update(v)
         storage.setRenderer(v)
+    }
+
+    /** 切换播放后端。gpu-next 依赖 libmpv，未打包时播放器会回退 media3。 */
+    fun setPlaybackBackend(id: String) = viewModelScope.launch {
+        com.example.piliai.utils.RendererPrefs.updatePlaybackBackend(id)
+        storage.setPlaybackBackend(id)
+    }
+
+    fun setCompletionAction(action: String) = viewModelScope.launch {
+        storage.setCompletionAction(action)
     }
     fun setBufferDuration(v: Int) = viewModelScope.launch {
         com.example.piliai.utils.RendererPrefs.updateBufferDuration(v)

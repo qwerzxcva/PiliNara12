@@ -2,6 +2,15 @@ package com.example.piliai.data.remote
 
 import android.content.Context
 import androidx.core.content.edit
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -22,6 +31,23 @@ import io.ktor.client.request.HttpRequestBuilder
  * 3. 不做任何"假登录"：必须用户填入真实令牌并校验通过才置为已登录。
  */
 object BangumiSession {
+
+    private val json = Json { ignoreUnknownKeys = true }
+    private val client = HttpClient(OkHttp) {
+        expectSuccess = true
+        followRedirects = false
+        engine {
+            config {
+                followRedirects(false)
+                followSslRedirects(false)
+            }
+        }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 30_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 20_000
+        }
+    }
 
     private const val PREFS = "bangumi_auth"
     private const val KEY_TOKEN = "access_token"
@@ -72,20 +98,22 @@ object BangumiSession {
                 val trimmed = accessToken.trim()
                 require(trimmed.isNotBlank()) { "令牌不能为空" }
 
-                val resp = BiliHttpClient.client.get("https://api.bgm.tv/v0/me") {
+                val resp = client.get("https://api.bgm.tv/v0/me") {
                     header("Authorization", "Bearer $trimmed")
                     header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
                 }.bodyAsText()
 
-                // 极简解析：取 username / nickname / id / avatar
-                val name = Regex("\"(?:username|nickname)\"\\s*:\\s*\"([^\"]+)\"")
-                    .find(resp)?.groupValues?.get(1) ?: ""
-                val uid = Regex("\"id\"\\s*:\\s*(\\d+)")
-                    .find(resp)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-                val face = Regex("\"(?:avatar|large)\"\\s*:\\s*\"([^\"]+)\"")
-                    .find(resp)?.groupValues?.get(1) ?: ""
+                val user = json.parseToJsonElement(resp).jsonObject
+                val username = user["username"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                val name = user["nickname"]?.jsonPrimitive?.contentOrNull
+                    .orEmpty().ifBlank { username }
+                val uid = user["id"]?.jsonPrimitive?.longOrNull ?: 0L
+                val face = user["avatar"]?.jsonObject
+                    ?.get("large")?.jsonPrimitive?.contentOrNull.orEmpty()
 
-                require(name.isNotBlank() || uid > 0L) { "令牌校验失败：未返回用户信息" }
+                require(uid > 0L && username.isNotBlank()) {
+                    "令牌校验失败：未返回有效用户信息"
+                }
 
                 token = trimmed
                 userId = uid
@@ -101,6 +129,8 @@ object BangumiSession {
                 }
 
                 name.ifBlank { "Bangumi 用户" }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
             }
         }
 
@@ -128,6 +158,9 @@ object BangumiSession {
  * 外部（Repository 里）无法直接使用。
  */
 fun io.ktor.client.request.HttpRequestBuilder.withBangumiAuth() {
+    require(url.host == "api.bgm.tv" && url.protocol.name == "https") {
+        "Bangumi authorization is restricted to https://api.bgm.tv"
+    }
     if (BangumiSession.isLogin && BangumiSession.token.isNotBlank()) {
         header("Authorization", "Bearer ${BangumiSession.token}")
     }

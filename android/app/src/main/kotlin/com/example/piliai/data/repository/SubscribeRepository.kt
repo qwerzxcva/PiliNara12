@@ -1,6 +1,6 @@
 package com.example.piliai.data.repository
 
-import com.example.piliai.data.remote.BiliHttpClient
+import com.example.piliai.data.remote.SourceHttpClient
 import com.example.piliai.database.SubscribeItemEntity
 import com.example.piliai.database.SubscribeSourceDao
 import com.example.piliai.database.SubscribeSourceEntity
@@ -98,7 +98,7 @@ object SubscribeParser {
         hintType: Int = SubscribeSourceEntity.TYPE_BANGUMI
     ): Result<ParsedSource> = withContext(Dispatchers.IO) {
         runCatching {
-            val text = BiliHttpClient.client.get(url).bodyAsText()
+            val text = SourceHttpClient.client.get(url).bodyAsText()
             if (text.isBlank()) error("订阅源返回为空")
 
             // Animeko 媒体源配置：优先识别。
@@ -482,7 +482,7 @@ object SubscribeParser {
         runCatching {
             if (factoryId.equals("rss", ignoreCase = true)) {
                 val url = searchUrl.replace("{keyword}", android.net.Uri.encode(keyword))
-                val text = BiliHttpClient.client.get(url).bodyAsText()
+                val text = SourceHttpClient.client.get(url).bodyAsText()
                 if (text.isBlank()) error("搜索返回为空")
                 parseRss(text)
             } else if (factoryId.equals("web-selector", ignoreCase = true)) {
@@ -617,7 +617,7 @@ class SubscribeRepository(
             if (now - ts < configCacheTtlMs) return cfgs
         }
         return withContext(Dispatchers.IO) {
-            val text = BiliHttpClient.client.get(sourceUrl).bodyAsText()
+            val text = SourceHttpClient.client.get(sourceUrl).bodyAsText()
             val cfgs = AnimekoScraper.parseConfig(text)
             if (cfgs.isNotEmpty()) configCache[sourceUrl] = now to cfgs
             cfgs
@@ -640,13 +640,10 @@ class SubscribeRepository(
             val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
                 ?: error("未找到源「$sourceName」的配置")
             if (cfg.cfg.searchUrl.isBlank()) error("该源未配置 searchUrl，无法搜索")
-            if (cfg.cfg.subjectFormatId == "json-path-indexed") {
-                error("该源使用 JSON 路径格式（json-path-indexed），暂不支持")
-            }
             val url = AnimekoScraper.buildSearchUrl(cfg.cfg, keyword)
             // 传入完整搜索页 URL，让 URI.resolve 正确处理目录相对链接。
             val base = url
-            val html = BiliHttpClient.client.get(url) {
+            val html = SourceHttpClient.client.get(url) {
                 if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
                 if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
             }.bodyAsText()
@@ -672,7 +669,7 @@ class SubscribeRepository(
                 ?: error("未找到源「$sourceName」的配置")
             // 传入完整作品页 URL，保留目录上下文。
             val base = subjectUrl
-            val html = BiliHttpClient.client.get(subjectUrl) {
+            val html = SourceHttpClient.client.get(subjectUrl) {
                 if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
                 if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
             }.bodyAsText()
@@ -729,9 +726,9 @@ class SubscribeRepository(
         }
     }
 
-    /** 统一 GET：带 UA/Cookie，超时由 BiliHttpClient 保证 */
+    /** Source-specific headers never inherit the Bilibili account session. */
     private suspend fun fetch(url: String, cfg: AnimekoScraper.SourceConfig): String =
-        BiliHttpClient.client.get(url) {
+        SourceHttpClient.client.get(url) {
             if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
             if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
             if (cfg.cfg.referer.isNotBlank()) header("Referer", cfg.cfg.referer)

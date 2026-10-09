@@ -94,6 +94,9 @@ sealed class Screen(val route: String) {
 
     object Downloads : Screen("downloads")
     object Subscribe : Screen("subscribe")
+    object BangumiSubject : Screen("bgmsubject/{id}") {
+        fun createRoute(id: Long) = "bgmsubject/$id"
+    }
     /**
      * 直链播放（订阅源 / 外部链接）
      *
@@ -488,7 +491,17 @@ fun AppNavigation() {
                         Screen.DirectPlay.createRoute(url, title, cover)
                     )
                 },
-                onSettingsClick = { navController.navigate(Screen.Settings.route) }
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                onOpenSubject = { id -> navController.navigate(Screen.BangumiSubject.createRoute(id)) }
+            )
+        }
+        composable(
+            Screen.BangumiSubject.route,
+            arguments = listOf(navArgument("id") { type = NavType.LongType })
+        ) { entry ->
+            com.example.piliai.ui.subscribe.BangumiSubjectScreen(
+                subjectId = entry.arguments?.getLong("id") ?: 0L,
+                onBack = { navController.popBackStack() }
             )
         }
         // 直链播放（订阅源 / 外部链接）：URL 经 Uri.encode，避免特殊字符破坏路由

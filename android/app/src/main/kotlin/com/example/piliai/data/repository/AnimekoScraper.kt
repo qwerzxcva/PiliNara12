@@ -59,6 +59,9 @@ object AnimekoScraper {
         val selectLists: String = "",           // subjectFormat "a"
         val selectNames: String = "",           // subjectFormat "indexed"
         val selectLinks: String = "",
+        // subjectFormat "json-path-indexed"：形如 $[*].name / $[*].url
+        val selectNamesJsonPath: String = "",
+        val selectLinksJsonPath: String = "",
         val selectEpisodes: String = "",        // channel no-channel
         val selectEpisodeLinks: String = "",
         val selectChannelNames: String = "",    // channel index-grouped
@@ -131,6 +134,14 @@ object AnimekoScraper {
             selectLists = a?.get("selectLists")?.jsonPrimitive?.contentOrNull ?: "",
             selectNames = idx?.get("selectNames")?.jsonPrimitive?.contentOrNull ?: "",
             selectLinks = idx?.get("selectLinks")?.jsonPrimitive?.contentOrNull ?: "",
+            selectNamesJsonPath = runCatching {
+                o["selectorSubjectFormatJsonPathIndexed"]?.jsonObject
+                    ?.get("selectNames")?.jsonPrimitive?.contentOrNull
+            }.getOrNull() ?: "",
+            selectLinksJsonPath = runCatching {
+                o["selectorSubjectFormatJsonPathIndexed"]?.jsonObject
+                    ?.get("selectLinks")?.jsonPrimitive?.contentOrNull
+            }.getOrNull() ?: "",
             selectEpisodes = noCh?.get("selectEpisodes")?.jsonPrimitive?.contentOrNull ?: "",
             selectEpisodeLinks = noCh?.get("selectEpisodeLinks")?.jsonPrimitive?.contentOrNull ?: "",
             selectChannelNames = flat?.get("selectChannelNames")?.jsonPrimitive?.contentOrNull
@@ -163,9 +174,13 @@ object AnimekoScraper {
      * - "indexed"  (21个)：`selectNames` + `selectLinks` 两组分别取文本与链接
      * - "json-path-indexed" (1个)：JSON 路径，暂不支持（返回空）
      */
-    fun parseSubjects(html: String, baseUrl: String, cfg: SearchConfig): List<Subject> =
-        runCatching {
-            val effectiveBase = cfg.rawBaseUrl.trim().ifBlank { baseUrl }
+    fun parseSubjects(html: String, baseUrl: String, cfg: SearchConfig): List<Subject> {
+        val effectiveBase = cfg.rawBaseUrl.trim().ifBlank { baseUrl }
+        // JSON configuration errors must reach the repository's Result.failure.
+        if (cfg.subjectFormatId == "json-path-indexed") {
+            return parseSubjectsByJsonPath(html, effectiveBase, cfg)
+        }
+        return runCatching {
             val doc = org.jsoup.Jsoup.parse(html, effectiveBase)
             when (cfg.subjectFormatId) {
                 "a" -> {
@@ -185,9 +200,47 @@ object AnimekoScraper {
                     names.zip(links) { n, l -> if (n.isBlank()) null else Subject(n, l) }
                         .filterNotNull().distinctBy { it.url }
                 }
-                else -> emptyList() // json-path-indexed 暂不支持
+                else -> emptyList()
             }
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * json-path-indexed：搜索结果本身是 JSON 数组。
+     * 只支持订阅源实际使用的 `$[*].字段` 与 `$[*]['字段']` 两种写法，
+     * 不引入通用 JSONPath 库。
+     */
+    private fun parseSubjectsByJsonPath(
+        text: String,
+        baseUrl: String,
+        cfg: SearchConfig
+    ): List<Subject> {
+        val nameKey = jsonPathField(cfg.selectNamesJsonPath)
+            ?: error("Unsupported subject-name JSON path")
+        val linkKey = jsonPathField(cfg.selectLinksJsonPath)
+            ?: error("Unsupported subject-link JSON path")
+        val rows = json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonArray
+            ?: error("Configured JSON paths require an array at the document root")
+        return rows.mapNotNull { element ->
+            val row = element as? JsonObject ?: return@mapNotNull null
+            val name = (row[nameKey] as? kotlinx.serialization.json.JsonPrimitive)
+                ?.takeIf { it.isString }?.contentOrNull?.trim().orEmpty()
+            val link = (row[linkKey] as? kotlinx.serialization.json.JsonPrimitive)
+                ?.takeIf { it.isString }?.contentOrNull?.trim().orEmpty()
+            if (name.isBlank() || link.isBlank()) return@mapNotNull null
+            val url = resolveUrl(link, baseUrl)
+            if (!isHttpUrl(url)) return@mapNotNull null
+            Subject(name, url)
+        }.distinctBy { it.url }
+    }
+
+    /** 从 `$[*].name` 或 `$[*]['name']` 取出字段名，其它写法返回 null。 */
+    private fun jsonPathField(path: String): String? {
+        val dot = Regex("""^\$\[\*]\.([A-Za-z0-9_]+)$""").find(path.trim())
+        if (dot != null) return dot.groupValues[1]
+        val bracket = Regex("""^\$\[\*]\['([^']+)'\]$""").find(path.trim())
+        return bracket?.groupValues?.get(1)
+    }
 
     /**
      * 第二步：作品页 → 剧集列表

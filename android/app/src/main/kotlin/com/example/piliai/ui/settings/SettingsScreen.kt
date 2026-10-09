@@ -57,6 +57,8 @@ fun SettingsScreen(
     var showAccentDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showRendererDialog by remember { mutableStateOf(false) }
+    var showBackendDialog by remember { mutableStateOf(false) }
+    var showCompletionDialog by remember { mutableStateOf(false) }
     var showBufferDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -114,6 +116,27 @@ fun SettingsScreen(
                     subtitle = if (state.renderer == 1) "TextureView（可合成动画）" else "SurfaceView（性能最佳）",
                     icon = Icons.AutoMirrored.Filled.ViewQuilt,
                     onClick = { showRendererDialog = true }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "播放引擎",
+                    subtitle = if (state.playbackBackend == "gpu-next")
+                        "GPU-next（libplacebo，需 libmpv）" else "Media3（默认）",
+                    icon = Icons.Default.Speed,
+                    onClick = { showBackendDialog = true }
+                )
+            }
+            item {
+                SettingRow(
+                    title = "播放结束",
+                    subtitle = when (state.completionAction) {
+                        "repeat" -> "单集循环"
+                        "stop" -> "停止"
+                        else -> "播放下一 P"
+                    },
+                    icon = Icons.Default.SkipNext,
+                    onClick = { showCompletionDialog = true }
                 )
             }
             item {
@@ -695,6 +718,77 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showRendererDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    if (showBackendDialog) {
+        val gpuNextReady = com.example.piliai.playback.backend.GpuNextBackend.isAvailable()
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showBackendDialog = false },
+            title = { Text("播放引擎") },
+            text = {
+                Column {
+                    listOf(
+                        "media3" to "Media3 ExoPlayer（默认，硬件解码）",
+                        "gpu-next" to if (gpuNextReady)
+                            "GPU-next：libplacebo 渲染，支持 HDR 色调映射与去带"
+                        else "GPU-next：原生后端尚未接入，当前不可用"
+                    ).forEach { (id, desc) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable(
+                                enabled = id == "media3" || gpuNextReady
+                            ) {
+                                viewModel.setPlaybackBackend(id)
+                                showBackendDialog = false
+                            }.padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = com.example.piliai.playback.backend.PlaybackBackends
+                                    .resolve(state.playbackBackend) == id,
+                                enabled = id == "media3" || gpuNextReady,
+                                onClick = { viewModel.setPlaybackBackend(id); showBackendDialog = false }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(desc, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBackendDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    if (showCompletionDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showCompletionDialog = false },
+            title = { Text("播放结束") },
+            text = {
+                Column {
+                    listOf("next" to "播放下一 P", "repeat" to "单集循环", "stop" to "停止")
+                        .forEach { (id, label) ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    viewModel.setCompletionAction(id)
+                                    showCompletionDialog = false
+                                }.padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                androidx.compose.material3.RadioButton(
+                                    selected = state.completionAction == id,
+                                    onClick = { viewModel.setCompletionAction(id); showCompletionDialog = false }
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(label, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCompletionDialog = false }) { Text("取消") }
             }
         )
     }

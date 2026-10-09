@@ -9,8 +9,8 @@ on:
 
 env:
   JAVA_VERSION: '17'
-  ANDROID_COMPILE_SDK: '34'
-  ANDROID_NDK_VERSION: '27.3.13750724'
+  ANDROID_COMPILE_SDK: '36'
+  ANDROID_NDK_VERSION: '30.0.16248370'
   TERM: dumb
 
 jobs:
@@ -58,14 +58,15 @@ jobs:
           export ANDROID_NDK_HOME="${{ env.ANDROID_NDK_HOME }}"
           export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
           export AR=llvm-ar
-          export CC=aarch64-linux-android24-clang
-          export CXX=aarch64-linux-android24-clang++
+          export CC=aarch64-linux-android36-clang
+          export CXX=aarch64-linux-android36-clang++
           export CFLAGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-          export LDFLAGS="-Wl,-rpath,$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/24"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
-          export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind"
+          export LDFLAGS="-Wl,-rpath,$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/36"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android36-clang
+          # 16 KB page alignment, required for arm64 native libs on Android 15+.
+          export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind -C link-arg=-Wl,-z,max-page-size=16384"
           
-          cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --locked --release 2>&1
+          cargo ndk --platform 36 -t arm64-v8a -o ../android/app/src/main/jniLibs build --locked --release 2>&1
           ls -la ../android/app/src/main/jniLibs/arm64-v8a/
 
       # 审核90：Rust 单元测试与 lint 门禁（此前 CI 从不校验，坏代码可直接合并）
@@ -84,7 +85,7 @@ jobs:
           retention-days: 7
 
   build-apk:
-    name: Build APK (Multi-ABI)
+    name: Build APK (arm64-v8a)
     needs: [build-rust-native]
     runs-on: ubuntu-latest
     steps:
@@ -96,6 +97,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
+
+      - name: Setup Android SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;${{ env.ANDROID_COMPILE_SDK }}" \
+            "build-tools;36.0.0" \
+            "ndk;${{ env.ANDROID_NDK_VERSION }}"
 
       - name: Download Rust library
         uses: actions/download-artifact@v5
@@ -113,6 +121,24 @@ jobs:
           REPORT=$(find .. -path '*/reports/lint-results-debug.xml' -print -quit)
           [ -n "$REPORT" ] || { echo "::error::Lint XML report not found"; exit 1; }
           python3 ../tests/check_lint_report.py "$REPORT"
+          # Fail the build if any ABI other than arm64-v8a was packaged.
+          python3 - <<'PY'
+          import glob, sys, zipfile
+          apks = sorted(glob.glob("../build/app/outputs/apk/debug/*.apk"))
+          if not apks:
+              sys.exit("no debug apk produced in the configured build directory")
+          for apk in apks:
+              with zipfile.ZipFile(apk) as z:
+                  libs = [n for n in z.namelist() if n.startswith("lib/") and n.endswith(".so")]
+                  bad = [n for n in libs if not n.startswith("lib/arm64-v8a/")]
+                  if not libs:
+                      sys.exit("native libraries missing from " + apk)
+                  if bad:
+                      sys.exit("non-arm64 native libraries packaged: " + ", ".join(bad))
+                  if "lib/arm64-v8a/libpilinara_native.so" not in libs:
+                      sys.exit("Rust native library missing from " + apk)
+              print("ABI check passed:", apk, len(libs), "arm64-v8a libraries")
+          PY
           echo "=== Build complete ==="
           echo "Current dir: $(pwd)"
           echo "Finding APK files..."
@@ -125,9 +151,8 @@ jobs:
       - name: Collect APK files
         run: |
           mkdir -p apk_output
-          # Try multiple possible locations
-          find android/app/build -name "*.apk" -exec cp {} apk_output/ \; 2>/dev/null || true
-          find . -maxdepth 6 -name "*.apk" -exec cp {} apk_output/ \; 2>/dev/null || true
+          # Publish only the debug APKs validated by the preceding gate.
+          cp build/app/outputs/apk/debug/*.apk apk_output/
           echo "=== Collected APKs ==="
           ls -la apk_output/ || echo "No APKs found"
 

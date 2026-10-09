@@ -35,8 +35,18 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     
     private var _player: ExoPlayer? = null
     private var loadJob: Job? = null
+    private var completionJob: Job? = null
     private var loadGeneration = 0L
     val player: ExoPlayer? get() = _player
+
+    /**
+     * 实际生效的播放后端。gpu-next 需要 libmpv，当前构建未打包时回退 media3，
+     * 避免设置了却静默无画面。
+     */
+    val activeBackend: String
+        get() = com.example.piliai.playback.backend.PlaybackBackends.resolve(
+            com.example.piliai.utils.RendererPrefs.playbackBackend
+        )
     
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -214,6 +224,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
     
     fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L, local: Boolean = false) {
+        completionJob?.cancel()
         loadJob?.cancel()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
@@ -646,6 +657,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             videoSource
         }
 
+        // gpu-next 由 libmpv 自己拉流与渲染（GpuNextBackend）。libmpv 编进工程前
+        // activeBackend 恒为 media3，播放仍走下面的 ExoPlayer 路径，不会空播。
         _player?.setMediaSource(merged, resumePositionMs)
         _player?.prepare()
         _player?.playWhenReady = playWhenReady
@@ -844,7 +857,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             Player.STATE_READY -> _state.value = _state.value.copy(
                 isBuffering = false, duration = _player?.duration ?: 0L
             )
-            Player.STATE_ENDED -> _state.value = _state.value.copy(isPlaying = false)
+            Player.STATE_ENDED -> onPlaybackEnded()
             // 审核：补全 Player.STATE_IDLE 分支（消除 lint SwitchIntDef）
             Player.STATE_IDLE -> _state.value = _state.value.copy(isPlaying = false, isBuffering = false)
         }
@@ -1183,6 +1196,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val p = pages.getOrNull(pageIndex) ?: return
         currentPartIndex = pageIndex
         _state.value = _state.value.copy(currentPart = p.page, currentPartTitle = p.part)
+        completionJob?.cancel()
         loadJob?.cancel()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
@@ -1237,6 +1251,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     /** 播放相关视频（重置状态换源） */
     fun playRelated(item: RelatedItem) {
         _state.value = _state.value.copy(related = _state.value.related, error = null)
+        completionJob?.cancel()
         loadJob?.cancel()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
@@ -1287,6 +1302,38 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         viewModelScope.launch {
             runCatching {
                 com.example.piliai.utils.StorageManager.getInstance(appContext).setDanmakuShowBottom(enabled)
+            }
+        }
+    }
+
+    private fun onPlaybackEnded() {
+        completionJob?.cancel()
+        val endedPlayer = _player ?: return
+        val endedMedia = endedPlayer.currentMediaItem
+        val generation = loadGeneration
+        val partIndex = currentPartIndex
+        _state.value = _state.value.copy(isPlaying = false, isBuffering = false)
+        completionJob = viewModelScope.launch {
+            val action = try {
+                com.example.piliai.utils.StorageManager.getInstance(appContext)
+                    .completionActionFlow.first()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                "stop"
+            }
+            if (generation != loadGeneration || _player !== endedPlayer ||
+                endedPlayer.currentMediaItem != endedMedia ||
+                currentPartIndex != partIndex ||
+                endedPlayer.playbackState != Player.STATE_ENDED
+            ) return@launch
+            when (action) {
+                "repeat" -> {
+                    endedPlayer.seekTo(0L)
+                    endedPlayer.play()
+                    _state.value = _state.value.copy(currentTime = 0L)
+                }
+                "next" -> if (partIndex + 1 in pages.indices) playNextPart()
             }
         }
     }
