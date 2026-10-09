@@ -740,6 +740,19 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                 normalizedSpeed, _player?.playbackParameters?.pitch ?: 1.0f
             )
             _state.value = _state.value.copy(playbackSpeed = normalizedSpeed)
+            if (!raw) {
+                com.example.piliai.utils.StorageManager.getInstance(appContext)
+                    .setPlaybackSpeed(normalizedSpeed)
+            }
+        }
+    }
+
+    /** 进入播放器时恢复上次手动选择的倍速，长按临时倍速不写入。 */
+    fun restorePlaybackSpeed() {
+        viewModelScope.launch {
+            val speed = com.example.piliai.utils.StorageManager.getInstance(appContext)
+                .playbackSpeedFlow.first()
+            if (speed != 1.0f) setPlaybackSpeed(speed)
         }
     }
     

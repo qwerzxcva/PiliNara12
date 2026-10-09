@@ -1,7 +1,9 @@
 package com.example.piliai.ui.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -12,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -136,7 +139,11 @@ fun AppNavigation() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.height(64.dp)
+                ) {
                     MainTab.entries.forEach { tab ->
                         val route = tabRouteOf(tab)
                         val selected = currentRoute == route
@@ -155,6 +162,7 @@ fun AppNavigation() {
                                 Icon(
                                     if (selected) tab.iconFilled else tab.iconOutlined,
                                     contentDescription = stringResource(tab.labelRes),
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
                             label = { Text(stringResource(tab.labelRes)) },

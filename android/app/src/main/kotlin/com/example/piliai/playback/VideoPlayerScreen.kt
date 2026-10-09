@@ -63,6 +63,7 @@ fun VideoPlayerScreen(
     )
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.restorePlaybackSpeed() }
     var showControls by remember { mutableStateOf(true) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     // 审核轮152：长按 3x 状态
