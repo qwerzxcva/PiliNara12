@@ -227,6 +227,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L, local: Boolean = false) {
         completionJob?.cancel()
         loadJob?.cancel()
+        resetSubtitleState()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
             try {
@@ -480,6 +481,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
 
     // ==================== 字幕（批次K） ====================
 
+    private var subtitleListJob: Job? = null
+    private var subtitleBodyJob: Job? = null
     private var subtitleCues: List<com.example.piliai.data.model.SubtitleCue> = emptyList()
     // 可选字幕列表（批次L9：字幕选择 UI）——(id, 语言名, url)
     private val _subtitleTracks = MutableStateFlow<List<Triple<Long, String, String>>>(emptyList())
@@ -498,36 +501,58 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     private val _selectedSubtitleId = MutableStateFlow(-1L)
     val selectedSubtitleId: StateFlow<Long> = _selectedSubtitleId.asStateFlow()
 
-    /** resolveAndPlay 成功后调用：拉字幕列表（保留全部可选字幕，默认取第一条） */
+    private fun resetSubtitleState() {
+        subtitleListJob?.cancel()
+        subtitleBodyJob?.cancel()
+        subtitleCues = emptyList()
+        _subtitleTracks.value = emptyList()
+        _selectedSubtitleId.value = -1L
+        _currentSubtitle.value = ""
+        _viewPoints.value = emptyList()
+        _heatCurve.value = emptyList()
+    }
+
     private fun loadSubtitles(bvid: String, cid: Long) {
+        subtitleListJob?.cancel()
         if (bvid.isEmpty() || cid <= 0L || bvid.startsWith("ep")) return
-        viewModelScope.launch {
-            runCatching {
-                val api = BiliApiClient()
-                val resp = api.getPlayerV2(bvid, cid).getOrNull()?.data
+        val generation = loadGeneration
+        subtitleListJob = viewModelScope.launch {
+            try {
+                val resp = BiliApiClient().getPlayerV2(bvid, cid).getOrNull()?.data
+                ensureCurrent(generation)
                 val subs = resp?.subtitle?.subtitles.orEmpty()
                 _subtitleTracks.value = subs.map { Triple(it.id, it.langDoc, it.subtitleUrl) }
-                // 批次L41：视频章节
                 _viewPoints.value = resp?.viewPoints.orEmpty()
                 val pick = subs.firstOrNull { !it.isLock } ?: return@launch
                 selectSubtitle(pick.id)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Optional subtitles must not interrupt video playback.
             }
         }
     }
 
     /** 选择字幕轨（懒加载 body）；id=-1 关闭字幕 */
     fun selectSubtitle(id: Long) {
+        val url = if (id < 0L) null else
+            _subtitleTracks.value.firstOrNull { it.first == id }?.third ?: return
+        subtitleBodyJob?.cancel()
         _selectedSubtitleId.value = id
-        if (id < 0) {
-            subtitleCues = emptyList()
-            _currentSubtitle.value = ""
-            return
-        }
-        val url = _subtitleTracks.value.firstOrNull { it.first == id }?.third ?: return
-        viewModelScope.launch {
-            runCatching {
-                val body = BiliApiClient().fetchSubtitleBody(url).getOrNull() ?: return@launch
+        subtitleCues = emptyList()
+        _currentSubtitle.value = ""
+        if (url == null) return
+        val generation = loadGeneration
+        subtitleBodyJob = viewModelScope.launch {
+            try {
+                val body = BiliApiClient().fetchSubtitleBody(url).getOrNull()
+                ensureCurrent(generation)
+                if (_selectedSubtitleId.value != id || body == null) return@launch
                 subtitleCues = body.body.sortedBy { it.from }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Keep failed or cancelled subtitle requests out of the active timeline.
             }
         }
     }
@@ -1239,6 +1264,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _state.value = _state.value.copy(currentPart = p.page, currentPartTitle = p.part)
         completionJob?.cancel()
         loadJob?.cancel()
+        resetSubtitleState()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
             if (p.epId > 0L) {
@@ -1294,6 +1320,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         _state.value = _state.value.copy(related = _state.value.related, error = null)
         completionJob?.cancel()
         loadJob?.cancel()
+        resetSubtitleState()
         val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
             currentBvid = item.bvid
