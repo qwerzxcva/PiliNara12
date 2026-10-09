@@ -164,9 +164,17 @@ class SubscribeViewModel(
      * （避免把网页 URL 丢进播放器造成「点了没反应」）
      */
     fun reportNotPlayable(title: String) {
-        _state.value = _state.value.copy(
-            errorMessage = "「${title}」没有可播放的直链（该源可能只提供详情页链接）"
-        )
+        val source = _state.value.sources.firstOrNull { it.enabled }
+        if (source != null) {
+            searchWebSource(source.url, source.name, title)
+            _state.value = _state.value.copy(
+                infoMessage = "「$title」不是直链，已在「${source.name}」中搜索可播剧集"
+            )
+        } else {
+            _state.value = _state.value.copy(
+                errorMessage = "「${title}」没有可播放的直链，也没有可用订阅源"
+            )
+        }
     }
 
     /**
