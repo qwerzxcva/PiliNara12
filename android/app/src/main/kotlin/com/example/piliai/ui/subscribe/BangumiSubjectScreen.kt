@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import com.example.piliai.R
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.piliai.data.remote.BangumiApi
@@ -37,32 +41,51 @@ import com.example.piliai.data.remote.BangumiApi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BangumiSubjectScreen(subjectId: Long, onBack: () -> Unit) {
-    var subject by remember { mutableStateOf<BangumiApi.Subject?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var subject by remember(subjectId) { mutableStateOf<BangumiApi.Subject?>(null) }
+    var loadFailed by remember(subjectId) { mutableStateOf(false) }
+    var retryAttempt by remember(subjectId) { mutableStateOf(0) }
 
-    LaunchedEffect(subjectId) {
-        runCatching { BangumiApi.subject(subjectId) }
-            .onSuccess { subject = it }
-            .onFailure { error = it.message ?: "加载失败" }
+    LaunchedEffect(subjectId, retryAttempt) {
+        subject = null
+        loadFailed = false
+        try {
+            subject = BangumiApi.subject(subjectId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            loadFailed = true
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(subject?.title ?: "条目详情") },
+                title = { Text(subject?.title ?: stringResource(R.string.bangumi_subject_details)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.bangumi_back)
+                        )
                     }
                 }
             )
         }
     ) { padding ->
+        val loadedSubject = subject
         when {
-            subject == null && error == null -> CircularProgressIndicator(Modifier.padding(padding).padding(24.dp))
-            error != null -> Text(error!!, Modifier.padding(padding).padding(24.dp))
+            loadFailed -> Column(Modifier.padding(padding).padding(24.dp)) {
+                Text(stringResource(R.string.bangumi_load_failed))
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { retryAttempt += 1 }) {
+                    Text(stringResource(R.string.bangumi_retry))
+                }
+            }
+            loadedSubject == null -> CircularProgressIndicator(
+                Modifier.padding(padding).padding(24.dp)
+            )
             else -> {
-                val s = subject!!
+                val s = loadedSubject
                 Column(
                     Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
                 ) {
@@ -77,19 +100,24 @@ fun BangumiSubjectScreen(subjectId: Long, onBack: () -> Unit) {
                     Column(Modifier.padding(16.dp)) {
                         Text(s.title, style = MaterialTheme.typography.headlineMedium)
                         Spacer(Modifier.height(8.dp))
+                        val metadata = mutableListOf<String>()
+                        if (s.rating.score > 0) {
+                            metadata.add(stringResource(R.string.bangumi_rating, s.rating.score))
+                        }
+                        if (s.rating.rank > 0) {
+                            metadata.add(stringResource(R.string.bangumi_rank, s.rating.rank))
+                        }
+                        if (s.date.isNotBlank()) metadata.add(s.date)
                         Text(
-                            buildString {
-                                if (s.rating.score > 0) append("评分 ${s.rating.score}　")
-                                if (s.rating.rank > 0) append("排名 ${s.rating.rank}　")
-                                if (s.date.isNotBlank()) append(s.date)
-                            },
+                            metadata.joinToString(" · "),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (s.summary.isNotBlank()) {
-                            Spacer(Modifier.height(16.dp))
-                            Text(s.summary, style = MaterialTheme.typography.bodyLarge)
-                        }
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            s.summary.ifBlank { stringResource(R.string.bangumi_summary_unavailable) },
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
             }

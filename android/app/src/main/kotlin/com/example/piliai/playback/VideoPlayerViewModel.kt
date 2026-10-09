@@ -271,17 +271,44 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     _state.value = _state.value.copy(isBuffering = true, error = null)
                     resolveAndPlay(bvid, cid, generation)
                 } else {
+                    require(uri.isNotBlank()) { "Playback URL is empty" }
+                    val autoPlay = com.example.piliai.utils.StorageManager
+                        .getInstance(appContext).autoPlayFlow.first()
+                    ensureCurrent(generation)
                     val mediaItem = MediaItem.Builder()
                         .setUri(Uri.parse(uri))
                         .setMediaId("$bvid:$cid")
                         .build()
-                    _player?.setMediaItem(mediaItem)
-                    _player?.prepare()
-                    _player?.playWhenReady = false
+                    // Imported streams must not inherit Bilibili account headers.
+                    val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                    val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(
+                        appContext, httpFactory
+                    )
+                    val mediaSource = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                        dataSourceFactory
+                    ).createMediaSource(mediaItem)
+                    if (bvid.isEmpty()) {
+                        currentBvid = ""
+                        this@VideoPlayerViewModel.epId = 0L
+                        pages = emptyList()
+                        currentPartIndex = 0
+                        cachedAudioUrl = null
+                        dashVideos = emptyList()
+                        availableQualities = emptyList()
+                        _danmakuQueue.clear()
+                    }
                     _state.value = _state.value.copy(
                         isPlaying = false, isBuffering = true,
-                        error = null, currentTime = 0L, duration = 0L
+                        error = null, currentTime = 0L, duration = 0L,
+                        related = if (bvid.isEmpty()) emptyList() else _state.value.related,
+                        qualities = availableQualities,
+                        partCount = if (bvid.isEmpty()) 1 else _state.value.partCount,
+                        currentPart = if (bvid.isEmpty()) 1 else _state.value.currentPart,
+                        currentPartTitle = if (bvid.isEmpty()) "" else _state.value.currentPartTitle
                     )
+                    _player?.setMediaSource(mediaSource)
+                    _player?.playWhenReady = autoPlay
+                    _player?.prepare()
                 }
             } catch (e: CancellationException) {
                 throw e

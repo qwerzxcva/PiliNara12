@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bangumi_subject_details">Bangumi 条目详情</string>
+    <string name="bangumi_load_failed">加载 Bangumi 资料失败，请检查网络后重试</string>
+    <string name="bangumi_retry">重试</string>
+    <string name="bangumi_back">返回</string>
+    <string name="bangumi_rating">评分 %1$.1f</string>
+    <string name="bangumi_rank">排名 %1$d</string>
+    <string name="bangumi_summary_unavailable">暂无简介</string>
+</resources>

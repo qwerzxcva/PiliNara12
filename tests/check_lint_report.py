@@ -12,7 +12,7 @@ def check_report(path: Path) -> None:
     failures = []
     for issue in root.findall('issue'):
         severity = issue.get('severity', '')
-        if severity not in {'Fatal', 'Error', 'Warning', 'Information', 'Ignore'}:
+        if severity not in {'Fatal', 'Error', 'Warning', 'Information', 'Hint', 'Ignore'}:
             raise ValueError(f'Unknown lint severity: {severity!r}')
         # Warnings stay visible in the uploaded report. ChromeOsAbiSupport
         # specifically asks for x86, which this arm64-only app must not add.

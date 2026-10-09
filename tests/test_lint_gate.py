@@ -25,6 +25,13 @@ class LintGateTests(unittest.TestCase):
     def test_information_is_not_failure(self):
         self.check('<issues><issue severity="Information"/></issues>')
 
+    def test_hint_is_not_failure(self):
+        self.check('<issues><issue id="Sample" severity="Hint"/></issues>')
+
+    def test_hint_does_not_hide_error(self):
+        with self.assertRaises(ValueError):
+            self.check('<issues><issue severity="Hint"/><issue severity="Error"/></issues>')
+
     def test_missing_report_fails(self):
         with self.assertRaises(OSError):
             check_report(Path('/definitely-missing-lint-report.xml'))

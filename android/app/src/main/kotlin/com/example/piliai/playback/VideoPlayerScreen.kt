@@ -122,7 +122,7 @@ fun VideoPlayerScreen(
     
     val context = LocalContext.current
     
-    LaunchedEffect(videoUrl, epId, local) {
+    LaunchedEffect(viewModel, videoUrl, bvid, cid, epId, local) {
         viewModel.loadVideo(videoUrl, bvid, cid, epId, local)
         viewModel.restorePlaybackSpeed()
     }
