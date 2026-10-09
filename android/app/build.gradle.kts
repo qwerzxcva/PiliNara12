@@ -77,9 +77,6 @@ android {
     }
 
     lint {
-        // Media3 marks its player APIs unstable. File and function opt-in did
-        // not clear UnsafeOptInUsageError in CI, and the check is not an ABI gate.
-        disable += setOf("UnsafeOptInUsageError")
         abortOnError = true
     }
     

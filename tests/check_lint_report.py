@@ -30,7 +30,9 @@ def main() -> None:
         check_report(args.report)
     except (OSError, ET.ParseError, ValueError) as error:
         parser.exit(1, f'Lint gate failed: {error}\n')
-    print('Lint gate passed: 0 errors, 0 warnings')
+    root = ET.parse(args.report).getroot()
+    warnings = sum(issue.get('severity') == 'Warning' for issue in root.findall('issue'))
+    print(f'Lint gate passed: 0 fatal/errors, {warnings} warnings (see report)')
 
 
 if __name__ == '__main__':

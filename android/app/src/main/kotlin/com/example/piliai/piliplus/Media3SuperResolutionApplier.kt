@@ -1,5 +1,3 @@
-@file:OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
-
 package com.example.piliai.piliplus
 
 import androidx.media3.common.Effect
@@ -21,6 +19,7 @@ import androidx.media3.effect.ScaleAndRotateTransformation
  * 分辨率信息在 track 选择后才知道，因此调用方（VideoPlayerViewModel）在
  * onVideoSizeChanged / 制备完成后调用 [applyIfNeeded]。
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal object Media3SuperResolutionApplier {
 
     /** 当前生效的模式（RendererPrefs 同步，进程内缓存） */

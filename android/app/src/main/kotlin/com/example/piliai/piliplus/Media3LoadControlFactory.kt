@@ -1,5 +1,3 @@
-@file:OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
-
 package com.example.piliai.piliplus
 
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -16,6 +14,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
  * - 小的字节目标不允许在 Media3 拿到足够可播放数据前停止加载
  * - 时间优先于体积阈值（prioritizeTimeOverSizeThresholds）
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal object Media3LoadControlFactory {
 
     /** 默认目标缓冲字节数（4 MiB，与上游 DEFAULT_TARGET_BUFFER_BYTES 一致） */

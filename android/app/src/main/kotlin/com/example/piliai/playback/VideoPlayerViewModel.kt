@@ -1,5 +1,3 @@
-@file:OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
-
 package com.example.piliai.playback
 
 import android.content.Context
@@ -27,6 +25,7 @@ import com.example.piliai.data.remote.AccountSession
 import com.example.piliai.data.remote.BiliApiClient
 import com.example.piliai.data.repository.VideoRepository
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     companion object {
         // 审核77：Gson 线程安全，全 VM 复用单实例
