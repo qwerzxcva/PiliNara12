@@ -117,7 +117,8 @@ jobs:
           chmod +x ./android/gradlew
           cd android
           ./gradlew :app:assembleDebug --build-cache --no-daemon --stacktrace 2>&1
-          ./gradlew :app:lintDebug --build-cache --no-daemon 2>&1
+          # Write the XML even when findings exist. The checker below is the gate.
+          ./gradlew :app:lintDebug --build-cache --no-daemon --continue -Dandroid.lint.abortOnError=false 2>&1
           # 不猜报告路径：构建后按实际产物定位并校验存在。
           REPORT=$(find .. -path '*/reports/lint-results-debug.xml' -print -quit)
           [ -n "$REPORT" ] || { echo "::error::Lint XML report not found"; exit 1; }
