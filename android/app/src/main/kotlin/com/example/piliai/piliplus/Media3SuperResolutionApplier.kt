@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.example.piliai.piliplus
 
 import androidx.media3.common.Effect
