@@ -1333,7 +1333,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     endedPlayer.play()
                     _state.value = _state.value.copy(currentTime = 0L)
                 }
-                "next" -> if (partIndex + 1 in pages.indices) playNextPart()
+                "next" -> when {
+                    partIndex + 1 in pages.indices -> playNextPart()
+                    else -> _state.value.related.firstOrNull()?.let(::playRelated)
+                }
             }
         }
     }

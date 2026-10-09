@@ -51,6 +51,10 @@ class SubscribeViewModel(
     private val _searchResults = MutableStateFlow<List<SubscribeItemEntity>>(emptyList())
     val searchResults: StateFlow<List<SubscribeItemEntity>> = _searchResults.asStateFlow()
 
+    /** 已导入订阅条目的本地搜索词。空字符串表示不过滤。 */
+    private val _libraryQuery = MutableStateFlow("")
+    val libraryQuery: StateFlow<String> = _libraryQuery.asStateFlow()
+
     private var refreshJob: Job? = null
     /** 审核轮103：搜索防重入（快速连点搜索按钮会并发打出多个请求） */
     private var searchJob: Job? = null
@@ -262,15 +266,24 @@ class SubscribeViewModel(
      */
     fun lookupBangumi(title: String, onFound: (Long) -> Unit) {
         viewModelScope.launch {
+            val query = title.trim()
             val subject = runCatching {
-                com.example.piliai.data.remote.BangumiApi.searchSubject(title)
+                com.example.piliai.data.remote.BangumiApi.searchSubject(query)
             }.getOrNull()
-            if (subject == null || subject.id == 0L) {
-                _state.value = _state.value.copy(infoMessage = "Bangumi 上没有找到「$title」")
+            val matched = subject?.takeIf {
+                it.id > 0L && (it.title.equals(query, ignoreCase = true) ||
+                    it.name.equals(query, ignoreCase = true))
+            }
+            if (matched == null) {
+                _state.value = _state.value.copy(infoMessage = "Bangumi 上没有精确匹配「$query」")
             } else {
-                onFound(subject.id)
+                onFound(matched.id)
             }
         }
+    }
+
+    fun setLibraryQuery(query: String) {
+        _libraryQuery.value = query
     }
 
     /**

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -97,13 +98,23 @@ fun SubscribeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val libraryQuery by viewModel.libraryQuery.collectAsStateWithLifecycle()
     var searchTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val currentSubject by viewModel.currentSubject.collectAsStateWithLifecycle()
     // 网页刮削源：卡片记录所属源的配置 URL + 源名（存于 desc/sourceName）
     var webTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val displayItems = if (searchResults.isNotEmpty()) searchResults else state.items
+    val libraryItems = if (libraryQuery.isBlank()) {
+        state.items
+    } else {
+        state.items.filter {
+            it.title.contains(libraryQuery, ignoreCase = true) ||
+                it.sourceName.contains(libraryQuery, ignoreCase = true) ||
+                it.desc.contains(libraryQuery, ignoreCase = true)
+        }
+    }
+    val displayItems = if (searchResults.isNotEmpty()) searchResults else libraryItems
     // 三级视图：0=订阅条目/搜索结果 1=剧集列表
     val inEpisodeView = episodes.isNotEmpty()
     val displayItems2 = if (inEpisodeView) {
@@ -120,6 +131,7 @@ fun SubscribeScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
     var showBangumiLoginDialog by remember { mutableStateOf(false) }
+    var showLibrarySearch by remember { mutableStateOf(false) }
 
     // 错误/提示统一走 Snackbar，展示后清空避免重复弹出
     LaunchedEffect(state.errorMessage) {
@@ -139,7 +151,19 @@ fun SubscribeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(if (currentSubject != null) currentSubject!! else "订阅") },
+                title = {
+                    if (showLibrarySearch && currentSubject == null && searchResults.isEmpty()) {
+                        OutlinedTextField(
+                            value = libraryQuery,
+                            onValueChange = viewModel::setLibraryQuery,
+                            singleLine = true,
+                            placeholder = { Text("搜索已导入的订阅视频") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text(if (currentSubject != null) currentSubject!! else "订阅")
+                    }
+                },
                 navigationIcon = {
                     if (currentSubject != null || searchResults.isNotEmpty()) {
                         IconButton(onClick = {
@@ -151,6 +175,12 @@ fun SubscribeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        showLibrarySearch = !showLibrarySearch
+                        if (!showLibrarySearch) viewModel.setLibraryQuery("")
+                    }) {
+                        Icon(Icons.Default.Search, contentDescription = "搜索订阅视频")
+                    }
                     IconButton(onClick = { viewModel.refreshAll() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")
                     }

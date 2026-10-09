@@ -133,7 +133,7 @@ fun SettingsScreen(
                     subtitle = when (state.completionAction) {
                         "repeat" -> "单集循环"
                         "stop" -> "停止"
-                        else -> "播放下一 P"
+                        else -> "播放下一 P 或相关视频"
                     },
                     icon = Icons.Default.SkipNext,
                     onClick = { showCompletionDialog = true }
@@ -768,7 +768,11 @@ fun SettingsScreen(
             title = { Text("播放结束") },
             text = {
                 Column {
-                    listOf("next" to "播放下一 P", "repeat" to "单集循环", "stop" to "停止")
+                    listOf(
+                        "next" to "播放下一 P，没有下一 P 时播放相关视频",
+                        "repeat" to "单集循环",
+                        "stop" to "停止"
+                    )
                         .forEach { (id, label) ->
                             Row(
                                 Modifier.fillMaxWidth().clickable {
