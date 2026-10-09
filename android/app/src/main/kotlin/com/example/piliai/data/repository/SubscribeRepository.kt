@@ -9,6 +9,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -694,10 +695,24 @@ class SubscribeRepository(
         sourceName: String,
         episodeUrl: String
     ): Result<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
+        try {
+            val config = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
                 ?: error("未找到源「$sourceName」的配置")
+            extractVideoUrlWithConfig(episodeUrl, config).also {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
 
+    private suspend fun extractVideoUrlWithConfig(
+        episodeUrl: String,
+        cfg: AnimekoScraper.SourceConfig
+    ): Result<String> {
+        return runCatching {
             // 先取剧集页
             var html = fetch(episodeUrl, cfg)
             val base = episodeUrl
@@ -730,6 +745,43 @@ class SubscribeRepository(
             error(diag ?: "未提取到视频地址（可能站点改版/风控/需要 JS 渲染）")
         }
     }
+
+    suspend fun resolvePlaybackRequest(
+        sourceId: Long,
+        sourceName: String,
+        episodeUrl: String
+    ): Result<com.example.piliai.playback.SourcePlaybackRequest> =
+        withContext(Dispatchers.IO) {
+            try {
+                val source = dao.getById(sourceId)
+                    ?: error("Owning subscription was removed")
+                require(source.enabled) { "Owning subscription is disabled" }
+                val config = configsOf(source.url).firstOrNull { it.name == sourceName }
+                    ?: error("Configured resolver was not found")
+                // Resolve the URL and playback headers from the same configuration snapshot.
+                val videoUrl = extractVideoUrlWithConfig(episodeUrl, config).getOrThrow()
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                val currentSource = dao.getById(sourceId)
+                require(currentSource?.enabled == true && currentSource.url == source.url) {
+                    "Owning subscription changed during playback resolution"
+                }
+                Result.success(
+                    com.example.piliai.playback.SourcePlaybackRequest(
+                        videoUrl = videoUrl,
+                        sourceId = sourceId,
+                        sourceName = sourceName,
+                        episodeUrl = episodeUrl,
+                        referer = config.cfg.referer,
+                        userAgent = config.cfg.userAgent,
+                        cookies = config.cfg.cookies
+                    )
+                )
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+        }
 
     /** Source-specific headers never inherit the Bilibili account session. */
     private suspend fun fetch(url: String, cfg: AnimekoScraper.SourceConfig): String =

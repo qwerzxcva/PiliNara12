@@ -35,6 +35,12 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     private val appContext: Context = context.applicationContext
     
     private var _player: ExoPlayer? = null
+    private val sourceHttpClient = okhttp3.OkHttpClient.Builder()
+        .connectTimeout(15L, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(20L, java.util.concurrent.TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(false)
+        .build()
     private var loadJob: Job? = null
     private var completionJob: Job? = null
     private var loadGeneration = 0L
@@ -224,7 +230,14 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
     
-    fun loadVideo(uri: String, bvid: String = "", cid: Long = 0L, epId: Long = 0L, local: Boolean = false) {
+    fun loadVideo(
+        uri: String,
+        bvid: String = "",
+        cid: Long = 0L,
+        epId: Long = 0L,
+        local: Boolean = false,
+        sourceRequest: SourcePlaybackRequest? = null
+    ) {
         completionJob?.cancel()
         loadJob?.cancel()
         resetSubtitleState()
@@ -280,8 +293,27 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                         .setUri(Uri.parse(uri))
                         .setMediaId("$bvid:$cid")
                         .build()
-                    // Imported streams must not inherit Bilibili account headers.
-                    val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                    require(sourceRequest == null ||
+                        (sourceRequest.videoUrl == uri && bvid.isEmpty() && epId == 0L && !local)
+                    ) { "Source playback request does not match the selected media" }
+                    // Inspect each manifest, segment and redirect destination separately.
+                    // Share this ViewModel's connection pool and dispatcher across media changes.
+                    val httpClient = sourceHttpClient.newBuilder()
+                        .addNetworkInterceptor { chain ->
+                            val outgoing = chain.request()
+                            val headers = sourceRequest?.headersFor(outgoing.url.toString())
+                                ?: emptyMap()
+                            val builder = outgoing.newBuilder()
+                                .removeHeader("Cookie")
+                                .removeHeader("Authorization")
+                                .removeHeader("Proxy-Authorization")
+                            for ((name, value) in headers) builder.header(name, value)
+                            chain.proceed(builder.build())
+                        }
+                        .build()
+                    val httpFactory = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(
+                        httpClient
+                    )
                     val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(
                         appContext, httpFactory
                     )
@@ -942,10 +974,20 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
     
     override fun onCleared() {
-        super.onCleared()
-        _player?.removeListener(this)
-        _player?.release()
-        _player = null
+        completionJob?.cancel()
+        loadJob?.cancel()
+        subtitleListJob?.cancel()
+        subtitleBodyJob?.cancel()
+        try {
+            _player?.removeListener(this)
+            _player?.release()
+        } finally {
+            _player = null
+            sourceHttpClient.dispatcher.cancelAll()
+            sourceHttpClient.connectionPool.evictAll()
+            sourceHttpClient.dispatcher.executorService.shutdown()
+            super.onCleared()
+        }
     }
     
     fun getCurrentTime(): Long = _state.value.currentTime

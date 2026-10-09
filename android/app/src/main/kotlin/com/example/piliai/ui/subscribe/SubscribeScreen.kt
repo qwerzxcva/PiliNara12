@@ -94,7 +94,8 @@ fun SubscribeScreen(
     onPlay: (url: String, title: String, cover: String) -> Unit,
     onBack: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
-    onOpenSubject: (Long) -> Unit = {}
+    onOpenSubject: (Long) -> Unit = {},
+    onSourcePlay: (com.example.piliai.playback.SourcePlaybackRequest, String, String) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
@@ -229,8 +230,8 @@ fun SubscribeScreen(
                                 when {
                                     // 剧集：取直链后播放
                                     item.sourceName == "episode" ->
-                                        viewModel.playEpisode(item.link) { url ->
-                                            onPlay(url, item.title, item.cover)
+                                        viewModel.playEpisode(item.link) { request ->
+                                            onSourcePlay(request, item.title, item.cover)
                                         }
                                     // 作品：进剧集列表
                                     item.sourceName == "subject" ->

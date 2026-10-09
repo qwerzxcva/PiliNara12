@@ -451,7 +451,10 @@ class SubscribeViewModel(
     }
 
     /** 第三步：播放某一集 → 取直链后交给播放器 */
-    fun playEpisode(episodeUrl: String, onReady: (String) -> Unit) {
+    fun playEpisode(
+        episodeUrl: String,
+        onReady: (com.example.piliai.playback.SourcePlaybackRequest) -> Unit
+    ) {
         val sourceUrl = activeSourceUrl
         val sourceName = activeSourceName
         if (sourceUrl.isBlank()) {
@@ -464,14 +467,19 @@ class SubscribeViewModel(
         browseJob = viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
-                val result = repository.fetchVideoUrl(sourceUrl, sourceName, episodeUrl)
+                val source = _state.value.sources.firstOrNull {
+                    it.url == sourceUrl && it.enabled
+                } ?: error("订阅源已停用或移除")
+                val result = repository.resolvePlaybackRequest(
+                    source.id, sourceName, episodeUrl
+                )
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (generation != browseGeneration) return@launch
-                val url = result.getOrThrow()
-                require(url.isNotBlank()) { "未取到播放地址" }
-                val source = _state.value.sources.firstOrNull { it.url == sourceUrl }
-                require(source?.enabled == true) { "订阅源已停用或移除" }
-                onReady(url)
+                val request = result.getOrThrow()
+                require(_state.value.sources.any {
+                    it.id == request.sourceId && it.url == sourceUrl && it.enabled
+                }) { "订阅源已停用或移除" }
+                onReady(request)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (error: Exception) {

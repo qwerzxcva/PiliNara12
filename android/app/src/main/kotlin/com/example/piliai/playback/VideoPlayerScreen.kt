@@ -58,6 +58,7 @@ fun VideoPlayerScreen(
     onBack: () -> Unit = {},
     onOpenComments: (bvid: String) -> Unit = {},
     onSearchTag: (String) -> Unit = {},
+    sourceRequest: SourcePlaybackRequest? = null,
     viewModel: VideoPlayerViewModel = viewModel(
         factory = VideoPlayerViewModelFactory(LocalContext.current)
     )
@@ -122,8 +123,8 @@ fun VideoPlayerScreen(
     
     val context = LocalContext.current
     
-    LaunchedEffect(viewModel, videoUrl, bvid, cid, epId, local) {
-        viewModel.loadVideo(videoUrl, bvid, cid, epId, local)
+    LaunchedEffect(viewModel, videoUrl, bvid, cid, epId, local, sourceRequest) {
+        viewModel.loadVideo(videoUrl, bvid, cid, epId, local, sourceRequest)
         viewModel.restorePlaybackSpeed()
     }
 

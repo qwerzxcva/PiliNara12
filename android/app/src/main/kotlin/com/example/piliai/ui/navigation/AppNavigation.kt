@@ -97,6 +97,10 @@ sealed class Screen(val route: String) {
 
     object Downloads : Screen("downloads")
     object Subscribe : Screen("subscribe")
+    object SourcePlay : Screen("sourceplay/{requestId}?title={title}") {
+        fun createRoute(requestId: String, title: String) =
+            "sourceplay/${android.net.Uri.encode(requestId)}?title=${android.net.Uri.encode(title)}"
+    }
     object BangumiSubject : Screen("bgmsubject/{id}") {
         fun createRoute(id: Long) = "bgmsubject/$id"
     }
@@ -119,6 +123,8 @@ sealed class Screen(val route: String) {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val sourcePlaybackSession: com.example.piliai.playback.SourcePlaybackSession =
+        androidx.lifecycle.viewmodel.compose.viewModel()
     val ctx = androidx.compose.ui.platform.LocalContext.current
 
     // 审核（关键修复）：MainActivity 原先使用 MainApp，其 NavHost 只有 6 条路由且
@@ -500,7 +506,16 @@ fun AppNavigation() {
                     )
                 },
                 onSettingsClick = { navController.navigate(Screen.Settings.route) },
-                onOpenSubject = { id -> navController.navigate(Screen.BangumiSubject.createRoute(id)) }
+                onOpenSubject = { id -> navController.navigate(Screen.BangumiSubject.createRoute(id)) },
+                onSourcePlay = { request, title, _ ->
+                    val requestId = sourcePlaybackSession.register(request)
+                    try {
+                        navController.navigate(Screen.SourcePlay.createRoute(requestId, title))
+                    } catch (error: Exception) {
+                        sourcePlaybackSession.remove(requestId)
+                        throw error
+                    }
+                }
             )
         }
         composable(
@@ -511,6 +526,49 @@ fun AppNavigation() {
                 subjectId = entry.arguments?.getLong("id") ?: 0L,
                 onBack = { navController.popBackStack() }
             )
+        }
+        composable(
+            Screen.SourcePlay.route,
+            arguments = listOf(
+                navArgument("requestId") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { entry ->
+            val requestId = entry.arguments?.getString("requestId").orEmpty()
+            androidx.lifecycle.ViewModelProvider(
+                entry,
+                object : androidx.lifecycle.ViewModelProvider.Factory {
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                        require(modelClass == com.example.piliai.playback.SourcePlaybackEntryOwner::class.java)
+                        return modelClass.cast(
+                            com.example.piliai.playback.SourcePlaybackEntryOwner(
+                                sourcePlaybackSession, requestId
+                            )
+                        )
+                    }
+                }
+            )[com.example.piliai.playback.SourcePlaybackEntryOwner::class.java]
+            val request = sourcePlaybackSession.request(requestId)
+            if (request == null) {
+                // Process recreation intentionally does not restore source credentials.
+                androidx.compose.foundation.layout.Column {
+                    Text(stringResource(com.example.piliai.R.string.subscribe_source_unavailable))
+                    androidx.compose.material3.TextButton(onClick = { navController.popBackStack() }) {
+                        Text(stringResource(com.example.piliai.R.string.bangumi_back))
+                    }
+                }
+            } else {
+                VideoPlayerScreen(
+                    videoUrl = request.videoUrl,
+                    title = entry.arguments?.getString("title").orEmpty(),
+                    sourceRequest = request,
+                    onBack = {
+                        sourcePlaybackSession.remove(requestId)
+                        navController.popBackStack()
+                    }
+                )
+
+            }
         }
         // 直链播放（订阅源 / 外部链接）：URL 经 Uri.encode，避免特殊字符破坏路由
         composable(
