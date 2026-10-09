@@ -100,8 +100,9 @@ jobs:
 
       - name: Setup Android SDK
         run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;${{ env.ANDROID_COMPILE_SDK }}" \
+            "platforms;android-${{ env.ANDROID_COMPILE_SDK }}" \
             "build-tools;36.0.0" \
             "ndk;${{ env.ANDROID_NDK_VERSION }}"
 
