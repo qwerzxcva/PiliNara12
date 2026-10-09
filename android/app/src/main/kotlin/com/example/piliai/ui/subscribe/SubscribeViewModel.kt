@@ -218,35 +218,60 @@ class SubscribeViewModel(
      *
      * 结果写入 _searchResults，由 UI 展示；不落库（搜索是临时视图）。
      */
-    fun searchInSource(searchUrl: String, keyword: String, factoryId: String) {
-        if (searchJob?.isActive == true) return
+    fun searchInSource(
+        searchUrl: String,
+        keyword: String,
+        factoryId: String,
+        sourceId: Long
+    ) {
+        val source = _state.value.sources.firstOrNull { it.id == sourceId && it.enabled }
+        if (source == null) {
+            _state.value = _state.value.copy(errorMessage = "订阅源已停用或移除")
+            return
+        }
+        browseJob?.cancel()
+        searchJob?.cancel()
+        val generation = ++browseGeneration
+        activeSourceUrl = ""
+        activeSourceName = ""
+        _episodes.value = emptyList()
+        _currentSubject.value = null
+        _searchResults.value = emptyList()
         searchJob = viewModelScope.launch {
-            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            _state.value = _state.value.copy(
+                isRefreshing = true, errorMessage = null, infoMessage = null
+            )
             try {
-                SubscribeParser.searchAnimekoSource(searchUrl, keyword, factoryId)
-                    .onSuccess { parsed ->
-                        _searchResults.value = parsed.items.map { p ->
-                            com.example.piliai.database.SubscribeItemEntity(
-                                sourceId = -1L,
-                                title = p.title,
-                                cover = p.cover,
-                                link = p.link,
-                                desc = p.desc,
-                                episode = p.episode
-                            )
-                        }
-                        if (parsed.items.isEmpty()) {
-                            _state.value = _state.value.copy(infoMessage = "没有搜到结果")
-                        }
-                    }
-                    .onFailure { e ->
-                        _state.value = _state.value.copy(
-                            errorMessage = e.message ?: "搜索失败"
-                        )
-                    }
+                val result = SubscribeParser.searchAnimekoSource(searchUrl, keyword, factoryId)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (generation != browseGeneration) return@launch
+                require(_state.value.sources.any { it.id == sourceId && it.enabled }) {
+                    "订阅源已停用或移除"
+                }
+                val parsed = result.getOrThrow()
+                _searchResults.value = parsed.items.map { item ->
+                    SubscribeItemEntity(
+                        sourceId = sourceId,
+                        title = item.title,
+                        cover = item.cover,
+                        link = item.link,
+                        desc = item.desc,
+                        episode = item.episode,
+                        sourceName = source.name
+                    )
+                }
+                if (parsed.items.isEmpty()) {
+                    _state.value = _state.value.copy(infoMessage = "没有搜到结果")
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(errorMessage = error.message ?: "搜索失败")
+                }
             } finally {
-                if (_state.value.isRefreshing) {
-                    _state.value = _state.value.copy(isRefreshing = false)
+                if (generation == browseGeneration) {
+                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
                 }
             }
         }

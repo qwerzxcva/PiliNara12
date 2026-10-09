@@ -281,7 +281,8 @@ fun SubscribeScreen(
                 viewModel.searchInSource(
                     searchUrl = target.link,
                     keyword = kw,
-                    factoryId = target.sourceName
+                    factoryId = target.sourceName,
+                    sourceId = target.sourceId
                 )
                 searchTarget = null
             }
@@ -296,7 +297,9 @@ fun SubscribeScreen(
                 // target.episode 存的是订阅配置文件 URL，
                 // target.sourceName 存的是 factoryId
                 if (target.sourceName.equals("rss", ignoreCase = true)) {
-                    viewModel.searchInSource(target.episode, kw, target.sourceName)
+                    viewModel.searchInSource(
+                        target.link, kw, target.sourceName, target.sourceId
+                    )
                 } else {
                     viewModel.searchWebSource(target.episode, target.title, kw)
                 }
