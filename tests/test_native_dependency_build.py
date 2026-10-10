@@ -296,21 +296,9 @@ class NativeDependencyBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             prefix = root / 'prefix'
-            pkgconfig = prefix / 'lib' / 'pkgconfig'
-            pkgconfig.mkdir(parents=True)
-            (pkgconfig / 'fixture.pc').write_text(
-                '\n'.join((
-                    'prefix=/opt/fixture',
-                    'libdir=${prefix}/lib',
-                    'includedir=${prefix}/include',
-                    'Name: fixture',
-                    'Version: 1',
-                    'Libs: -L${libdir} -lfixture',
-                    'Cflags: -I${includedir}',
-                    '',
-                )),
-                encoding='utf-8',
-            )
+            # Exercise the real pc layout produced by _install_pc instead of an
+            # arbitrary absolute prefix that freedesktop pkg-config relocates.
+            self.builder._install_pc(prefix, 'fixture', '-lfixture', '1')
             environment, _compiler = self.builder.make_environment(
                 root / 'ndk', root / 'toolchain', root / 'build-tools', prefix
             )
@@ -318,8 +306,7 @@ class NativeDependencyBuildTests(unittest.TestCase):
                 ['pkg-config', '--cflags', 'fixture'], env=environment, text=True, capture_output=True, check=False,
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertEqual(completed.stdout.strip(), '-I/opt/fixture/include')
-            self.assertNotIn(str(prefix), completed.stdout)
+            self.assertEqual(completed.stdout.strip(), f'-I{prefix}/include')
 
     def test_nested_gitlinks_are_checked_recursively(self):
         from unittest.mock import patch
