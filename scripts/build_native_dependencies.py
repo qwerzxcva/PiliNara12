@@ -556,11 +556,11 @@ def make_environment(ndk, toolchain, build_tools, prefix):
         'ANDROID_SYSROOT': str(sysroot),
         'MPV_ANDROID_ARCH': 'arm64',
         'PREFIX': str(prefix),
-        # prefix is the real install root (not a logical sysroot prefix), so no
-        # PKG_CONFIG_SYSROOT_DIR is set: setting it would prepend '/' again and
-        # freedesktop pkg-config then ignores PKG_CONFIG_LIBDIR entirely.
+        # PKG_CONFIG_PATH is honored by both pkgconf and freedesktop pkg-config;
+        # PKG_CONFIG_LIBDIR is pkgconf-only, so it cannot be used to locate the
+        # pc files written into the real install prefix.
         'PKG_CONFIG_DIR': '',
-        'PKG_CONFIG_PATH': '',
+        'PKG_CONFIG_PATH': str(prefix / 'lib' / 'pkgconfig'),
         'PKG_CONFIG_LIBDIR': str(prefix / 'lib' / 'pkgconfig'),
         'CC': str(bin_dir / f'{compiler_prefix}-clang'),
         'CXX': str(bin_dir / f'{compiler_prefix}-clang++'),
