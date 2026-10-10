@@ -59,6 +59,10 @@ fun VideoPlayerScreen(
     onOpenComments: (bvid: String) -> Unit = {},
     onSearchTag: (String) -> Unit = {},
     sourceRequest: SourcePlaybackRequest? = null,
+    // 自动 PiP 资格必须区分“仍停留在本播放页”与“已导航到其他页面”。
+    // 页面 lifecycle 在导航转场期间可能仍为 STARTED，因此需要一个独立的
+    // 当前目的地信号；进入 PiP 时本页仍是当前目的地，不受影响。
+    isCurrentDestination: () -> Boolean = { true },
     viewModel: VideoPlayerViewModel = viewModel(
         factory = VideoPlayerViewModelFactory(LocalContext.current)
     )
@@ -152,7 +156,7 @@ fun VideoPlayerScreen(
             }
         }
     }
-    DisposableEffect(activity, playerViewRef, pipPlayer, pipLifecycleOwner) {
+    DisposableEffect(activity, playerViewRef, pipPlayer, pipLifecycleOwner, isCurrentDestination) {
         val playerView = playerViewRef
         val lifecycle = pipLifecycleOwner.lifecycle
         val observedViews = listOfNotNull(playerView, playerView?.videoSurfaceView).distinct()
@@ -162,7 +166,8 @@ fun VideoPlayerScreen(
             )
             activity?.setPictureInPictureParams(
                 playerView.buildPipParams(
-                    autoEnter = pageActive && pipPlayer?.isPlaying == true,
+                    autoEnter = pageActive && isCurrentDestination() &&
+                        pipPlayer?.isPlaying == true,
                     includeSourceRectHint = activity.isInPictureInPictureMode != true
                 )
             )

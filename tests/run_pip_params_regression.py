@@ -13,7 +13,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'android/app/src/main/kotlin/com/example/piliai/playback/VideoPlayerScreen.kt'
 source = SOURCE.read_text(encoding='utf-8')
-effect_marker = '    DisposableEffect(activity, playerViewRef, pipPlayer, pipLifecycleOwner) {'
+effect_marker = '    DisposableEffect(activity, playerViewRef, pipPlayer, pipLifecycleOwner, isCurrentDestination) {'
 start = source.index(effect_marker) + len(effect_marker)
 end = source.index('    DisposableEffect(componentActivity, viewModel) {', start)
 effect = source[start:end].rstrip()
@@ -205,7 +205,8 @@ class TestPlayer : Player {
 fun mountProductionEffect(
     activity: ComponentActivity?,
     playerViewRef: PlayerView?,
-    pipLifecycleOwner: TestLifecycleOwner
+    pipLifecycleOwner: TestLifecycleOwner,
+    isCurrentDestination: () -> Boolean = { true }
 ): () -> Unit {
     val componentActivity = activity
     val pipPlayer = playerViewRef?.player
@@ -367,6 +368,38 @@ fun main() {
     sameCleanup()
     check(sameView.layoutListeners.isEmpty() && sameView.attachListeners.isEmpty())
     println("PASS production view selection: fallback bounds and deduplicated view listeners")
+
+    // Navigation away must disable auto-enter even while the page lifecycle is
+    // still STARTED (transitions keep it at STARTED briefly). Entering PiP on
+    // the same page leaves it current, so auto-enter stays enabled there.
+    run {
+        var current = true
+        val navPlayer = TestPlayer()
+        val navView = PlayerView().also { it.player = navPlayer }
+        val navActivity = ComponentActivity()
+        val navOwner = TestLifecycleOwner()
+        val navCleanup = mountProductionEffect(
+            navActivity, navView, navOwner
+        ) { current }
+        try {
+            check(navActivity.updates.last().autoEnterEnabled == true) {
+                "Current playing destination should enable auto-enter"
+            }
+            current = false
+            navPlayer.emit(Player.EVENT_IS_PLAYING_CHANGED)
+            check(navActivity.updates.last().autoEnterEnabled == false) {
+                "Navigating away must disable auto-enter even while lifecycle is STARTED"
+            }
+            current = true
+            navPlayer.emit(Player.EVENT_VIDEO_SIZE_CHANGED)
+            check(navActivity.updates.last().autoEnterEnabled == true) {
+                "Returning to the destination must re-enable auto-enter"
+            }
+        } finally {
+            navCleanup()
+        }
+    }
+    println("PASS production navigation qualification: leaving the current destination disables auto-enter")
 
     surface.isAttachedToWindow = true
     player.videoSize = VideoSize(800, 600)

@@ -322,7 +322,10 @@ fun AppNavigation() {
                 local = local,
                 onBack = { navController.popBackStack() },
                 onOpenComments = { bv -> navController.navigate(Screen.Comment.createRoute(bv)) },
-                onSearchTag = { tag -> navController.navigate(Screen.Search.createRoute(tag)) }
+                onSearchTag = { tag -> navController.navigate(Screen.Search.createRoute(tag)) },
+                isCurrentDestination = {
+                    navController.currentBackStackEntry === backStackEntry
+                }
             )
         }
         composable(Screen.LiveRoom.route) { backStackEntry ->
@@ -557,7 +560,10 @@ fun AppNavigation() {
                     videoUrl = request.videoUrl,
                     title = entry.arguments?.getString("title").orEmpty(),
                     sourceRequest = request,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    isCurrentDestination = {
+                        navController.currentBackStackEntry === entry
+                    }
                 )
             }
         }
@@ -586,7 +592,10 @@ fun AppNavigation() {
                 bvid = "",
                 cid = 0L,
                 title = title,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                isCurrentDestination = {
+                    navController.currentBackStackEntry === backStackEntry
+                }
             )
         }
     }
