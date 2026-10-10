@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Exercise the production RSS search and cancellation methods on the JVM.
+"""Exercise production subscription search with controlled coroutine responses.
 
-Uses controlled responses and synthetic source data; makes no network requests.
-Does not verify Android navigation, Room, or actual media playback.
+No network requests, Room writes, Android lifecycle or playback are verified.
 """
 from pathlib import Path
 import os
@@ -12,51 +11,48 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / 'android/app/src/main/kotlin/com/example/piliai/ui/subscribe/SubscribeViewModel.kt').read_text(encoding='utf-8')
 
+
 def method(name):
     start = source.index('    fun ' + name + '(')
     end = source.index('\n    }', start) + len('\n    }')
-    return source[start:end]
+    return source[start:end].replace('com.example.piliai.AppContext.get()', 'TestContext').replace('com.example.piliai.R.string.', 'Messages.')
+
 
 program = r'''
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
-data class Source(val id: Long, val name: String, val enabled: Boolean)
+data class Source(val id: Long, val name: String, val url: String, val enabled: Boolean)
 data class SubscribeItemEntity(
-    val sourceId: Long,
-    val title: String,
-    val cover: String,
-    val link: String,
-    val desc: String,
-    val episode: String,
-    val sourceName: String
+    val sourceId: Long, val title: String, val cover: String, val link: String,
+    val desc: String, val episode: String, val sourceName: String
 )
 data class ParsedItem(
-    val title: String,
-    val cover: String = "",
-    val link: String = "https://fixture.test/video.mp4",
-    val desc: String = "",
-    val episode: String = ""
+    val title: String, val cover: String = "", val link: String = "https://fixture.test/video.mp4",
+    val desc: String = "", val episode: String = ""
 )
 data class ParsedSource(val items: List<ParsedItem>)
 data class UiState(
-    val sources: List<Source>,
-    val isRefreshing: Boolean = false,
-    val errorMessage: String? = null,
-    val infoMessage: String? = null
+    val sources: List<Source>, val isRefreshing: Boolean = false,
+    val errorMessage: String? = null, val infoMessage: String? = null,
+    val isSearching: Boolean = false
 )
+object Messages { const val subscribe_source_unavailable = 1 }
+object TestContext { fun getString(id: Int): String = id.toString() }
 object SubscribeParser {
     val responses = mutableMapOf<String, CompletableDeferred<Result<ParsedSource>>>()
+    val calls = mutableListOf<String>()
     suspend fun searchAnimekoSource(url: String, keyword: String, factoryId: String): Result<ParsedSource> {
-        check(url == "https://fixture.test/feed")
-        check(factoryId == "rss")
+        check(url == "https://fixture.test/feed" && factoryId == "rss")
+        calls.add(keyword)
         return responses.getValue(keyword).await()
     }
 }
 class SearchHarness {
     private val owner = SupervisorJob()
     val viewModelScope = CoroutineScope(owner + Dispatchers.Unconfined)
-    val _state = MutableStateFlow(UiState(listOf(Source(7L, "Imported source", true))))
+    val original = Source(7L, "Imported source", "https://fixture.test/config", true)
+    val _state = MutableStateFlow(UiState(listOf(original)))
     val _searchResults = MutableStateFlow<List<SubscribeItemEntity>>(emptyList())
     val _episodes = MutableStateFlow<List<String>>(emptyList())
     val _currentSubject = MutableStateFlow<String?>(null)
@@ -69,87 +65,78 @@ class SearchHarness {
     fun close() = owner.cancel()
 ''' + method('searchInSource') + '\n' + method('clearSearch') + r'''
 }
-fun response(key: String): CompletableDeferred<Result<ParsedSource>> {
-    val deferred = CompletableDeferred<Result<ParsedSource>>()
-    SubscribeParser.responses[key] = deferred
-    return deferred
-}
-fun search(harness: SearchHarness, key: String, sourceId: Long = 7L) {
-    harness.searchInSource("https://fixture.test/feed", key, "rss", sourceId)
-}
+fun response(key: String): CompletableDeferred<Result<ParsedSource>> =
+    CompletableDeferred<Result<ParsedSource>>().also { SubscribeParser.responses[key] = it }
+fun search(h: SearchHarness, key: String, id: Long = 7L) =
+    h.searchInSource("https://fixture.test/feed", key, "rss", id)
 fun success(title: String) = Result.success(ParsedSource(listOf(ParsedItem(title))))
 fun main() = runBlocking {
-    val harness = SearchHarness()
+    val h = SearchHarness()
     try {
-        val first = response("A")
-        search(harness, "A")
-        val obsolete = harness.searchJob!!
-        val second = response("B")
-        search(harness, "B")
-        check(obsolete.isCancelled)
-        second.complete(success("Newest"))
-        harness.searchJob!!.join()
+        val first = response("old")
+        search(h, "old")
+        val oldJob = h.searchJob!!
+        val newest = response("new")
+        search(h, "new")
+        check(oldJob.isCancelled)
+        newest.complete(success("Newest"))
+        h.searchJob!!.join()
         first.complete(success("Obsolete"))
         yield()
-        val item = harness._searchResults.value.single()
-        check(item.title == "Newest")
-        check(item.sourceId == 7L && item.sourceName == "Imported source")
-        check(!harness._state.value.isRefreshing)
-        println("PASS production search: newer query cancels older query and preserves source identity")
+        val item = h._searchResults.value.single()
+        check(item.title == "Newest" && item.sourceId == 7L && item.sourceName == "Imported source")
+        check(h._state.value.isSearching && !h._state.value.isRefreshing)
+        println("PASS production search: newest response wins and retains source identity")
 
         val pending = response("clear")
-        search(harness, "clear")
-        val clearedJob = harness.searchJob!!
-        harness.clearSearch()
+        search(h, "clear")
+        val clearedJob = h.searchJob!!
+        h.clearSearch()
         pending.complete(success("Must not reappear"))
         yield()
-        check(clearedJob.isCancelled)
-        check(harness._searchResults.value.isEmpty())
-        check(!harness._state.value.isRefreshing)
-        println("PASS production clearSearch: pending response cannot repopulate results")
+        check(clearedJob.isCancelled && h._searchResults.value.isEmpty())
+        check(!h._state.value.isSearching && !h._state.value.isRefreshing)
+        println("PASS production clearSearch: cancellation prevents stale results")
 
-        harness._state.value = harness._state.value.copy(sources = listOf(Source(7L, "Imported source", true)))
-        val disabled = response("disabled")
-        search(harness, "disabled")
-        harness._state.value = harness._state.value.copy(sources = listOf(Source(7L, "Imported source", false)))
-        disabled.complete(success("Must not publish"))
-        harness.searchJob!!.join()
-        check(harness._searchResults.value.isEmpty())
-        check(harness._state.value.errorMessage != null)
-        check(!harness._state.value.isRefreshing)
-        println("PASS production search: disabling source during request prevents result publication")
+        for (change in listOf("disabled", "removed", "changed-url")) {
+            h._state.value = h._state.value.copy(sources = listOf(h.original))
+            val deferred = response(change)
+            search(h, change)
+            h._state.value = h._state.value.copy(sources = when (change) {
+                "disabled" -> listOf(h.original.copy(enabled = false))
+                "removed" -> emptyList()
+                else -> listOf(h.original.copy(url = "https://fixture.test/replaced"))
+            })
+            deferred.complete(success("Must not publish"))
+            h.searchJob!!.join()
+            check(h._searchResults.value.isEmpty())
+            check(h._state.value.errorMessage != null && !h._state.value.isRefreshing)
+        }
+        val callsBefore = SubscribeParser.calls.size
+        search(h, "unknown", 99L)
+        check(SubscribeParser.calls.size == callsBefore)
+        println("PASS production search: unavailable and changed subscriptions cannot publish results")
 
-        val prior = harness.searchJob
-        search(harness, "not-requested", 99L)
-        check(harness.searchJob === prior)
-        check(harness._state.value.errorMessage != null)
-        println("PASS production search: unknown source does not start a request")
-
-        harness._state.value = harness._state.value.copy(sources = listOf(Source(7L, "Imported source", true)))
+        h._state.value = h._state.value.copy(sources = listOf(h.original))
         val failed = response("failure")
-        search(harness, "failure")
-        failed.complete(Result.failure(IllegalStateException("Controlled source failure")))
-        harness.searchJob!!.join()
-        check(harness._state.value.errorMessage == "Controlled source failure")
-        check(!harness._state.value.isRefreshing)
-        println("PASS production search: source failure is visible and loading state resets")
-
+        search(h, "failure")
+        failed.complete(Result.failure(IllegalStateException("Controlled failure")))
+        h.searchJob!!.join()
+        check(h._state.value.errorMessage == "Controlled failure" && !h._state.value.isRefreshing)
         val empty = response("empty")
-        search(harness, "empty")
+        search(h, "empty")
         empty.complete(Result.success(ParsedSource(emptyList())))
-        harness.searchJob!!.join()
-        check(harness._searchResults.value.isEmpty())
-        check(harness._state.value.infoMessage != null)
-        check(!harness._state.value.isRefreshing)
-        println("PASS production search: empty response stays empty with an explicit message")
-    } finally {
-        harness.close()
-    }
+        h.searchJob!!.join()
+        check(h._searchResults.value.isEmpty() && h._state.value.isSearching)
+        check(h._state.value.infoMessage != null && !h._state.value.isRefreshing)
+        println("PASS production search: failures remain visible and empty searches remain active")
+    } finally { h.close() }
 }
 '''
 
 configured = os.environ.get('KOTLIN_LIB')
-candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib'))
+candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-*/*/gradle-*/lib'))
+candidates = [p for p in candidates if list(p.glob('kotlin-compiler-embeddable-*.jar'))]
 if not configured and not candidates:
     raise RuntimeError('Set KOTLIN_LIB to an installed compiler library directory')
 lib = Path(configured) if configured else candidates[-1]
@@ -158,17 +145,17 @@ coroutines = sorted(lib.glob('kotlinx-coroutines-core-jvm-*.jar'))
 if not coroutines:
     coroutines = sorted((Path.home() / '.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm').glob('*/*/*.jar'))
 if not coroutines:
-    raise RuntimeError('No cached coroutine JVM library available')
+    raise RuntimeError('Coroutine JVM library is not cached')
 classpath = os.pathsep.join(map(str, [stdlib, coroutines[-1]]))
 with tempfile.TemporaryDirectory(prefix='piliai-subscription-search-') as directory:
-    directory = Path(directory)
-    kotlin = directory / 'SubscriptionSearchRegression.kt'
-    kotlin.write_text(program, encoding='utf-8')
-    classes = directory / 'classes'
+    temporary = Path(directory)
+    test = temporary / 'SubscriptionSearchRegression.kt'
+    test.write_text(program, encoding='utf-8')
+    classes = temporary / 'classes'
     subprocess.run([
         'java', '-cp', str(lib / '*'), 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
         '-no-stdlib', '-no-reflect', '-classpath', classpath,
-        '-d', str(classes), str(kotlin)
+        '-d', str(classes), str(test)
     ], check=True, timeout=60)
     subprocess.run([
         'java', '-cp', str(classes) + os.pathsep + classpath,

@@ -1,6 +1,7 @@
 package com.example.piliai.ui.live
 
 import androidx.compose.foundation.background
+import androidx.core.graphics.toColorInt
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -246,7 +247,7 @@ fun LiveRoomScreen(
                     items(superChats, key = { it.ts * 1000 + it.uid }) { sc ->
                         Surface(
                             color = runCatching {
-                                Color(android.graphics.Color.parseColor(sc.backgroundColor))
+                                Color(sc.backgroundColor.toColorInt())
                             }.getOrDefault(Color(0xFFC0000F)),
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth()

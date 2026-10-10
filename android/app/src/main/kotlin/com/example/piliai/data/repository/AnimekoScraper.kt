@@ -59,7 +59,6 @@ object AnimekoScraper {
         val selectLists: String = "",           // subjectFormat "a"
         val selectNames: String = "",           // subjectFormat "indexed"
         val selectLinks: String = "",
-        // subjectFormat "json-path-indexed"：形如 $[*].name / $[*].url
         val selectNamesJsonPath: String = "",
         val selectLinksJsonPath: String = "",
         val selectEpisodes: String = "",        // channel no-channel
@@ -172,7 +171,7 @@ object AnimekoScraper {
      * 支持两种（实测分布）：
      * - "a"        (41个)：`selectLists` 选出 `<a>`，文本=作品名，href=链接
      * - "indexed"  (21个)：`selectNames` + `selectLinks` 两组分别取文本与链接
-     * - "json-path-indexed" (1个)：JSON 路径，暂不支持（返回空）
+     * - "json-path-indexed"：根数组上的 `$[*].字段` 或 `$[*]['字段']`；其它路径明确报错
      */
     fun parseSubjects(html: String, baseUrl: String, cfg: SearchConfig): List<Subject> {
         val effectiveBase = cfg.rawBaseUrl.trim().ifBlank { baseUrl }
@@ -205,11 +204,6 @@ object AnimekoScraper {
         }.getOrDefault(emptyList())
     }
 
-    /**
-     * json-path-indexed：搜索结果本身是 JSON 数组。
-     * 只支持订阅源实际使用的 `$[*].字段` 与 `$[*]['字段']` 两种写法，
-     * 不引入通用 JSONPath 库。
-     */
     private fun parseSubjectsByJsonPath(
         text: String,
         baseUrl: String,
@@ -234,7 +228,6 @@ object AnimekoScraper {
         }.distinctBy { it.url }
     }
 
-    /** 从 `$[*].name` 或 `$[*]['name']` 取出字段名，其它写法返回 null。 */
     private fun jsonPathField(path: String): String? {
         val dot = Regex("""^\$\[\*]\.([A-Za-z0-9_]+)$""").find(path.trim())
         if (dot != null) return dot.groupValues[1]

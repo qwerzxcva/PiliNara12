@@ -21,6 +21,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.example.piliai.R
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -120,21 +122,28 @@ fun SettingsScreen(
             }
             item {
                 SettingRow(
-                    title = "播放引擎",
-                    subtitle = if (state.playbackBackend == "gpu-next")
-                        "GPU-next（libplacebo，需 libmpv）" else "Media3（默认）",
+                    title = stringResource(R.string.playback_backend_title),
+                    subtitle = stringResource(
+                        if (state.playbackBackend == "gpu-next") {
+                            if (com.example.piliai.playback.backend.GpuNextBackend.isAvailable())
+                                R.string.playback_backend_gpu_next_ready
+                            else R.string.playback_backend_gpu_next_unavailable
+                        } else R.string.playback_backend_media3
+                    ),
                     icon = Icons.Default.Speed,
                     onClick = { showBackendDialog = true }
                 )
             }
             item {
                 SettingRow(
-                    title = "播放结束",
-                    subtitle = when (state.completionAction) {
-                        "repeat" -> "单集循环"
-                        "stop" -> "停止"
-                        else -> "播放下一 P 或相关视频"
-                    },
+                    title = stringResource(R.string.playback_completion_title),
+                    subtitle = stringResource(
+                        when (state.completionAction) {
+                            "repeat" -> R.string.playback_completion_repeat
+                            "stop" -> R.string.playback_completion_stop
+                            else -> R.string.playback_completion_next
+                        }
+                    ),
                     icon = Icons.Default.SkipNext,
                     onClick = { showCompletionDialog = true }
                 )
@@ -724,75 +733,83 @@ fun SettingsScreen(
 
     if (showBackendDialog) {
         val gpuNextReady = com.example.piliai.playback.backend.GpuNextBackend.isAvailable()
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { showBackendDialog = false },
-            title = { Text("播放引擎") },
+            title = { Text(stringResource(R.string.playback_backend_title)) },
             text = {
                 Column {
                     listOf(
-                        "media3" to "Media3 ExoPlayer（默认，硬件解码）",
+                        "media3" to R.string.playback_backend_media3,
                         "gpu-next" to if (gpuNextReady)
-                            "GPU-next：libplacebo 渲染，支持 HDR 色调映射与去带"
-                        else "GPU-next：原生后端尚未接入，当前不可用"
-                    ).forEach { (id, desc) ->
+                            R.string.playback_backend_gpu_next_ready
+                        else R.string.playback_backend_gpu_next_unavailable
+                    ).forEach { (id, label) ->
+                        val enabled = id == "media3" || gpuNextReady
                         Row(
-                            Modifier.fillMaxWidth().clickable(
-                                enabled = id == "media3" || gpuNextReady
-                            ) {
+                            Modifier.fillMaxWidth().clickable(enabled = enabled) {
                                 viewModel.setPlaybackBackend(id)
                                 showBackendDialog = false
                             }.padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            androidx.compose.material3.RadioButton(
+                            RadioButton(
                                 selected = com.example.piliai.playback.backend.PlaybackBackends
                                     .resolve(state.playbackBackend) == id,
-                                enabled = id == "media3" || gpuNextReady,
-                                onClick = { viewModel.setPlaybackBackend(id); showBackendDialog = false }
+                                enabled = enabled,
+                                onClick = {
+                                    viewModel.setPlaybackBackend(id)
+                                    showBackendDialog = false
+                                }
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text(desc, style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showBackendDialog = false }) { Text("取消") }
+                TextButton(onClick = { showBackendDialog = false }) {
+                    Text(stringResource(R.string.playback_settings_cancel))
+                }
             }
         )
     }
 
     if (showCompletionDialog) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { showCompletionDialog = false },
-            title = { Text("播放结束") },
+            title = { Text(stringResource(R.string.playback_completion_title)) },
             text = {
                 Column {
                     listOf(
-                        "next" to "播放下一 P，没有下一 P 时播放相关视频",
-                        "repeat" to "单集循环",
-                        "stop" to "停止"
-                    )
-                        .forEach { (id, label) ->
-                            Row(
-                                Modifier.fillMaxWidth().clickable {
+                        "next" to R.string.playback_completion_next,
+                        "repeat" to R.string.playback_completion_repeat,
+                        "stop" to R.string.playback_completion_stop
+                    ).forEach { (id, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                viewModel.setCompletionAction(id)
+                                showCompletionDialog = false
+                            }.padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = state.completionAction == id,
+                                onClick = {
                                     viewModel.setCompletionAction(id)
                                     showCompletionDialog = false
-                                }.padding(vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                androidx.compose.material3.RadioButton(
-                                    selected = state.completionAction == id,
-                                    onClick = { viewModel.setCompletionAction(id); showCompletionDialog = false }
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(label, style = MaterialTheme.typography.bodyMedium)
-                            }
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
                         }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showCompletionDialog = false }) { Text("取消") }
+                TextButton(onClick = { showCompletionDialog = false }) {
+                    Text(stringResource(R.string.playback_settings_cancel))
+                }
             }
         )
     }

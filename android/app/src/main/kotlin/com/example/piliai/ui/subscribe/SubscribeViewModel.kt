@@ -42,7 +42,8 @@ class SubscribeViewModel(
         val items: List<SubscribeItemEntity> = emptyList(),
         val isRefreshing: Boolean = false,
         val errorMessage: String? = null,
-        val infoMessage: String? = null
+        val infoMessage: String? = null,
+        val isSearching: Boolean = false
     )
 
     private val _state = MutableStateFlow(UiState())
@@ -52,15 +53,16 @@ class SubscribeViewModel(
     private val _searchResults = MutableStateFlow<List<SubscribeItemEntity>>(emptyList())
     val searchResults: StateFlow<List<SubscribeItemEntity>> = _searchResults.asStateFlow()
 
-    /** 已导入订阅条目的本地搜索词。空字符串表示不过滤。 */
     private val _libraryQuery = MutableStateFlow("")
     val libraryQuery: StateFlow<String> = _libraryQuery.asStateFlow()
+
+    private var browseJob: Job? = null
+    private var browseGeneration = 0L
+    private var bangumiLookupJob: Job? = null
 
     private var refreshJob: Job? = null
     /** 审核轮103：搜索防重入（快速连点搜索按钮会并发打出多个请求） */
     private var searchJob: Job? = null
-    private var browseJob: Job? = null
-    private var browseGeneration = 0L
 
     init {
         // 源列表
@@ -187,7 +189,9 @@ class SubscribeViewModel(
                 val names = repository.searchableWebSourceNames(source.url)
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (generation != browseGeneration) return@launch
-                if (!_state.value.sources.any { it.id == source.id && it.enabled }) {
+                if (!_state.value.sources.any {
+                        it.id == source.id && it.url == source.url && it.enabled
+                    }) {
                     _state.value = _state.value.copy(
                         errorMessage = context.getString(com.example.piliai.R.string.subscribe_source_unavailable)
                     )
@@ -267,7 +271,11 @@ class SubscribeViewModel(
     ) {
         val source = _state.value.sources.firstOrNull { it.id == sourceId && it.enabled }
         if (source == null) {
-            _state.value = _state.value.copy(errorMessage = "订阅源已停用或移除")
+            _state.value = _state.value.copy(
+                errorMessage = com.example.piliai.AppContext.get().getString(
+                    com.example.piliai.R.string.subscribe_source_unavailable
+                )
+            )
             return
         }
         browseJob?.cancel()
@@ -278,6 +286,7 @@ class SubscribeViewModel(
         _episodes.value = emptyList()
         _currentSubject.value = null
         _searchResults.value = emptyList()
+        _state.value = _state.value.copy(isSearching = true)
         searchJob = viewModelScope.launch {
             _state.value = _state.value.copy(
                 isRefreshing = true, errorMessage = null, infoMessage = null
@@ -286,8 +295,12 @@ class SubscribeViewModel(
                 val result = SubscribeParser.searchAnimekoSource(searchUrl, keyword, factoryId)
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (generation != browseGeneration) return@launch
-                require(_state.value.sources.any { it.id == sourceId && it.enabled }) {
-                    "订阅源已停用或移除"
+                require(_state.value.sources.any {
+                    it.id == sourceId && it.url == source.url && it.enabled
+                }) {
+                    com.example.piliai.AppContext.get().getString(
+                        com.example.piliai.R.string.subscribe_source_unavailable
+                    )
                 }
                 val parsed = result.getOrThrow()
                 _searchResults.value = parsed.items.map { item ->
@@ -320,6 +333,7 @@ class SubscribeViewModel(
 
     /** 清空搜索结果（返回订阅列表视图） */
     fun clearSearch() {
+        _state.value = _state.value.copy(isSearching = false)
         ++browseGeneration
         browseJob?.cancel()
         searchJob?.cancel()
@@ -346,37 +360,20 @@ class SubscribeViewModel(
     private var activeSourceName: String = ""
 
     /**
-     * 用条目标题在 Bangumi 上找对应条目，找到就把 id 交给 [onFound]。
-     * 找不到时给出提示，不跳转。
-     */
-    fun lookupBangumi(title: String, onFound: (Long) -> Unit) {
-        viewModelScope.launch {
-            val query = title.trim()
-            val subject = runCatching {
-                com.example.piliai.data.remote.BangumiApi.searchSubject(query)
-            }.getOrNull()
-            val matched = subject?.takeIf {
-                it.id > 0L && (it.title.equals(query, ignoreCase = true) ||
-                    it.name.equals(query, ignoreCase = true))
-            }
-            if (matched == null) {
-                _state.value = _state.value.copy(infoMessage = "Bangumi 上没有精确匹配「$query」")
-            } else {
-                onFound(matched.id)
-            }
-        }
-    }
-
-    fun setLibraryQuery(query: String) {
-        _libraryQuery.value = query
-    }
-
-    /**
      * 网页刮削搜索（第一步）
      * @param sourceUrl 订阅配置文件 URL（all.json/css.json 等）
      * @param sourceName 源名（如"酱紫社(修复)"）
      */
     fun searchWebSource(sourceUrl: String, sourceName: String, keyword: String) {
+        val source = _state.value.sources.firstOrNull { it.url == sourceUrl && it.enabled }
+        if (source == null) {
+            _state.value = _state.value.copy(
+                errorMessage = com.example.piliai.AppContext.get().getString(
+                    com.example.piliai.R.string.subscribe_source_unavailable
+                )
+            )
+            return
+        }
         browseJob?.cancel()
         searchJob?.cancel()
         val generation = ++browseGeneration
@@ -385,18 +382,25 @@ class SubscribeViewModel(
         _currentSubject.value = null
         _episodes.value = emptyList()
         _searchResults.value = emptyList()
+        _state.value = _state.value.copy(isSearching = true)
         browseJob = viewModelScope.launch {
-            _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
+            _state.value = _state.value.copy(
+                isRefreshing = true, errorMessage = null, infoMessage = null
+            )
             try {
                 val result = repository.searchAnimekoWeb(sourceUrl, sourceName, keyword)
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (generation != browseGeneration) return@launch
-                val list = result.getOrThrow()
-                val sourceId = _state.value.sources.firstOrNull { it.url == sourceUrl }?.id
-                    ?: error("订阅源已移除，请重新选择")
-                _searchResults.value = list.map {
+                require(_state.value.sources.any {
+                    it.id == source.id && it.url == sourceUrl && it.enabled
+                }) {
+                    com.example.piliai.AppContext.get().getString(
+                        com.example.piliai.R.string.subscribe_source_unavailable
+                    )
+                }
+                _searchResults.value = result.getOrThrow().map {
                     SubscribeItemEntity(
-                        sourceId = sourceId,
+                        sourceId = source.id,
                         title = it.name,
                         link = it.url,
                         sourceName = "subject"
@@ -410,7 +414,7 @@ class SubscribeViewModel(
                 }
             } finally {
                 if (generation == browseGeneration) {
-                    _state.value = _state.value.copy(isRefreshing = false)
+                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
                 }
             }
         }
@@ -420,8 +424,15 @@ class SubscribeViewModel(
     fun openSubject(subjectUrl: String, subjectName: String) {
         val sourceUrl = activeSourceUrl
         val sourceName = activeSourceName
-        if (sourceUrl.isBlank()) {
-            _state.value = _state.value.copy(errorMessage = "源信息丢失，请重新搜索")
+        val source = _state.value.sources.firstOrNull {
+            it.url == sourceUrl && it.enabled
+        }
+        if (sourceUrl.isBlank() || source == null) {
+            _state.value = _state.value.copy(
+                errorMessage = com.example.piliai.AppContext.get().getString(
+                    com.example.piliai.R.string.subscribe_source_unavailable
+                )
+            )
             return
         }
         browseJob?.cancel()
@@ -435,16 +446,27 @@ class SubscribeViewModel(
                 val result = repository.fetchEpisodes(sourceUrl, sourceName, subjectUrl)
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (generation != browseGeneration) return@launch
+                require(_state.value.sources.any {
+                    it.id == source.id && it.url == sourceUrl && it.enabled
+                }) {
+                    com.example.piliai.AppContext.get().getString(
+                        com.example.piliai.R.string.subscribe_source_unavailable
+                    )
+                }
                 _episodes.value = result.getOrThrow()
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (error: Exception) {
                 if (generation == browseGeneration) {
-                    _state.value = _state.value.copy(errorMessage = error.message ?: "获取剧集失败")
+                    _state.value = _state.value.copy(
+                        errorMessage = error.message ?: "获取剧集失败"
+                    )
                 }
             } finally {
                 if (generation == browseGeneration) {
-                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
+                    _state.value = _state.value.copy(
+                        isRefreshing = refreshJob?.isActive == true
+                    )
                 }
             }
         }
@@ -457,8 +479,15 @@ class SubscribeViewModel(
     ) {
         val sourceUrl = activeSourceUrl
         val sourceName = activeSourceName
-        if (sourceUrl.isBlank()) {
-            _state.value = _state.value.copy(errorMessage = "源信息丢失，请重新搜索")
+        val source = _state.value.sources.firstOrNull {
+            it.url == sourceUrl && it.enabled
+        }
+        if (sourceUrl.isBlank() || source == null) {
+            _state.value = _state.value.copy(
+                errorMessage = com.example.piliai.AppContext.get().getString(
+                    com.example.piliai.R.string.subscribe_source_unavailable
+                )
+            )
             return
         }
         browseJob?.cancel()
@@ -467,9 +496,6 @@ class SubscribeViewModel(
         browseJob = viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             try {
-                val source = _state.value.sources.firstOrNull {
-                    it.url == sourceUrl && it.enabled
-                } ?: error("订阅源已停用或移除")
                 val result = repository.resolvePlaybackRequest(
                     source.id, sourceName, episodeUrl
                 )
@@ -478,17 +504,25 @@ class SubscribeViewModel(
                 val request = result.getOrThrow()
                 require(_state.value.sources.any {
                     it.id == request.sourceId && it.url == sourceUrl && it.enabled
-                }) { "订阅源已停用或移除" }
+                }) {
+                    com.example.piliai.AppContext.get().getString(
+                        com.example.piliai.R.string.subscribe_source_unavailable
+                    )
+                }
                 onReady(request)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (error: Exception) {
                 if (generation == browseGeneration) {
-                    _state.value = _state.value.copy(errorMessage = error.message ?: "提取播放地址失败")
+                    _state.value = _state.value.copy(
+                        errorMessage = error.message ?: "提取播放地址失败"
+                    )
                 }
             } finally {
                 if (generation == browseGeneration) {
-                    _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
+                    _state.value = _state.value.copy(
+                        isRefreshing = refreshJob?.isActive == true
+                    )
                 }
             }
         }
@@ -502,6 +536,44 @@ class SubscribeViewModel(
         _episodes.value = emptyList()
         _currentSubject.value = null
         _state.value = _state.value.copy(isRefreshing = refreshJob?.isActive == true)
+    }
+
+    fun lookupBangumi(title: String, onFound: (Long) -> Unit) {
+        bangumiLookupJob?.cancel()
+        val query = title.trim()
+        if (query.isBlank()) return
+        bangumiLookupJob = viewModelScope.launch {
+            val context = com.example.piliai.AppContext.get()
+            try {
+                val subject = com.example.piliai.data.remote.BangumiApi.searchSubject(query)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                val matched = subject?.takeIf {
+                    it.id > 0L && (it.title.equals(query, ignoreCase = true) ||
+                        it.name.equals(query, ignoreCase = true))
+                }
+                if (matched == null) {
+                    _state.value = _state.value.copy(
+                        infoMessage = context.getString(
+                            com.example.piliai.R.string.bangumi_no_exact_match
+                        )
+                    )
+                } else {
+                    onFound(matched.id)
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    errorMessage = context.getString(
+                        com.example.piliai.R.string.bangumi_load_failed
+                    )
+                )
+            }
+        }
+    }
+
+    fun setLibraryQuery(query: String) {
+        _libraryQuery.value = query
     }
 
     fun clearError() {

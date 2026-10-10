@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Compile the production playback-request policy and test synthetic credentials.
+"""Compile production source-header policy with synthetic credentials.
 
-No network requests are made. This test does not verify navigation, actual
-OkHttp redirects, media decoding, or GPU-next rendering.
+No network requests are made. Android navigation, HTTP redirects, decoding,
+and GPU-next rendering are not verified by this regression.
 """
 from pathlib import Path
 import os
@@ -10,8 +10,8 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = ROOT / 'android/app/src/main/kotlin/com/example/piliai/playback/SourcePlaybackRequest.kt'
-program = r'''
+SOURCE = ROOT / 'android/app/src/main/kotlin/com/example/piliai/playback/SourcePlaybackRequest.kt'
+PROGRAM = r'''
 import com.example.piliai.playback.SourcePlaybackRequest
 
 fun request(
@@ -44,10 +44,10 @@ fun main() {
         check(headers["User-Agent"] == "piliAI-test")
         check(headers["Referer"] == "https://source.test/episode/1")
     }
-    println("PASS production headers: manifests, segments, keys, host, port and scheme boundaries")
+    println("PASS production headers: manifest, segment, key and origin boundaries")
 
-    val remoteVideo = request(video = "https://cdn.test/video.mpd")
-    check("Cookie" !in remoteVideo.headersFor(remoteVideo.videoUrl))
+    val remote = request(video = "https://cdn.test/video.mpd")
+    check("Cookie" !in remote.headersFor(remote.videoUrl))
     check("Cookie" !in request(cookie = "").headersFor(playback.videoUrl))
     for (invalid in listOf(
         "file:///private/video",
@@ -68,31 +68,42 @@ fun main() {
     check(runCatching {
         SourcePlaybackRequest(playback.videoUrl, 7L, "", playback.episodeUrl)
     }.isFailure)
-    println("PASS production request: invalid URLs, embedded credentials, header injection and source identity")
+    println("PASS production request: invalid URLs, header injection and source identity")
 
     val description = playback.toString()
     check("session=synthetic" !in description)
     check("signature=synthetic" !in description)
     check(playback.episodeUrl !in description)
     check("headers=redacted" in description)
-    println("PASS production diagnostics: cookies and signed URLs remain redacted")
+    println("PASS production diagnostics: credentials and signed URLs remain redacted")
 }
 '''
+
 configured = os.environ.get('KOTLIN_LIB')
-candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib'))
-if not configured and not candidates:
-    raise RuntimeError('Set KOTLIN_LIB to an installed compiler library directory')
-lib = Path(configured) if configured else candidates[-1]
-stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
+candidates = sorted(Path.home().glob(
+    '.gradle/wrapper/dists/gradle-*/*/gradle-*/lib'
+))
+candidates = [path for path in candidates if list(path.glob('kotlin-compiler-embeddable-*.jar'))]
+if configured:
+    compiler = Path(configured)
+elif candidates:
+    compiler = candidates[-1]
+else:
+    raise RuntimeError('Set KOTLIN_LIB to an installed Kotlin compiler library directory')
+stdlibs = sorted(compiler.glob('kotlin-stdlib-*.jar'))
+if not stdlibs:
+    raise RuntimeError(f'Kotlin standard library is missing from {compiler}')
+stdlib = stdlibs[-1]
 with tempfile.TemporaryDirectory(prefix='piliai-playback-headers-') as directory:
-    directory = Path(directory)
-    test = directory / 'PlaybackHeadersRegression.kt'
-    test.write_text(program, encoding='utf-8')
-    classes = directory / 'classes'
+    temporary = Path(directory)
+    test = temporary / 'PlaybackHeadersRegression.kt'
+    test.write_text(PROGRAM, encoding='utf-8')
+    classes = temporary / 'classes'
     subprocess.run([
-        'java', '-cp', str(lib / '*'), 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
+        'java', '-cp', str(compiler / '*'),
+        'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
         '-no-stdlib', '-no-reflect', '-classpath', str(stdlib),
-        '-d', str(classes), str(source), str(test)
+        '-d', str(classes), str(SOURCE), str(test)
     ], check=True, timeout=60)
     subprocess.run([
         'java', '-cp', str(classes) + os.pathsep + str(stdlib),

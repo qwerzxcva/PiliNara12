@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <!-- Theme applied to the Android Window while the process is starting -->
     <style name="LaunchTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@drawable/launch_background</item>
-        <!-- 审核：以下属性有 API 级别要求，用 tools:targetApi 声明（低版本自动忽略），消除 lint NewApi -->
-        <item name="android:defaultFocusHighlightEnabled" tools:targetApi="o">false</item>
-        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:windowSplashScreenBackground">#ffffff</item>
+        <item name="android:defaultFocusHighlightEnabled">false</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
-        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
     <!-- 审核：NormalTheme 无任何引用（Flutter 遗留）已删除 -->
 

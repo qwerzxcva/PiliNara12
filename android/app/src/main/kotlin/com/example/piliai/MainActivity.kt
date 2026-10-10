@@ -1,7 +1,6 @@
 package com.example.piliai
 
 import android.content.res.Configuration
-import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -15,11 +14,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Enable full-screen mode for foldable devices
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.attributes = window.attributes.also {
-                it.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
+        window.attributes = window.attributes.also {
+            it.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
         setContent {

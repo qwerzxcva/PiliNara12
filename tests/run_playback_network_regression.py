@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test the production playback interceptor against controlled loopback servers.
 
-Only synthetic credentials are used. This does not verify Android navigation,
-HTTPS redirects, media decoding or GPU-next rendering.
+Only synthetic credentials are used. Android lifecycle, HTTPS redirects,
+media decoding and GPU-next rendering are not verified.
 """
 from pathlib import Path
 import os
@@ -16,17 +16,22 @@ start = source.index('                    val httpClient = sourceHttpClient.newB
 end = source.index('                        .build()', start) + len('                        .build()')
 production = source[start:end]
 configured = os.environ.get('KOTLIN_LIB')
-candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib'))
+candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-*/*/gradle-*/lib'))
+candidates = [p for p in candidates if list(p.glob('kotlin-compiler-embeddable-*.jar'))]
 if not configured and not candidates:
     raise RuntimeError('Set KOTLIN_LIB to an installed compiler library directory')
 lib = Path(configured) if configured else candidates[-1]
 stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
 cache = Path.home() / '.gradle/caches/modules-2/files-2.1'
+
+
 def dependency(group, artifact, version):
     jars = sorted((cache / group / artifact / version).glob('*/*.jar'))
     if not jars:
         raise RuntimeError(f'Missing cached dependency: {group}:{artifact}:{version}')
     return jars[0]
+
+
 classpath = os.pathsep.join(map(str, [
     stdlib,
     dependency('com.squareup.okhttp3', 'okhttp', '4.12.0'),
@@ -50,10 +55,10 @@ fun main() {
     fun configure(server: HttpServer, label: String) {
         server.createContext("/") { exchange ->
             try {
-                val headers = exchange.requestHeaders.entries.associate {
-                    it.key.lowercase() to it.value.joinToString("; ")
-                }
-                observed.add(label + exchange.requestURI.path to headers)
+                observed.add(label + exchange.requestURI.path to
+                    exchange.requestHeaders.entries.associate {
+                        it.key.lowercase() to it.value.joinToString("; ")
+                    })
                 when (exchange.requestURI.path) {
                     "/redirect" -> {
                         exchange.responseHeaders.add("Location", "$otherUrl/segment.ts")

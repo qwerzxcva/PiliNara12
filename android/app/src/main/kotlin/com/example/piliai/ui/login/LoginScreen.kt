@@ -1,6 +1,8 @@
 package com.example.piliai.ui.login
 
 import androidx.compose.foundation.Image
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.set
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -216,9 +218,9 @@ fun QrCodeImage(content: String, alpha: Float = 1f) {
             )
             val matrix = com.google.zxing.qrcode.QRCodeWriter()
                 .encode(content, com.google.zxing.BarcodeFormat.QR_CODE, size, size, hints)
-            val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val bmp = createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             for (x in 0 until size) for (y in 0 until size) {
-                bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                bmp[x, y] = if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE
             }
             bmp
         }.getOrNull()

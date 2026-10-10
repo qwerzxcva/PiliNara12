@@ -35,8 +35,11 @@ jobs:
       - name: Test quality gate
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Validate pinned native dependency plan
+        run: python3 scripts/build_native_dependencies.py --plan --lock scripts/native-dependencies.lock.json
+
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
+        run: cargo install cargo-ndk --version 4.1.2 --locked
 
       # 审核54：Rust 依赖缓存——避免每次 CI 全量重编
       - name: Cache Rust builds
@@ -61,13 +64,12 @@ jobs:
           export CC=aarch64-linux-android36-clang
           export CXX=aarch64-linux-android36-clang++
           export CFLAGS="--sysroot=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-          export LDFLAGS="-Wl,-rpath,$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/36"
+          export LDFLAGS="-Wl,-z,max-page-size=16384"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android36-clang
-          # 16 KB page alignment, required for arm64 native libs on Android 15+.
           export RUSTFLAGS="-C link-arg=-landroid -C link-arg=-llog -C link-arg=-lunwind -C link-arg=-Wl,-z,max-page-size=16384"
           
-          cargo ndk --platform 36 -t arm64-v8a -o ../android/app/src/main/jniLibs build --locked --release 2>&1
-          ls -la ../android/app/src/main/jniLibs/arm64-v8a/
+          cargo ndk -t arm64-v8a --platform 36 -o ../android/app/src/main/jniLibs build --locked --release 2>&1
+          python3 ../scripts/verify_native_artifacts.py ../android/app/src/main/jniLibs/arm64-v8a --require-library libpilinara_native.so
 
       # 审核90：Rust 单元测试与 lint 门禁（此前 CI 从不校验，坏代码可直接合并）
       - name: Rust test & clippy
@@ -83,9 +85,10 @@ jobs:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a/
           retention-days: 7
+          if-no-files-found: error
 
   build-apk:
-    name: Build APK (arm64-v8a)
+    name: Build APK (Android 16 ARM64)
     needs: [build-rust-native]
     runs-on: ubuntu-latest
     steps:
@@ -98,49 +101,32 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Setup Android SDK
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-${{ env.ANDROID_COMPILE_SDK }}" \
-            "build-tools;36.0.0" \
-            "ndk;${{ env.ANDROID_NDK_VERSION }}"
-
       - name: Download Rust library
         uses: actions/download-artifact@v5
         with:
           name: rust-lib-arm64
           path: android/app/src/main/jniLibs/arm64-v8a
 
+      - name: Setup Android SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-${{ env.ANDROID_COMPILE_SDK }}" \
+            "build-tools;36.0.0" \
+            "ndk;${{ env.ANDROID_NDK_VERSION }}"
+
       - name: Build Debug APK
         run: |
           chmod +x ./android/gradlew
           cd android
           ./gradlew :app:assembleDebug --build-cache --no-daemon --stacktrace 2>&1
-          # Write the XML even when findings exist. The checker below is the gate.
-          ./gradlew :app:lintDebug --build-cache --no-daemon --continue -Dandroid.lint.abortOnError=false 2>&1
+          for regression in run_playback_headers_regression.py run_playback_session_regression.py run_playback_network_regression.py run_playback_speed_regression.py run_pip_params_regression.py run_owned_resolver_regression.py run_subscription_search_regression.py run_jsonpath_regression.py run_rss_regression.py run_scraper_regression.py run_todaywatch_regression.py; do
+            PYTHONDONTWRITEBYTECODE=1 python3 "../tests/$regression" || exit 1
+          done
+          ./gradlew :app:lintDebug --build-cache --no-daemon 2>&1
           # 不猜报告路径：构建后按实际产物定位并校验存在。
           REPORT=$(find .. -path '*/reports/lint-results-debug.xml' -print -quit)
           [ -n "$REPORT" ] || { echo "::error::Lint XML report not found"; exit 1; }
           python3 ../tests/check_lint_report.py "$REPORT"
-          # Fail the build if any ABI other than arm64-v8a was packaged.
-          python3 - <<'PY'
-          import glob, sys, zipfile
-          apks = sorted(glob.glob("../build/app/outputs/apk/debug/*.apk"))
-          if not apks:
-              sys.exit("no debug apk produced in the configured build directory")
-          for apk in apks:
-              with zipfile.ZipFile(apk) as z:
-                  libs = [n for n in z.namelist() if n.startswith("lib/") and n.endswith(".so")]
-                  bad = [n for n in libs if not n.startswith("lib/arm64-v8a/")]
-                  if not libs:
-                      sys.exit("native libraries missing from " + apk)
-                  if bad:
-                      sys.exit("non-arm64 native libraries packaged: " + ", ".join(bad))
-                  if "lib/arm64-v8a/libpilinara_native.so" not in libs:
-                      sys.exit("Rust native library missing from " + apk)
-              print("ABI check passed:", apk, len(libs), "arm64-v8a libraries")
-          PY
           echo "=== Build complete ==="
           echo "Current dir: $(pwd)"
           echo "Finding APK files..."
@@ -157,17 +143,38 @@ jobs:
           name: lint-debug
           path: |
             build/app/reports/lint-results-debug.xml
-            build/app/reports/lint-results-debug.txt
+            build/app/reports/lint-results-debug.html
             build/app/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
-      - name: Collect APK files
+      - name: Verify packaged ARM64 libraries
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          apks = sorted(Path('build/app/outputs/apk/debug').glob('*.apk'))
+          if not apks:
+              raise SystemExit('No debug APK produced in the configured build directory')
+          for apk in apks:
+              with zipfile.ZipFile(apk) as archive:
+                  libraries = [entry.filename for entry in archive.infolist()
+                               if entry.filename.startswith('lib/') and entry.filename.endswith('.so')]
+                  if not libraries:
+                      raise SystemExit(f'Native libraries missing from {apk}')
+                  invalid = [name for name in libraries if not name.startswith('lib/arm64-v8a/')]
+                  if invalid:
+                      raise SystemExit('Non-ARM64 native libraries packaged: ' + ', '.join(invalid))
+                  if 'lib/arm64-v8a/libpilinara_native.so' not in libraries:
+                      raise SystemExit(f'Rust native library missing from {apk}')
+              print(f'PASS packaged ABI: {apk}, {len(libraries)} ARM64 libraries')
+          PY
+
+      - name: Collect verified debug APK files
         run: |
           mkdir -p apk_output
-          # Publish only the debug APKs validated by the preceding gate.
           cp build/app/outputs/apk/debug/*.apk apk_output/
-          echo "=== Collected APKs ==="
-          ls -la apk_output/ || echo "No APKs found"
+          ls -la apk_output/
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v5

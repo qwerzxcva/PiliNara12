@@ -231,16 +231,6 @@ private fun darkSchemeOf(accent: Color, amoled: Boolean = false) = darkColorSche
     surfaceTint = accent.lighten(),
 )
 
-/** Kototoro 间距：4 / 8 / 12 / 16 / 24 / 32 dp。 */
-object PiliSpace {
-    val xs = 4.dp
-    val sm = 8.dp
-    val md = 12.dp
-    val lg = 16.dp
-    val xl = 24.dp
-    val xxl = 32.dp
-}
-
 /** Kototoro 风格形状 token：大圆角 */
 val PiliShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
@@ -286,7 +276,7 @@ fun PiliNaraTheme(
     val accent = accentFromHex(accentHex).color
 
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        dynamicColor -> {
             if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         isDark -> darkSchemeOf(accent, amoled = amoled)

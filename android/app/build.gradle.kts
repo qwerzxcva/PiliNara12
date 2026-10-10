@@ -17,8 +17,6 @@ android {
 
     defaultConfig {
         applicationId = "com.example.piliai"
-        // Android 16+ / arm64-v8a only. minSdk 36 drops every pre-Android-16
-        // code path; the ABI filter guarantees no other architecture is packaged.
         minSdk = 36
         targetSdk = 36
         versionCode = 1
@@ -79,7 +77,7 @@ android {
     lint {
         abortOnError = true
     }
-    
+
     kotlinOptions {
         jvmTarget = "17"
     }

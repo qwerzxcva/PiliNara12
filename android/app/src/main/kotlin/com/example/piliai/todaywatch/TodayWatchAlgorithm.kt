@@ -42,8 +42,8 @@ data class RcmdCandidate(
     /** 格式化播放量（1.2万 / 3.4亿） */
     val playCountText: String
         get() = when {
-            viewCount >= 100_000_000 -> String.format("%.1f亿", viewCount / 100_000_000.0)
-            viewCount >= 10_000 -> String.format("%.1f万", viewCount / 10_000.0)
+            viewCount >= 100_000_000 -> String.format(java.util.Locale.ROOT, "%.1f亿", viewCount / 100_000_000.0)
+            viewCount >= 10_000 -> String.format(java.util.Locale.ROOT, "%.1f万", viewCount / 10_000.0)
             else -> viewCount.toString()
         }
 
@@ -53,8 +53,8 @@ data class RcmdCandidate(
             val h = duration / 3600
             val m = (duration % 3600) / 60
             val s = duration % 60
-            return if (h > 0) String.format("%d:%02d:%02d", h, m, s)
-            else String.format("%d:%02d", m, s)
+            return if (h > 0) String.format(java.util.Locale.ROOT, "%d:%02d:%02d", h, m, s)
+            else String.format(java.util.Locale.ROOT, "%d:%02d", m, s)
         }
 }
 

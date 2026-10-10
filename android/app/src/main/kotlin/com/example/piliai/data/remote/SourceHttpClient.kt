@@ -12,7 +12,7 @@ object SourceHttpClient {
         engine {
             config {
                 followRedirects(true)
-                followSslRedirects(true)
+                followSslRedirects(false)
                 addNetworkInterceptor { chain ->
                     val original = chain.call().request().url
                     val request = chain.request()

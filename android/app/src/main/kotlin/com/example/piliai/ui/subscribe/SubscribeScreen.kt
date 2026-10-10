@@ -53,6 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -100,24 +102,24 @@ fun SubscribeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
     val libraryQuery by viewModel.libraryQuery.collectAsStateWithLifecycle()
+    var showLibrarySearch by remember { mutableStateOf(false) }
     var searchTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
     val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     val currentSubject by viewModel.currentSubject.collectAsStateWithLifecycle()
     // 网页刮削源：卡片记录所属源的配置 URL + 源名（存于 desc/sourceName）
     var webTarget by remember { mutableStateOf<SubscribeItemEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val libraryItems = if (libraryQuery.isBlank()) {
-        state.items
-    } else {
-        state.items.filter {
-            it.title.contains(libraryQuery, ignoreCase = true) ||
-                it.sourceName.contains(libraryQuery, ignoreCase = true) ||
-                it.desc.contains(libraryQuery, ignoreCase = true)
+    val enabledSourceIds = state.sources.filter { it.enabled }.map { it.id }.toSet()
+    val displayItems = (if (state.isSearching) searchResults else state.items)
+        .filter { it.sourceId in enabledSourceIds }
+        .filter { item ->
+            state.isSearching || libraryQuery.isBlank() ||
+                item.title.contains(libraryQuery.trim(), ignoreCase = true) ||
+                item.sourceName.contains(libraryQuery.trim(), ignoreCase = true) ||
+                item.desc.contains(libraryQuery.trim(), ignoreCase = true)
         }
-    }
-    val displayItems = if (searchResults.isNotEmpty()) searchResults else libraryItems
-    // 三级视图：0=订阅条目/搜索结果 1=剧集列表
-    val inEpisodeView = episodes.isNotEmpty()
+    // An empty episode list is still an episode view, not the search results.
+    val inEpisodeView = currentSubject != null
     val displayItems2 = if (inEpisodeView) {
         episodes.map {
             SubscribeItemEntity(
@@ -132,7 +134,6 @@ fun SubscribeScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
     var showBangumiLoginDialog by remember { mutableStateOf(false) }
-    var showLibrarySearch by remember { mutableStateOf(false) }
 
     // 错误/提示统一走 Snackbar，展示后清空避免重复弹出
     LaunchedEffect(state.errorMessage) {
@@ -153,20 +154,22 @@ fun SubscribeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    if (showLibrarySearch && currentSubject == null && searchResults.isEmpty()) {
+                    if (showLibrarySearch && !state.isSearching && currentSubject == null) {
                         OutlinedTextField(
                             value = libraryQuery,
                             onValueChange = viewModel::setLibraryQuery,
                             singleLine = true,
-                            placeholder = { Text("搜索已导入的订阅视频") },
+                            placeholder = {
+                                Text(stringResource(com.example.piliai.R.string.subscribe_search_library))
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
-                        Text(if (currentSubject != null) currentSubject!! else "订阅")
+                        Text(currentSubject ?: "订阅")
                     }
                 },
                 navigationIcon = {
-                    if (currentSubject != null || searchResults.isNotEmpty()) {
+                    if (currentSubject != null || state.isSearching) {
                         IconButton(onClick = {
                             if (currentSubject != null) viewModel.backToSubjects()
                             else viewModel.clearSearch()
@@ -176,11 +179,16 @@ fun SubscribeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        showLibrarySearch = !showLibrarySearch
-                        if (!showLibrarySearch) viewModel.setLibraryQuery("")
-                    }) {
-                        Icon(Icons.Default.Search, contentDescription = "搜索订阅视频")
+                    if (!state.isSearching && currentSubject == null) {
+                        IconButton(onClick = {
+                            showLibrarySearch = !showLibrarySearch
+                            if (!showLibrarySearch) viewModel.setLibraryQuery("")
+                        }) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = stringResource(com.example.piliai.R.string.subscribe_search_library)
+                            )
+                        }
                     }
                     IconButton(onClick = { viewModel.refreshAll() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")
@@ -205,7 +213,13 @@ fun SubscribeScreen(
         ) {
             when {
                 displayItems2.isEmpty() && !state.isRefreshing -> {
-                    EmptySubscribeHint(onAdd = { showAddDialog = true })
+                    if (state.isSearching || currentSubject != null || libraryQuery.isNotBlank()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(stringResource(com.example.piliai.R.string.subscribe_search_empty))
+                        }
+                    } else {
+                        EmptySubscribeHint(onAdd = { showAddDialog = true })
+                    }
                 }
                 else -> {
                     LazyVerticalGrid(
@@ -215,11 +229,18 @@ fun SubscribeScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(displayItems2, key = { it.link.hashCode().toString() + it.title }) { item ->
+                        items(displayItems2, key = { item ->
+                            buildString {
+                                append(item.sourceId).append(':')
+                                for (part in listOf(item.link, item.title, item.desc)) {
+                                    append(part.length).append(':').append(part)
+                                }
+                            }
+                        }) { item ->
                             SubscribeItemCard(
                                 item = item,
-                                onInfo = {
-                                    viewModel.lookupBangumi(item.title) { id -> onOpenSubject(id) }
+                                onInfo = if (inEpisodeView) null else {
+                                    { viewModel.lookupBangumi(item.title, onOpenSubject) }
                                 }
                             ) {
                                 // 审核轮8：不是所有条目都有可播放直链。
@@ -298,9 +319,7 @@ fun SubscribeScreen(
                 // target.episode 存的是订阅配置文件 URL，
                 // target.sourceName 存的是 factoryId
                 if (target.sourceName.equals("rss", ignoreCase = true)) {
-                    viewModel.searchInSource(
-                        target.link, kw, target.sourceName, target.sourceId
-                    )
+                    viewModel.searchInSource(target.link, kw, target.sourceName, target.sourceId)
                 } else {
                     viewModel.searchWebSource(target.episode, target.title, kw)
                 }
@@ -450,7 +469,7 @@ private fun isLikelyPlayable(url: String): Boolean {
         ".mp4", ".m4v", ".webm", ".mkv", ".flv",
         ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".wav", ".ts"
     )
-    val path = runCatching { android.net.Uri.parse(url).path ?: "" }.getOrDefault("")
+    val path = runCatching { url.toUri().path ?: "" }.getOrDefault("")
     if (mediaExt.any { path.lowercase().endsWith(it) }) return true
     // 明显是网页
     if (lower.endsWith(".html") || lower.endsWith(".htm") || lower.endsWith(".php")) return false
@@ -505,7 +524,7 @@ private fun SubscribeItemCard(
                 }
             }
             Column(Modifier.padding(8.dp)) {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = item.title,
                         style = MaterialTheme.typography.bodyMedium,
@@ -513,9 +532,12 @@ private fun SubscribeItemCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    if (onInfo != null && item.sourceName != "episode") {
+                    if (onInfo != null) {
                         IconButton(onClick = onInfo) {
-                            Icon(Icons.Default.Info, contentDescription = "Bangumi 介绍")
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = stringResource(com.example.piliai.R.string.bangumi_subject_details)
+                            )
                         }
                     }
                 }

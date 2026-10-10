@@ -11,4 +11,16 @@
     <string name="subscribe_no_matching_resolver">所属订阅没有可用的网页解析源，此链接不能直接播放</string>
     <string name="subscribe_choose_resolver">所属订阅包含多个解析源，请先选择具体数据源并搜索此作品</string>
     <string name="subscribe_resolver_load_failed">读取所属订阅的解析配置失败，请检查网络后重试</string>
+    <string name="subscribe_search_empty">没有找到匹配的订阅内容</string>
+    <string name="subscribe_search_library">搜索已导入的订阅内容</string>
+    <string name="bangumi_no_exact_match">Bangumi 上没有找到精确匹配的条目</string>
+    <string name="playback_backend_title">播放引擎</string>
+    <string name="playback_backend_media3">Media3（默认，硬件解码）</string>
+    <string name="playback_backend_gpu_next_ready">GPU-next（libplacebo 渲染）</string>
+    <string name="playback_backend_gpu_next_unavailable">GPU-next：原生后端尚未接入，当前不可用</string>
+    <string name="playback_completion_title">播放结束</string>
+    <string name="playback_completion_next">播放下一 P，没有下一 P 时播放相关视频</string>
+    <string name="playback_completion_repeat">单集循环</string>
+    <string name="playback_completion_stop">停止</string>
+    <string name="playback_settings_cancel">取消</string>
 </resources>

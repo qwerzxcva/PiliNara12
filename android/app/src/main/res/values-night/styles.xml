@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is on -->
     <style name="LaunchTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@drawable/launch_background</item>
-        <!-- 审核：同 values/styles.xml，tools:targetApi 声明 API 级别要求 -->
-        <item name="android:defaultFocusHighlightEnabled" tools:targetApi="o">false</item>
-        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:windowSplashScreenBackground">#212121</item>
+        <item name="android:defaultFocusHighlightEnabled">false</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
-        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
     <!-- 审核：NormalTheme 无任何引用（Flutter 遗留）已删除 -->
 </resources>

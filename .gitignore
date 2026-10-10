@@ -49,3 +49,6 @@ local.properties
 *.new
 tests/__pycache__/
 __pycache__/
+
+# AI 中间产物与本地缓存（不进入仓库）
+.aharou/

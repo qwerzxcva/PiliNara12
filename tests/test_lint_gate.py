@@ -14,23 +14,16 @@ class LintGateTests(unittest.TestCase):
     def test_zero_issues_is_valid(self):
         self.check('<issues format="6"/>')
 
-    def test_errors_fail(self):
-        for severity in ('Fatal', 'Error'):
+    def test_errors_and_warnings_fail(self):
+        for severity in ('Fatal', 'Error', 'Warning'):
             with self.subTest(severity=severity), self.assertRaises(ValueError):
                 self.check(f'<issues><issue id="Sample" severity="{severity}"/></issues>')
-
-    def test_warning_is_reported_but_not_fatal(self):
-        self.check('<issues><issue id="ChromeOsAbiSupport" severity="Warning"/></issues>')
 
     def test_information_is_not_failure(self):
         self.check('<issues><issue severity="Information"/></issues>')
 
     def test_hint_is_not_failure(self):
-        self.check('<issues><issue id="Sample" severity="Hint"/></issues>')
-
-    def test_hint_does_not_hide_error(self):
-        with self.assertRaises(ValueError):
-            self.check('<issues><issue severity="Hint"/><issue severity="Error"/></issues>')
+        self.check('<issues><issue severity="Hint"/></issues>')
 
     def test_missing_report_fails(self):
         with self.assertRaises(OSError):

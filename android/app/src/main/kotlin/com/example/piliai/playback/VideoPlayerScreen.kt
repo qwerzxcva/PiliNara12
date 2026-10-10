@@ -64,11 +64,19 @@ fun VideoPlayerScreen(
     )
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) {
+        viewModel.restorePlaybackSpeed()
+    }
     var showControls by remember { mutableStateOf(true) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     // 审核轮152：长按 3x 状态
     var showSpeedBurst by remember { mutableStateOf(false) }
     var savedSpeed by remember { mutableFloatStateOf(1.0f) }
+    fun finishSpeedBurst() {
+        if (!showSpeedBurst) return
+        showSpeedBurst = false
+        viewModel.setPlaybackSpeed(savedSpeed, raw = true)
+    }
 
     // 审核轮153（真 bug）：亮度手势更新了 state.brightness 但 UI 从未消费——死功能。
     // 仅在用户实际操作过（brightnessTouched）后才应用，避免一进播放页就把系统
@@ -112,7 +120,9 @@ fun VideoPlayerScreen(
         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
     var showVolumeSlider by remember { mutableStateOf(false) }
-    var isInPiP by remember { mutableStateOf(false) }
+    var isInPiP by remember(activity) {
+        mutableStateOf(activity?.isInPictureInPictureMode == true)
+    }
     var showQualityMenu by remember { mutableStateOf(false) }
     var showPartSheet by remember { mutableStateOf(false) }
     var showDanmakuSheet by remember { mutableStateOf(false) }
@@ -122,10 +132,122 @@ fun VideoPlayerScreen(
     var showFavSheet by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
+    val componentActivity = activity as? androidx.activity.ComponentActivity
+    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    val pipLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val pipPlayer = playerViewRef?.player
+    DisposableEffect(playerViewRef, isInPiP) {
+        val enteredInPiP = isInPiP
+        val playerView = playerViewRef
+        val originalUseController = playerView?.useController
+        val originalSubtitleVisibility = playerView?.subtitleView?.visibility
+        if (enteredInPiP) {
+            playerView?.useController = false
+            playerView?.subtitleView?.visibility = android.view.View.INVISIBLE
+        }
+        onDispose {
+            if (enteredInPiP) {
+                originalUseController?.let { playerView?.useController = it }
+                originalSubtitleVisibility?.let { playerView?.subtitleView?.visibility = it }
+            }
+        }
+    }
+    DisposableEffect(activity, playerViewRef, pipPlayer, pipLifecycleOwner) {
+        val playerView = playerViewRef
+        val lifecycle = pipLifecycleOwner.lifecycle
+        val observedViews = listOfNotNull(playerView, playerView?.videoSurfaceView).distinct()
+        fun updatePipParams() {
+            val pageActive = lifecycle.currentState.isAtLeast(
+                androidx.lifecycle.Lifecycle.State.STARTED
+            )
+            activity?.setPictureInPictureParams(
+                playerView.buildPipParams(
+                    autoEnter = pageActive && pipPlayer?.isPlaying == true,
+                    includeSourceRectHint = activity.isInPictureInPictureMode != true
+                )
+            )
+        }
+        val layoutListener = android.view.View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            updatePipParams()
+        }
+        val attachListener = object : android.view.View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: android.view.View) {
+                updatePipParams()
+            }
+
+            override fun onViewDetachedFromWindow(view: android.view.View) {
+                updatePipParams()
+            }
+        }
+        val playerListener = object : androidx.media3.common.Player.Listener {
+            override fun onEvents(
+                player: androidx.media3.common.Player,
+                events: androidx.media3.common.Player.Events
+            ) {
+                if (events.containsAny(
+                        androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED,
+                        androidx.media3.common.Player.EVENT_VIDEO_SIZE_CHANGED,
+                        androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION
+                    )) {
+                    updatePipParams()
+                }
+            }
+        }
+        val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, _ ->
+            updatePipParams()
+        }
+        val pipListener = androidx.core.util.Consumer<androidx.core.app.PictureInPictureModeChangedInfo> {
+            updatePipParams()
+        }
+        observedViews.forEach { view ->
+            view.addOnLayoutChangeListener(layoutListener)
+            view.addOnAttachStateChangeListener(attachListener)
+        }
+        pipPlayer?.addListener(playerListener)
+        lifecycle.addObserver(lifecycleObserver)
+        componentActivity?.addOnPictureInPictureModeChangedListener(pipListener)
+        updatePipParams()
+        onDispose {
+            observedViews.forEach { view ->
+                view.removeOnLayoutChangeListener(layoutListener)
+                view.removeOnAttachStateChangeListener(attachListener)
+            }
+            pipPlayer?.removeListener(playerListener)
+            lifecycle.removeObserver(lifecycleObserver)
+            componentActivity?.removeOnPictureInPictureModeChangedListener(pipListener)
+            activity?.setPictureInPictureParams(
+                PictureInPictureParams.Builder().setAutoEnterEnabled(false).build()
+            )
+        }
+    }
+    DisposableEffect(componentActivity, viewModel) {
+        val listener = androidx.core.util.Consumer<androidx.core.app.PictureInPictureModeChangedInfo> { info ->
+            isInPiP = info.isInPictureInPictureMode
+            if (isInPiP) {
+                finishSpeedBurst()
+                viewModel.cancelGestureSeek()
+                showSpeedMenu = false
+                showQualityMenu = false
+                showPartSheet = false
+                showDanmakuSheet = false
+                showRelatedSheet = false
+                showIntroSheet = false
+                showCoinSheet = false
+                showFavSheet = false
+                showVolumeSlider = false
+            }
+        }
+        componentActivity?.addOnPictureInPictureModeChangedListener(listener)
+        onDispose {
+            componentActivity?.removeOnPictureInPictureModeChangedListener(listener)
+            componentActivity?.setPictureInPictureParams(
+                PictureInPictureParams.Builder().setAutoEnterEnabled(false).build()
+            )
+        }
+    }
     
     LaunchedEffect(viewModel, videoUrl, bvid, cid, epId, local, sourceRequest) {
         viewModel.loadVideo(videoUrl, bvid, cid, epId, local, sourceRequest)
-        viewModel.restorePlaybackSpeed()
     }
 
     // 播放中每 15 秒上报一次历史进度（需登录）
@@ -137,14 +259,16 @@ fun VideoPlayerScreen(
     }
     
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // 审核43：前后台切换——App 不可见时自动暂停，回前台恢复
+        // PiP keeps playback active; ordinary background handling follows the pause preference.
         val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
         androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
             val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
                 when (event) {
                     androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
                         // 审核216：pauseOnMinimize 设置控制（默认关——Flutter 版行为对齐）
-                        viewModel.onAppBackground()
+                        if (activity?.isInPictureInPictureMode != true) {
+                            viewModel.onAppBackground()
+                        }
                     }
                     else -> {}
                 }
@@ -154,7 +278,9 @@ fun VideoPlayerScreen(
         }
         // Video Surface
         AndroidView(
-            factory = { ctx -> createPlayerView(ctx, viewModel.player) },
+            factory = { ctx ->
+                createPlayerView(ctx, viewModel.player).also { playerViewRef = it }
+            },
             modifier = Modifier.fillMaxSize()
         )
         
@@ -167,7 +293,8 @@ fun VideoPlayerScreen(
             update = { v ->
                 v.alphaFactor = state.danmakuAlpha
                 v.scaleFactor = state.danmakuScale
-                v.setRunning(state.isPlaying)
+                v.visibility = if (isInPiP) android.view.View.INVISIBLE else android.view.View.VISIBLE
+                v.setRunning(state.isPlaying && !isInPiP)
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -208,7 +335,7 @@ fun VideoPlayerScreen(
         LaunchedEffect(state.isPlaying, state.currentTime) {
             viewModel.updateSubtitleAt(state.currentTime)
         }
-        if (subtitle.isNotEmpty()) {
+        if (subtitle.isNotEmpty() && !isInPiP) {
             Box(
                 Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 contentAlignment = Alignment.BottomCenter
@@ -229,7 +356,7 @@ fun VideoPlayerScreen(
         }
         
         // Error overlay
-        state.error?.let { error ->
+        state.error?.takeUnless { isInPiP }?.let { error ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Error: $error", color = Color.Red)
@@ -242,14 +369,14 @@ fun VideoPlayerScreen(
         }
         
         // Buffering indicator
-        if (state.isBuffering && state.error == null) {
+        if (state.isBuffering && state.error == null && !isInPiP) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
             }
         }
         
         // Controls
-        if (showControls && state.error == null) {
+        if (showControls && state.error == null && !isInPiP) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 // Top bar
                 Row(modifier = Modifier.fillMaxWidth(), 
@@ -318,12 +445,10 @@ fun VideoPlayerScreen(
                         }) {
                             Icon(Icons.Default.ScreenRotation, "全屏", tint = Color.White)
                         }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            IconButton(onClick = {
-                                if (!isInPiP) { context.findActivity()?.enterPiP(); isInPiP = true }
-                            }) {
-                                Icon(Icons.Default.PictureInPicture, "PiP", tint = Color.White)
-                            }
+                        IconButton(onClick = {
+                            if (!isInPiP) context.findActivity()?.enterPiP(playerViewRef)
+                        }) {
+                            Icon(Icons.Default.PictureInPicture, "PiP", tint = Color.White)
                         }
                     }
                 }
@@ -884,7 +1009,7 @@ fun VideoPlayerScreen(
             showVolumeSlider -> if (state.volume > 0f) "音量 ${(state.volume * 100).toInt()}%" else "🔇 静音"
             else -> null
         }
-        if (gestureTip != null) {
+        if (gestureTip != null && !isInPiP) {
             Text(
                 gestureTip,
                 color = Color.White,
@@ -898,7 +1023,7 @@ fun VideoPlayerScreen(
 
         // 审核轮179：toast 提示（弹幕发送成功等），替代原来的全屏红字
         val toastMsg by viewModel.toast.collectAsStateWithLifecycle()
-        toastMsg?.let { msg ->
+        toastMsg?.takeUnless { isInPiP }?.let { msg ->
             Text(
                 msg,
                 color = Color.White,
@@ -912,7 +1037,7 @@ fun VideoPlayerScreen(
         }
 
         // Gesture handler
-        Box(
+        if (!isInPiP) Box(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
@@ -934,10 +1059,7 @@ fun VideoPlayerScreen(
                         },
                         onPress = { release ->
                             try { awaitRelease() } finally {
-                                if (showSpeedBurst) {
-                                    viewModel.setPlaybackSpeed(savedSpeed)
-                                    showSpeedBurst = false
-                                }
+                                finishSpeedBurst()
                             }
                         }
                     )
@@ -945,6 +1067,7 @@ fun VideoPlayerScreen(
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragEnd = { viewModel.commitGestureSeek() },
+                        onDragCancel = { viewModel.cancelGestureSeek() },
                         onDrag = { change, drag ->
                             change.consume()
                             val horizontal = kotlin.math.abs(drag.x) > kotlin.math.abs(drag.y)
@@ -962,7 +1085,7 @@ fun VideoPlayerScreen(
         )
 
         // 手势提示浮层（快进/音量/亮度）
-        if (state.gestureSeekDeltaMs != 0L) {
+        if (state.gestureSeekDeltaMs != 0L && !isInPiP) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Surface(color = Color.Black.copy(0.6f), shape = MaterialTheme.shapes.medium) {
                     Text(
@@ -1040,14 +1163,56 @@ private fun Context.findActivity(): android.app.Activity? {
     return null
 }
 
-// Extension for PiP
-fun android.app.Activity.enterPiP() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val params = PictureInPictureParams.Builder()
-            .setAspectRatio(Rational(16, 9))
-            .build()
-        enterPictureInPictureMode(params)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private fun PlayerView?.pipAspectRatio(): Rational {
+    val size = this?.player?.videoSize ?: return Rational(16, 9)
+    if (size.width <= 0 || size.height <= 0 ||
+        !size.pixelWidthHeightRatio.isFinite() || size.pixelWidthHeightRatio <= 0f
+    ) return Rational(16, 9)
+    var ratio = size.width.toDouble() * size.pixelWidthHeightRatio / size.height
+    if (size.unappliedRotationDegrees == 90 || size.unappliedRotationDegrees == 270) {
+        ratio = 1.0 / ratio
     }
+    // Android restricts ordinary PiP windows to this aspect-ratio range.
+    val supportedRatio = ratio.coerceIn(1.0 / 2.39, 2.39)
+    val numerator = kotlin.math.round(supportedRatio * 10_000).toInt()
+    return when {
+        numerator.toLong() * 239 < 100L * 10_000 -> Rational(100, 239)
+        numerator.toLong() * 100 > 239L * 10_000 -> Rational(239, 100)
+        else -> Rational(numerator, 10_000)
+    }
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private fun PlayerView?.buildPipParams(
+    autoEnter: Boolean,
+    includeSourceRectHint: Boolean
+): PictureInPictureParams {
+    val surface = this?.videoSurfaceView ?: this
+    val validBounds = surface != null && surface.isAttachedToWindow &&
+        surface.width > 0 && surface.height > 0
+    val builder = PictureInPictureParams.Builder()
+        .setAspectRatio(pipAspectRatio())
+        .setAutoEnterEnabled(autoEnter && validBounds)
+    if (includeSourceRectHint && validBounds) {
+        val location = IntArray(2)
+        surface.getLocationInWindow(location)
+        builder.setSourceRectHint(android.graphics.Rect(
+            location[0], location[1],
+            location[0] + surface.width, location[1] + surface.height
+        ))
+    }
+    return builder.build()
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+fun android.app.Activity.enterPiP(playerView: PlayerView? = null) {
+    enterPictureInPictureMode(
+        playerView.buildPipParams(
+            autoEnter = playerView?.player?.isPlaying == true,
+            includeSourceRectHint = !isInPictureInPictureMode
+        )
+    )
 }
 
 /** 审核：PlayerView 配置集中于此并显式 OptIn Media3 UnstableApi（消除 lint UnsafeOptInUsageError） */

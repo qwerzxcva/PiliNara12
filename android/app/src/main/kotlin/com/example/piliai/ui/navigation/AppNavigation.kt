@@ -1,9 +1,7 @@
 package com.example.piliai.ui.navigation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -14,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -97,12 +95,12 @@ sealed class Screen(val route: String) {
 
     object Downloads : Screen("downloads")
     object Subscribe : Screen("subscribe")
+    object BangumiSubject : Screen("bgmsubject/{id}") {
+        fun createRoute(id: Long) = "bgmsubject/$id"
+    }
     object SourcePlay : Screen("sourceplay/{requestId}?title={title}") {
         fun createRoute(requestId: String, title: String) =
             "sourceplay/${android.net.Uri.encode(requestId)}?title=${android.net.Uri.encode(title)}"
-    }
-    object BangumiSubject : Screen("bgmsubject/{id}") {
-        fun createRoute(id: Long) = "bgmsubject/$id"
     }
     /**
      * 直链播放（订阅源 / 外部链接）
@@ -145,11 +143,7 @@ fun AppNavigation() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
-                    modifier = Modifier.height(64.dp)
-                ) {
+                NavigationBar {
                     MainTab.entries.forEach { tab ->
                         val route = tabRouteOf(tab)
                         val selected = currentRoute == route
@@ -168,7 +162,6 @@ fun AppNavigation() {
                                 Icon(
                                     if (selected) tab.iconFilled else tab.iconOutlined,
                                     contentDescription = stringResource(tab.labelRes),
-                                    modifier = Modifier.size(24.dp)
                                 )
                             },
                             label = { Text(stringResource(tab.labelRes)) },
@@ -363,7 +356,7 @@ fun AppNavigation() {
                 },
                 onOpenWeb = { url ->
                     // 批次L45：课程等无原生链路页面用外部浏览器打开
-                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
                 }
             )
         }
@@ -506,7 +499,9 @@ fun AppNavigation() {
                     )
                 },
                 onSettingsClick = { navController.navigate(Screen.Settings.route) },
-                onOpenSubject = { id -> navController.navigate(Screen.BangumiSubject.createRoute(id)) },
+                onOpenSubject = { id ->
+                    navController.navigate(Screen.BangumiSubject.createRoute(id))
+                },
                 onSourcePlay = { request, title, _ ->
                     val requestId = sourcePlaybackSession.register(request)
                     try {
@@ -562,12 +557,8 @@ fun AppNavigation() {
                     videoUrl = request.videoUrl,
                     title = entry.arguments?.getString("title").orEmpty(),
                     sourceRequest = request,
-                    onBack = {
-                        sourcePlaybackSession.remove(requestId)
-                        navController.popBackStack()
-                    }
+                    onBack = { navController.popBackStack() }
                 )
-
             }
         }
         // 直链播放（订阅源 / 外部链接）：URL 经 Uri.encode，避免特殊字符破坏路由

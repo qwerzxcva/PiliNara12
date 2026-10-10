@@ -14,9 +14,7 @@ def check_report(path: Path) -> None:
         severity = issue.get('severity', '')
         if severity not in {'Fatal', 'Error', 'Warning', 'Information', 'Hint', 'Ignore'}:
             raise ValueError(f'Unknown lint severity: {severity!r}')
-        # Warnings stay visible in the uploaded report. ChromeOsAbiSupport
-        # specifically asks for x86, which this arm64-only app must not add.
-        if severity in {'Fatal', 'Error'}:
+        if severity in {'Fatal', 'Error', 'Warning'}:
             failures.append(f"{issue.get('id', '?')}: {severity}: {issue.get('message', '')}")
     if failures:
         raise ValueError('\n'.join(failures))
@@ -30,9 +28,7 @@ def main() -> None:
         check_report(args.report)
     except (OSError, ET.ParseError, ValueError) as error:
         parser.exit(1, f'Lint gate failed: {error}\n')
-    root = ET.parse(args.report).getroot()
-    warnings = sum(issue.get('severity') == 'Warning' for issue in root.findall('issue'))
-    print(f'Lint gate passed: 0 fatal/errors, {warnings} warnings (see report)')
+    print('Lint gate passed: 0 errors, 0 warnings')
 
 
 if __name__ == '__main__':

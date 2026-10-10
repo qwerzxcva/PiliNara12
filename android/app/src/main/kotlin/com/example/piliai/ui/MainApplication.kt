@@ -28,9 +28,14 @@ class MainApplication : Application() {
         }
 
         // 批次审核40：全局兜底——未捕获协程异常记日志防静默崩溃
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             android.util.Log.e("PiliNaraCrash", "Uncaught on ${t.name}", e)
-            android.os.Process.killProcess(android.os.Process.myPid())
+            if (previousHandler != null) {
+                previousHandler.uncaughtException(t, e)
+            } else {
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }
         }
 
         // 进程级 Application 上下文，供无 Context 层（LoginRepository 等）取 Room

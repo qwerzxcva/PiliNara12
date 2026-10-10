@@ -74,7 +74,7 @@
             </intent-filter>
 
             <!-- Deep links for Bilibili URLs -->
-            <intent-filter android:label="PiliNara">
+            <intent-filter android:label="PiliNara" android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

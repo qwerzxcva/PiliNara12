@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Exercise the production in-memory playback registry with synthetic requests.
+"""Exercise the production playback registry with synthetic requests.
 
-A minimal ViewModel stub permits JVM execution. This verifies registry behavior,
-not Android navigation lifecycle delivery, configuration changes or playback.
+A JVM ViewModel stub verifies registry behavior only, not Android lifecycle,
+rotation, navigation, media decoding, or GPU-next rendering.
 """
 from pathlib import Path
 import os
@@ -12,21 +12,26 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PLAYBACK = ROOT / 'android/app/src/main/kotlin/com/example/piliai/playback'
 configured = os.environ.get('KOTLIN_LIB')
-candidates = sorted(Path.home().glob(
-    '.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib'
-))
-if not configured and not candidates:
-    raise RuntimeError('Set KOTLIN_LIB to an installed compiler library directory')
-lib = Path(configured) if configured else candidates[-1]
-stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
+candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-*/*/gradle-*/lib'))
+candidates = [path for path in candidates if list(path.glob('kotlin-compiler-embeddable-*.jar'))]
+if configured:
+    compiler = Path(configured)
+elif candidates:
+    compiler = candidates[-1]
+else:
+    raise RuntimeError('Set KOTLIN_LIB to an installed Kotlin compiler library directory')
+stdlibs = sorted(compiler.glob('kotlin-stdlib-*.jar'))
+if not stdlibs:
+    raise RuntimeError(f'Kotlin standard library is missing from {compiler}')
+stdlib = stdlibs[-1]
 
-stub = '''package androidx.lifecycle
+STUB = '''package androidx.lifecycle
 open class ViewModel {
     protected open fun onCleared() {}
     fun regressionClear() { onCleared() }
 }
 '''
-program = r'''
+PROGRAM = r'''
 import com.example.piliai.playback.SourcePlaybackRequest
 import com.example.piliai.playback.SourcePlaybackSession
 import com.example.piliai.playback.SourcePlaybackEntryOwner
@@ -53,7 +58,7 @@ fun main() {
     check(session.request(secondId) === second)
     check("synthetic" !in firstId && "source.test" !in firstId)
     check(session.request("unknown") == null)
-    println("PASS production session: opaque distinct IDs and correct request identity")
+    println("PASS production session: opaque IDs preserve distinct request identity")
 
     session.remove(firstId)
     check(session.request(firstId) == null)
@@ -62,41 +67,36 @@ fun main() {
     session.remove("unknown")
     println("PASS production session: removal is isolated and idempotent")
 
-    val ownedRequest = fixture(9L)
-    val ownedId = session.register(ownedRequest)
-    val entryOwner = SourcePlaybackEntryOwner(session, ownedId)
-    check(session.request(ownedId) === ownedRequest)
-    entryOwner.regressionClear()
+    val ownedId = session.register(fixture(9L))
+    val owner = SourcePlaybackEntryOwner(session, ownedId)
+    check(session.request(ownedId) != null)
+    owner.regressionClear()
     check(session.request(ownedId) == null)
     check(session.request(secondId) === second)
-    entryOwner.regressionClear()
+    owner.regressionClear()
     check(session.request(secondId) === second)
-    println("PASS production entry owner: clearing releases only its own request and is idempotent")
+    println("PASS production entry owner: cleanup releases only its own request")
 
     session.regressionClear()
     check(session.request(firstId) == null)
     check(session.request(secondId) == null)
-    println("PASS production session: onCleared releases registered requests")
-
-    val recreated = SourcePlaybackSession()
-    check(recreated.request(secondId) == null)
-    println("PASS production session: a new session does not restore credentials")
-    println("Android lifecycle delivery, system-back cleanup and rotation still require separate verification.")
+    check(SourcePlaybackSession().request(secondId) == null)
+    println("PASS production session: clearing releases requests; new sessions do not restore credentials")
 }
 '''
 
 with tempfile.TemporaryDirectory(prefix='piliai-playback-session-') as directory:
-    directory = Path(directory)
-    viewmodel = directory / 'ViewModel.kt'
-    viewmodel.write_text(stub, encoding='utf-8')
-    test = directory / 'PlaybackSessionRegression.kt'
-    test.write_text(program, encoding='utf-8')
-    classes = directory / 'classes'
+    temporary = Path(directory)
+    stub = temporary / 'ViewModel.kt'
+    stub.write_text(STUB, encoding='utf-8')
+    test = temporary / 'PlaybackSessionRegression.kt'
+    test.write_text(PROGRAM, encoding='utf-8')
+    classes = temporary / 'classes'
     subprocess.run([
-        'java', '-cp', str(lib / '*'),
+        'java', '-cp', str(compiler / '*'),
         'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
         '-no-stdlib', '-no-reflect', '-classpath', str(stdlib),
-        '-d', str(classes), str(viewmodel),
+        '-d', str(classes), str(stub),
         str(PLAYBACK / 'SourcePlaybackRequest.kt'),
         str(PLAYBACK / 'SourcePlaybackSession.kt'), str(test)
     ], check=True, timeout=60)

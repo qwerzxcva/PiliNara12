@@ -15,4 +15,16 @@
     <string name="subscribe_no_matching_resolver">The owning subscription has no available web resolver. This link cannot be played directly.</string>
     <string name="subscribe_choose_resolver">This subscription contains multiple resolvers. Select a specific source and search for this title.</string>
     <string name="subscribe_resolver_load_failed">Could not load the owning subscription configuration. Check your connection and retry.</string>
+    <string name="subscribe_search_empty">No matching subscription content found</string>
+    <string name="subscribe_search_library">Search imported subscription content</string>
+    <string name="bangumi_no_exact_match">No exact matching subject found on Bangumi</string>
+    <string name="playback_backend_title">Playback engine</string>
+    <string name="playback_backend_media3">Media3 (default, hardware decoding)</string>
+    <string name="playback_backend_gpu_next_ready">GPU-next (libplacebo rendering)</string>
+    <string name="playback_backend_gpu_next_unavailable">GPU-next: native backend not connected, currently unavailable</string>
+    <string name="playback_completion_title">When playback ends</string>
+    <string name="playback_completion_next">Play the next part, or a related video if no part remains</string>
+    <string name="playback_completion_repeat">Repeat this video</string>
+    <string name="playback_completion_stop">Stop</string>
+    <string name="playback_settings_cancel">Cancel</string>
 </resources>

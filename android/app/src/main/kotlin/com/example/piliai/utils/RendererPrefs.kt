@@ -22,7 +22,6 @@ object RendererPrefs {
     var useTextureView: Boolean = false
         private set
 
-    /** 播放后端 id："media3" 或 "gpu-next"。gpu-next 未打包时由调用方回退。 */
     @Volatile
     var playbackBackend: String = "media3"
         private set
@@ -146,7 +145,6 @@ object RendererPrefs {
         useTextureView = (v == 1)
     }
 
-    /** 更新播放后端缓存（下次进入播放器生效） */
     fun updatePlaybackBackend(id: String) {
         playbackBackend = id
     }

@@ -5,6 +5,7 @@ import com.example.piliai.database.SubscribeItemEntity
 import com.example.piliai.database.SubscribeSourceDao
 import com.example.piliai.database.SubscribeSourceEntity
 import androidx.room.withTransaction
+import androidx.core.net.toUri
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -153,6 +154,8 @@ object SubscribeParser {
                 }
             }
             throw lastErr ?: error("订阅源解析失败：未识别格式或无条目")
+        }.onFailure { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
 
@@ -493,6 +496,8 @@ object SubscribeParser {
             } else {
                 error("不支持的源类型：$factoryId")
             }
+        }.onFailure { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
 }
@@ -649,10 +654,7 @@ class SubscribeRepository(
             val url = AnimekoScraper.buildSearchUrl(cfg.cfg, keyword)
             // 传入完整搜索页 URL，让 URI.resolve 正确处理目录相对链接。
             val base = url
-            val html = SourceHttpClient.client.get(url) {
-                if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
-                if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
-            }.bodyAsText()
+            val html = fetch(url, cfg)
             if (html.isBlank()) error("搜索页返回为空")
             val list = AnimekoScraper.parseSubjects(html, base, cfg.cfg)
             if (list.isEmpty()) {
@@ -661,6 +663,8 @@ class SubscribeRepository(
                 error(diag ?: "未解析到作品（可能站点改版或选择器失效）")
             }
             list
+        }.onFailure { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
 
@@ -675,10 +679,7 @@ class SubscribeRepository(
                 ?: error("未找到源「$sourceName」的配置")
             // 传入完整作品页 URL，保留目录上下文。
             val base = subjectUrl
-            val html = SourceHttpClient.client.get(subjectUrl) {
-                if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
-                if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
-            }.bodyAsText()
+            val html = fetch(subjectUrl, cfg)
             if (html.isBlank()) error("作品页返回为空")
             val list = AnimekoScraper.parseEpisodes(html, base, cfg.cfg)
             if (list.isEmpty()) {
@@ -686,6 +687,8 @@ class SubscribeRepository(
                 error(diag ?: "未解析到剧集（可能站点改版或需要登录）")
             }
             list
+        }.onFailure { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
 
@@ -696,11 +699,9 @@ class SubscribeRepository(
         episodeUrl: String
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val config = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
+            val cfg = configsOf(sourceUrl).firstOrNull { it.name == sourceName }
                 ?: error("未找到源「$sourceName」的配置")
-            extractVideoUrlWithConfig(episodeUrl, config).also {
-                kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            }
+            extractVideoUrlWithConfig(episodeUrl, cfg)
         } catch (error: kotlinx.coroutines.CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -743,6 +744,8 @@ class SubscribeRepository(
             }
             val diag = AnimekoScraper.diagnoseJsRendered(html)
             error(diag ?: "未提取到视频地址（可能站点改版/风控/需要 JS 渲染）")
+        }.onFailure { error ->
+            if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
 
@@ -758,7 +761,7 @@ class SubscribeRepository(
                 require(source.enabled) { "Owning subscription is disabled" }
                 val config = configsOf(source.url).firstOrNull { it.name == sourceName }
                     ?: error("Configured resolver was not found")
-                // Resolve the URL and playback headers from the same configuration snapshot.
+                // Resolve media and headers from the same configuration snapshot.
                 val videoUrl = extractVideoUrlWithConfig(episodeUrl, config).getOrThrow()
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 val currentSource = dao.getById(sourceId)
@@ -773,7 +776,11 @@ class SubscribeRepository(
                         episodeUrl = episodeUrl,
                         referer = config.cfg.referer,
                         userAgent = config.cfg.userAgent,
-                        cookies = config.cfg.cookies
+                        cookies = if (canSendSourceCookies(episodeUrl, config)) {
+                            config.cfg.cookies
+                        } else {
+                            ""
+                        }
                     )
                 )
             } catch (error: kotlinx.coroutines.CancellationException) {
@@ -783,13 +790,42 @@ class SubscribeRepository(
             }
         }
 
-    /** Source-specific headers never inherit the Bilibili account session. */
-    private suspend fun fetch(url: String, cfg: AnimekoScraper.SourceConfig): String =
-        SourceHttpClient.client.get(url) {
+    private fun canSendSourceCookies(
+        url: String,
+        cfg: AnimekoScraper.SourceConfig
+    ): Boolean = runCatching {
+        val owner = java.net.URI(AnimekoScraper.buildSearchUrl(cfg.cfg, ""))
+        val destination = java.net.URI(url)
+        fun port(uri: java.net.URI): Int = when {
+            uri.port >= 0 -> uri.port
+            uri.scheme.equals("https", ignoreCase = true) -> 443
+            else -> 80
+        }
+        !owner.host.isNullOrBlank() && owner.rawUserInfo == null &&
+            destination.rawUserInfo == null &&
+            (owner.scheme.equals("https", ignoreCase = true) ||
+                owner.scheme.equals("http", ignoreCase = true)) &&
+            owner.scheme.equals(destination.scheme, ignoreCase = true) &&
+            owner.host.equals(destination.host, ignoreCase = true) &&
+            port(owner) == port(destination)
+    }.getOrDefault(false)
+
+    /** Source cookies belong to the configured search origin, not extracted links. */
+    private suspend fun fetch(url: String, cfg: AnimekoScraper.SourceConfig): String {
+        val destination = java.net.URI(url)
+        require(!destination.host.isNullOrBlank() && destination.rawUserInfo == null &&
+            (destination.scheme.equals("https", ignoreCase = true) ||
+                destination.scheme.equals("http", ignoreCase = true))) {
+            "Source requests require HTTP or HTTPS without embedded credentials"
+        }
+        return SourceHttpClient.client.get(url) {
             if (cfg.cfg.userAgent.isNotBlank()) header("User-Agent", cfg.cfg.userAgent)
-            if (cfg.cfg.cookies.isNotBlank()) header("Cookie", cfg.cfg.cookies)
+            if (cfg.cfg.cookies.isNotBlank() && canSendSourceCookies(url, cfg)) {
+                header("Cookie", cfg.cfg.cookies)
+            }
             if (cfg.cfg.referer.isNotBlank()) header("Referer", cfg.cfg.referer)
         }.bodyAsText()
+    }
 
     fun observeSources(): kotlinx.coroutines.flow.Flow<List<SubscribeSourceEntity>> = dao.observeAll()
 
@@ -824,7 +860,7 @@ class SubscribeRepository(
             else -> "https://$s"
         }
         // 基本合法性校验（防用户粘贴任意文本导致后续解析异常）
-        val uri = android.net.Uri.parse(withScheme)
+        val uri = withScheme.toUri()
         val host = uri.host
         require(!host.isNullOrBlank()) { "链接无效：缺少域名" }
         // 审核轮6：显式 scheme 白名单。
@@ -838,5 +874,5 @@ class SubscribeRepository(
     }
 
     private fun hostOf(url: String): String =
-        runCatching { android.net.Uri.parse(url).host ?: url }.getOrDefault(url)
+        runCatching { url.toUri().host ?: url }.getOrDefault(url)
 }

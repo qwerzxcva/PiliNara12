@@ -19,7 +19,6 @@ import androidx.media3.effect.ScaleAndRotateTransformation
  * 分辨率信息在 track 选择后才知道，因此调用方（VideoPlayerViewModel）在
  * onVideoSizeChanged / 制备完成后调用 [applyIfNeeded]。
  */
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal object Media3SuperResolutionApplier {
 
     /** 当前生效的模式（RendererPrefs 同步，进程内缓存） */
@@ -30,6 +29,7 @@ internal object Media3SuperResolutionApplier {
      * 依据源视频尺寸计算目标并生成 effect 列表。
      * @return null = 无需超分（DISABLE / 已达上限 / 尺寸非法）
      */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun resolve(sourceWidth: Int, sourceHeight: Int): List<Effect>? {
         val target = resolveMedia3SuperResolutionTarget(mode, sourceWidth, sourceHeight)
             ?: return null

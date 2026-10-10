@@ -46,8 +46,7 @@ public final class AndroidHelper {
     public static volatile boolean isPipMode = false;
 
     static {
-        isFoldable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-                android.view.WindowManager.class.getPackage().getName().equals("android");
+        isFoldable = android.view.WindowManager.class.getPackage().getName().equals("android");
         // 审核：minSdk 24 = N，此条件恒真（lint ObsoleteSdkInt）
         isPipAvailable = true;
     }

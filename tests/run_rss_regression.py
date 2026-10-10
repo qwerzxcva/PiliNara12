@@ -58,7 +58,21 @@ fun main() {
 # ParseDate and guessEpisode are copied verbatim, preserving production semantics.
 program = prefix + '\n'.join(function(n) for n in ['parseRss', 'readText', 'parseDate', 'guessEpisode']) + tests
 lib = Path(os.environ.get('KOTLIN_LIB') or (sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib')) or [None])[-1] or Path('/opt/gradle-8.14.2/lib'))
-kxml = Path(os.environ.get('KXML2_JAR') or (sorted(Path.home().glob('.gradle/caches/modules-2/files-2.1/net.sf.kxml/kxml2/*/*/kxml2-*.jar')) or [None])[-1] or Path('/opt/android-sdk/cmdline-tools/latest/lib/external/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar'))
+configured_kxml = os.environ.get('KXML2_JAR')
+if configured_kxml:
+    kxml = Path(configured_kxml)
+else:
+    candidates = sorted(Path.home().glob('.gradle/caches/modules-2/files-2.1/net.sf.kxml/kxml2/*/*/kxml2-*.jar'))
+    for variable in ('ANDROID_HOME', 'ANDROID_SDK_ROOT'):
+        sdk = os.environ.get(variable)
+        if sdk:
+            candidates.extend(sorted(Path(sdk).glob('cmdline-tools/*/lib/external/net/sf/kxml/kxml2/*/kxml2-*.jar')))
+    candidates = [path for path in candidates if path.is_file()]
+    if not candidates:
+        raise RuntimeError('Set KXML2_JAR or ANDROID_HOME/ANDROID_SDK_ROOT to an installed SDK containing kxml2')
+    kxml = candidates[-1]
+if not kxml.is_file():
+    raise RuntimeError(f'XML parser library does not exist: {kxml}')
 stdlib = next(lib.glob('kotlin-stdlib-*.jar'))
 cp = f'{stdlib}:{kxml}'
 with tempfile.TemporaryDirectory(prefix='pilinara-rss-') as directory:

@@ -2,6 +2,7 @@ package com.example.piliai.playback
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -43,13 +44,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         .build()
     private var loadJob: Job? = null
     private var completionJob: Job? = null
+    private var playbackSpeedRestoreJob: Job? = null
+    private var playbackSpeedGeneration = 0L
     private var loadGeneration = 0L
     val player: ExoPlayer? get() = _player
-
-    /**
-     * 实际生效的播放后端。gpu-next 需要 libmpv，当前构建未打包时回退 media3，
-     * 避免设置了却静默无画面。
-     */
     val activeBackend: String
         get() = com.example.piliai.playback.backend.PlaybackBackends.resolve(
             com.example.piliai.utils.RendererPrefs.playbackBackend
@@ -286,18 +284,31 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
                     resolveAndPlay(bvid, cid, generation)
                 } else {
                     require(uri.isNotBlank()) { "Playback URL is empty" }
+                    if (sourceRequest != null) {
+                        require(sourceRequest.videoUrl == uri && bvid.isEmpty() &&
+                            epId == 0L && !local) {
+                            "Source playback request does not match the selected media"
+                        }
+                        val source = withContext(Dispatchers.IO) {
+                            com.example.piliai.database.PiliNaraDatabase
+                                .getDatabase(appContext).subscribeSourceDao()
+                                .getById(sourceRequest.sourceId)
+                        }
+                        ensureCurrent(generation)
+                        require(source?.enabled == true) {
+                            appContext.getString(
+                                com.example.piliai.R.string.subscribe_source_unavailable
+                            )
+                        }
+                    }
                     val autoPlay = com.example.piliai.utils.StorageManager
                         .getInstance(appContext).autoPlayFlow.first()
                     ensureCurrent(generation)
                     val mediaItem = MediaItem.Builder()
-                        .setUri(Uri.parse(uri))
+                        .setUri(uri.toUri())
                         .setMediaId("$bvid:$cid")
                         .build()
-                    require(sourceRequest == null ||
-                        (sourceRequest.videoUrl == uri && bvid.isEmpty() && epId == 0L && !local)
-                    ) { "Source playback request does not match the selected media" }
                     // Inspect each manifest, segment and redirect destination separately.
-                    // Share this ViewModel's connection pool and dispatcher across media changes.
                     val httpClient = sourceHttpClient.newBuilder()
                         .addNetworkInterceptor { chain ->
                             val outgoing = chain.request()
@@ -565,7 +576,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
 
-    /** 选择字幕轨（懒加载 body）；id=-1 关闭字幕 */
     fun selectSubtitle(id: Long) {
         val url = if (id < 0L) null else
             _subtitleTracks.value.firstOrNull { it.first == id }?.third ?: return
@@ -584,7 +594,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                // Keep failed or cancelled subtitle requests out of the active timeline.
+                // Keep failed subtitle requests out of the active timeline.
             }
         }
     }
@@ -718,7 +728,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             .setDefaultRequestProperties(headers)
 
         val isLocal = !videoUrl.startsWith("http") && !videoUrl.startsWith("//")
-        val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else Uri.parse(videoUrl)
+        val videoUri = if (videoUrl.startsWith("/")) Uri.fromFile(java.io.File(videoUrl)) else videoUrl.toUri()
         val videoItem = MediaItem.Builder().setUri(videoUri).build()
         val localFactory = androidx.media3.datasource.DefaultDataSource.Factory(appContext)
         val videoSource: androidx.media3.exoplayer.source.MediaSource =
@@ -731,7 +741,7 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             }
 
         val merged = if (!audioUrl.isNullOrEmpty()) {
-            val audioUri = if (audioUrl.startsWith("/")) Uri.fromFile(java.io.File(audioUrl)) else Uri.parse(audioUrl)
+            val audioUri = if (audioUrl.startsWith("/")) Uri.fromFile(java.io.File(audioUrl)) else audioUrl.toUri()
             val audioItem = MediaItem.Builder().setUri(audioUri).build()
             val audioSource: androidx.media3.exoplayer.source.MediaSource =
                 androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(
@@ -742,8 +752,6 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
             videoSource
         }
 
-        // gpu-next 由 libmpv 自己拉流与渲染（GpuNextBackend）。libmpv 编进工程前
-        // activeBackend 恒为 media3，播放仍走下面的 ExoPlayer 路径，不会空播。
         _player?.setMediaSource(merged, resumePositionMs)
         _player?.prepare()
         _player?.playWhenReady = playWhenReady
@@ -811,18 +819,11 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
      * @param raw true 时不做档位归一化，允许长按临时 3x 等越界值。
      */
     fun setPlaybackSpeed(speed: Float, raw: Boolean = false) {
-        val normalizedSpeed = when {
-            raw -> speed.coerceIn(0.25f, 4.0f)
-            speed <= 0.5f -> 0.5f
-            speed <= 1.0f -> 1.0f
-            speed <= 2.0f -> speed
-            else -> 2.0f
-        }
+        ++playbackSpeedGeneration
+        playbackSpeedRestoreJob?.cancel()
+        val normalizedSpeed = normalizePlaybackSpeed(speed, raw)
         viewModelScope.launch {
-            _player?.playbackParameters = androidx.media3.common.PlaybackParameters(
-                normalizedSpeed, _player?.playbackParameters?.pitch ?: 1.0f
-            )
-            _state.value = _state.value.copy(playbackSpeed = normalizedSpeed)
+            applyPlaybackSpeed(normalizedSpeed)
             if (!raw) {
                 com.example.piliai.utils.StorageManager.getInstance(appContext)
                     .setPlaybackSpeed(normalizedSpeed)
@@ -830,12 +831,36 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         }
     }
 
-    /** 进入播放器时恢复上次手动选择的倍速，长按临时倍速不写入。 */
+    private fun normalizePlaybackSpeed(speed: Float, raw: Boolean): Float = when {
+        raw -> speed.coerceIn(0.25f, 4.0f)
+        speed <= 0.5f -> 0.5f
+        speed <= 1.0f -> 1.0f
+        speed <= 2.0f -> speed
+        else -> 2.0f
+    }
+
+    private fun applyPlaybackSpeed(speed: Float) {
+        _player?.playbackParameters = androidx.media3.common.PlaybackParameters(
+            speed, _player?.playbackParameters?.pitch ?: 1.0f
+        )
+        _state.value = _state.value.copy(playbackSpeed = speed)
+    }
+
     fun restorePlaybackSpeed() {
-        viewModelScope.launch {
-            val speed = com.example.piliai.utils.StorageManager.getInstance(appContext)
-                .playbackSpeedFlow.first()
-            if (speed != 1.0f) setPlaybackSpeed(speed)
+        if (playbackSpeedGeneration != 0L || playbackSpeedRestoreJob?.isActive == true) return
+        val generation = playbackSpeedGeneration
+        playbackSpeedRestoreJob = viewModelScope.launch {
+            try {
+                val speed = com.example.piliai.utils.StorageManager.getInstance(appContext)
+                    .playbackSpeedFlow.first()
+                currentCoroutineContext().ensureActive()
+                if (generation != playbackSpeedGeneration) return@launch
+                applyPlaybackSpeed(normalizePlaybackSpeed(speed, raw = false))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                android.util.Log.w("PiliPlayer", "Could not restore playback speed", error)
+            }
         }
     }
     
@@ -974,6 +999,8 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
     }
     
     override fun onCleared() {
+        ++playbackSpeedGeneration
+        playbackSpeedRestoreJob?.cancel()
         completionJob?.cancel()
         loadJob?.cancel()
         subtitleListJob?.cancel()
@@ -1495,6 +1522,10 @@ class VideoPlayerViewModel(context: Context) : ViewModel(), Player.Listener {
         val ratio = deltaX / widthPx
         val deltaMs = (ratio * duration() * 2).toLong()  // 全屏横滑≈2倍时长
         _state.value = _state.value.copy(gestureSeekDeltaMs = deltaMs)
+    }
+
+    fun cancelGestureSeek() {
+        _state.value = _state.value.copy(gestureSeekDeltaMs = 0L)
     }
 
     fun commitGestureSeek() {

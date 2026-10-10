@@ -26,6 +26,36 @@ object BiliHttpClient {
     }
     
     val client = HttpClient(OkHttp) {
+        // Enforce credential boundaries on every actual network hop.
+        followRedirects = false
+        engine {
+            config {
+                followRedirects(true)
+                followSslRedirects(false)
+                addNetworkInterceptor { chain ->
+                    val original = chain.call().request().url
+                    val request = chain.request()
+                    val destination = request.url
+                    val originalTrusted = original.scheme == "https" &&
+                        original.port == 443 &&
+                        (original.host == "bilibili.com" ||
+                            original.host.endsWith(".bilibili.com"))
+                    val destinationTrusted = destination.scheme == "https" &&
+                        destination.port == 443 &&
+                        (destination.host == "bilibili.com" ||
+                            destination.host.endsWith(".bilibili.com"))
+                    val builder = request.newBuilder().removeHeader("Cookie")
+                    if (originalTrusted && destinationTrusted) {
+                        val cookie = AccountSession.cookieHeader()
+                        if (cookie.isNotEmpty()) builder.header("Cookie", cookie)
+                    } else {
+                        builder.removeHeader("Authorization")
+                        builder.removeHeader("Proxy-Authorization")
+                    }
+                    chain.proceed(builder.build())
+                }
+            }
+        }
         install(ContentNegotiation) {
             json(json)
         }
@@ -48,11 +78,6 @@ object BiliHttpClient {
             header(HttpHeaders.ContentType, "application/json")
             header(HttpHeaders.Accept, "application/json")
             header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36")
-            // 登录态：有 cookie 时自动挂上（AccountSession 由 LoginRepository 维护）
-            val cookie = AccountSession.cookieHeader()
-            if (cookie.isNotEmpty()) {
-                header(HttpHeaders.Cookie, cookie)
-            }
         }
     }
     

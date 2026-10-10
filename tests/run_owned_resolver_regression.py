@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Test production resolver selection with synthetic subscriptions and controlled responses.
-No network, Android build, database writes, or real credentials are used.
+"""Test production resolver selection using synthetic subscriptions.
+
+No network requests, database writes, Android lifecycle verification, or real
+credentials are involved.
 """
 from pathlib import Path
 import os
@@ -11,9 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / 'android/app/src/main/kotlin/com/example/piliai/ui/subscribe/SubscribeViewModel.kt').read_text(encoding='utf-8')
 start = source.index('    fun reportNotPlayable(')
 end = source.index('\n    }', start) + len('\n    }')
-method = source[start:end]
-# Replace only Android dependencies with controlled test doubles.
-method = method.replace('com.example.piliai.AppContext.get()', 'TestContext')
+method = source[start:end].replace('com.example.piliai.AppContext.get()', 'TestContext')
 method = method.replace('com.example.piliai.R.string.', 'Messages.')
 program = r'''
 import kotlinx.coroutines.*
@@ -32,15 +32,13 @@ object Messages {
     const val subscribe_choose_resolver = 3
     const val subscribe_resolver_load_failed = 4
 }
-object TestContext {
-    fun getString(id: Int): String = id.toString()
-}
+object TestContext { fun getString(id: Int): String = id.toString() }
 class Repository {
     val calls = mutableListOf<String>()
-    val responses = mutableMapOf<String, CompletableDeferred<List<String>>>()
+    val response = CompletableDeferred<List<String>>()
     suspend fun searchableWebSourceNames(url: String): List<String> {
         calls.add(url)
-        return responses.getValue(url).await()
+        return response.await()
     }
 }
 class Harness {
@@ -64,17 +62,17 @@ class Harness {
 }
 fun main() = runBlocking {
     val owned = "https://fixture.test/owned"
-    val item = SubscribeItemEntity(7L, "Episode title", "Resolver A")
-    suspend fun scenario(names: List<String>, expectedName: String?, expectedError: Int?) {
+    val item = SubscribeItemEntity(7L, "Synthetic title", "Resolver A")
+    suspend fun scenario(names: List<String>, expected: String?, error: Int?) {
         val h = Harness()
         try {
-            h.repository.responses[owned] = CompletableDeferred(names)
+            h.repository.response.complete(names)
             h.reportNotPlayable(item)
             h.browseJob!!.join()
-            check(h.repository.calls == listOf(owned)) { "Selected an unrelated subscription" }
-            if (expectedName == null) check(h.searches.isEmpty())
-            else check(h.searches.single() == Triple(owned, expectedName, item.title))
-            check(h._state.value.errorMessage == expectedError?.toString())
+            check(h.repository.calls == listOf(owned))
+            check(h.searches == if (expected == null) emptyList()
+                else listOf(Triple(owned, expected, item.title)))
+            check(h._state.value.errorMessage == error?.toString())
             check(!h._state.value.isRefreshing)
         } finally { h.close() }
     }
@@ -82,58 +80,52 @@ fun main() = runBlocking {
     scenario(listOf("Only resolver"), "Only resolver", null)
     scenario(emptyList(), null, Messages.subscribe_no_matching_resolver)
     scenario(listOf("Other A", "Other B"), null, Messages.subscribe_choose_resolver)
-    println("PASS production resolver: owned subscription, exact name, sole resolver, empty and ambiguous configurations")
+    println("PASS production resolver: ownership, exact name, sole resolver and ambiguous configurations")
 
-    val unavailable = Harness()
-    try {
-        unavailable.reportNotPlayable(item.copy(sourceId = 99L))
-        check(unavailable.repository.calls.isEmpty())
-        check(unavailable.searches.isEmpty())
-        check(unavailable._state.value.errorMessage == Messages.subscribe_source_unavailable.toString())
-    } finally { unavailable.close() }
-    println("PASS production resolver: missing subscription never queries another subscription")
+    for (source in listOf<Source?>(null, Source(7L, owned, false))) {
+        val h = Harness()
+        try {
+            h._state.value = h._state.value.copy(sources = listOfNotNull(source))
+            h.reportNotPlayable(item)
+            check(h.repository.calls.isEmpty() && h.searches.isEmpty())
+            check(h._state.value.errorMessage == Messages.subscribe_source_unavailable.toString())
+        } finally { h.close() }
+    }
+    println("PASS production resolver: missing or disabled sources never query another subscription")
 
-    val disabled = Harness()
-    try {
-        val response = CompletableDeferred<List<String>>()
-        disabled.repository.responses[owned] = response
-        disabled.reportNotPlayable(item)
-        disabled._state.value = disabled._state.value.copy(sources = listOf(Source(7L, owned, false)))
-        response.complete(listOf("Resolver A"))
-        disabled.browseJob!!.join()
-        check(disabled.searches.isEmpty())
-        check(disabled._state.value.errorMessage == Messages.subscribe_source_unavailable.toString())
-    } finally { disabled.close() }
-    println("PASS production resolver: disabling subscription during lookup prevents search")
-
-    val stale = Harness()
-    try {
-        val response = CompletableDeferred<List<String>>()
-        stale.repository.responses[owned] = response
-        stale.reportNotPlayable(item)
-        stale.browseGeneration += 1
-        response.complete(listOf("Resolver A"))
-        stale.browseJob!!.join()
-        check(stale.searches.isEmpty())
-    } finally { stale.close() }
-    println("PASS production resolver: obsolete lookup cannot trigger a search")
-
-    val failed = Harness()
-    try {
-        val response = CompletableDeferred<List<String>>()
-        failed.repository.responses[owned] = response
-        failed.reportNotPlayable(item)
-        response.completeExceptionally(IllegalStateException("Controlled configuration failure"))
-        failed.browseJob!!.join()
-        check(failed.searches.isEmpty())
-        check(failed._state.value.errorMessage == Messages.subscribe_resolver_load_failed.toString())
-        check(!failed._state.value.isRefreshing)
-    } finally { failed.close() }
-    println("PASS production resolver: configuration failure is visible and loading resets")
+    for (change in listOf("disabled", "changed-url", "obsolete", "cancelled", "failure")) {
+        val h = Harness()
+        try {
+            h.reportNotPlayable(item)
+            val job = h.browseJob!!
+            when (change) {
+                "disabled" -> h._state.value = h._state.value.copy(sources = listOf(Source(7L, owned, false)))
+                "changed-url" -> h._state.value = h._state.value.copy(sources = listOf(Source(7L, "https://fixture.test/replaced", true)))
+                "obsolete" -> h.browseGeneration += 1
+                "cancelled" -> job.cancel()
+            }
+            if (change == "failure") {
+                h.repository.response.completeExceptionally(IllegalStateException("Controlled failure"))
+            } else {
+                h.repository.response.complete(listOf("Resolver A"))
+            }
+            job.join()
+            check(h.searches.isEmpty()) { "Unexpected search after $change" }
+            if (change == "disabled" || change == "changed-url") {
+                check(h._state.value.errorMessage == Messages.subscribe_source_unavailable.toString())
+            }
+            if (change == "failure") {
+                check(h._state.value.errorMessage == Messages.subscribe_resolver_load_failed.toString())
+                check(!h._state.value.isRefreshing)
+            }
+        } finally { h.close() }
+    }
+    println("PASS production resolver: source changes, obsolete requests, cancellation and visible failures")
 }
 '''
 configured = os.environ.get('KOTLIN_LIB')
-candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-8.14*-bin/*/gradle-8.14*/lib'))
+candidates = sorted(Path.home().glob('.gradle/wrapper/dists/gradle-*/*/gradle-*/lib'))
+candidates = [p for p in candidates if list(p.glob('kotlin-compiler-embeddable-*.jar'))]
 if not configured and not candidates:
     raise RuntimeError('Set KOTLIN_LIB to an installed compiler library directory')
 lib = Path(configured) if configured else candidates[-1]
@@ -145,14 +137,14 @@ if not coroutines:
     raise RuntimeError('Coroutine JVM library is not cached')
 classpath = os.pathsep.join(map(str, [stdlib, coroutines[-1]]))
 with tempfile.TemporaryDirectory(prefix='piliai-owned-resolver-') as directory:
-    directory = Path(directory)
-    kotlin = directory / 'OwnedResolverRegression.kt'
-    kotlin.write_text(program, encoding='utf-8')
-    classes = directory / 'classes'
+    temporary = Path(directory)
+    test = temporary / 'OwnedResolverRegression.kt'
+    test.write_text(program, encoding='utf-8')
+    classes = temporary / 'classes'
     subprocess.run([
         'java', '-cp', str(lib / '*'), 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
         '-no-stdlib', '-no-reflect', '-classpath', classpath,
-        '-d', str(classes), str(kotlin)
+        '-d', str(classes), str(test)
     ], check=True, timeout=60)
     subprocess.run([
         'java', '-cp', str(classes) + os.pathsep + classpath,

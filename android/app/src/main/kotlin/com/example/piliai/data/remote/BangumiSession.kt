@@ -158,7 +158,7 @@ object BangumiSession {
  * 外部（Repository 里）无法直接使用。
  */
 fun io.ktor.client.request.HttpRequestBuilder.withBangumiAuth() {
-    require(url.host == "api.bgm.tv" && url.protocol.name == "https") {
+    require(url.host == "api.bgm.tv" && url.protocol.name == "https" && url.port == 443) {
         "Bangumi authorization is restricted to https://api.bgm.tv"
     }
     if (BangumiSession.isLogin && BangumiSession.token.isNotBlank()) {
