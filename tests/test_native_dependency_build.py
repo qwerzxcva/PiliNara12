@@ -113,7 +113,7 @@ class NativeDependencyBuildTests(unittest.TestCase):
             self.assertEqual(environment['ANDROID_ABI'], 'arm64-v8a')
             self.assertEqual(environment['PREFIX'], str(prefix))
             self.assertNotIn('DESTDIR', environment)
-            self.assertEqual(environment['PKG_CONFIG_SYSROOT_DIR'], '/')
+            self.assertNotIn('PKG_CONFIG_SYSROOT_DIR', environment)
             self.assertEqual(environment['PKG_CONFIG_PATH'], '')
             self.assertEqual(environment['PKG_CONFIG_LIBDIR'], str(prefix / 'lib' / 'pkgconfig'))
             self.assertIn('max-page-size=16384', environment['LDFLAGS'])
